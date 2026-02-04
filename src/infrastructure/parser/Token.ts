@@ -1,15 +1,26 @@
+export const TOKEN_LITERALS = [
+  "{",
+  "}",
+  "[",
+  "]",
+  "(",
+  ")",
+  "<",
+  ">",
+  "-->",
+  "--|>",
+  "..|>",
+  "--",
+  "o--",
+  "*--",
+] as const;
+
 export type TokenType =
+  | (typeof TOKEN_LITERALS)[number]
   | "IDENTIFIER"
-  | "{"
-  | "}"
-  | "["
-  | "]"
-  | "("
-  | ")"
-  | "<"
-  | ">"
-  | "ARROW"
   | "WHITESPACE"
+  | "NEWLINE"
+  | "COMMENT"
   | "EOF";
 
 export interface Token {
