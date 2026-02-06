@@ -1,33 +1,68 @@
-export const TOKEN_LITERALS = [
-  "{",
-  "}",
-  "[",
-  "]",
-  "(",
-  ")",
-  "<",
-  ">",
+export const PARTIAL_RELATIONSHIPS = ["..", "--"] as const;
+export const OPENING_WRAPPERS = ["{", "[", "(", "<"] as const;
+export const CLOSING_WRAPPERS = ["}", "]", ")", ">"] as const;
+export const RELATIONSHIPS = [
   "-->",
   "--|>",
   "..|>",
-  "--",
   "o--",
   "*--",
+  "--o",
+  "--*",
+  "<--",
+  "<..",
+  "<|--",
+  "<|..",
+] as const;
+export const TOKEN_LITERALS = [
+  ...RELATIONSHIPS,
+  ...PARTIAL_RELATIONSHIPS,
+  ...OPENING_WRAPPERS,
+  ...CLOSING_WRAPPERS,
 ] as const;
 
-export type TokenType =
-  | (typeof TOKEN_LITERALS)[number]
-  | "IDENTIFIER"
-  | "WHITESPACE"
-  | "NEWLINE"
-  | "COMMENT"
-  | "EOF";
+export type PartialRelationship = (typeof PARTIAL_RELATIONSHIPS)[number];
+export type RelationshipType = (typeof RELATIONSHIPS)[number];
+export type OpeningWrapper = (typeof OPENING_WRAPPERS)[number];
+export type ClosingWrapper = (typeof CLOSING_WRAPPERS)[number];
+export type NameType = "IDENTIFIER";
+export type TokenKind = "-" | ">" | "{" | "}" | "x";
+
+export type TokenType = (typeof TOKEN_LITERALS)[number] | NameType | "NEWLINE";
 
 export interface Token {
   type: TokenType;
+  kind: TokenKind;
   value: string;
   line: number;
   column: number;
+}
+
+const getKindByType = (type: TokenType): TokenKind =>
+  /^\.\.|--$/.test(type)
+    ? "-"
+    : /\.\.|--/.test(type)
+      ? ">"
+      : /[[{(<]/.test(type)
+        ? "{"
+        : /[\]})>]/.test(type)
+          ? "}"
+          : "x";
+
+export function isRelationshipType(value?: unknown): value is RelationshipType {
+  return (
+    [...RELATIONSHIPS, ...PARTIAL_RELATIONSHIPS] as readonly string[]
+  ).includes(value as string);
+}
+export function defaultRelationshipType(type?: TokenType): RelationshipType {
+  return isRelationshipType(type) ? type : "-->";
+}
+
+export function isOpeningWrapper(value?: unknown): value is OpeningWrapper {
+  return (OPENING_WRAPPERS as readonly string[]).includes(value as string);
+}
+export function defaultOpeningWrapper(type?: TokenType): OpeningWrapper {
+  return isOpeningWrapper(type) ? type : "{";
 }
 
 export function createToken(
@@ -38,6 +73,7 @@ export function createToken(
 ): Token {
   return {
     type,
+    kind: getKindByType(type),
     value,
     line,
     column,

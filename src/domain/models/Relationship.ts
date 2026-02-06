@@ -1,4 +1,4 @@
-export type RelationshipType = "-->" | "--|>" | "..|>" | "*--" | "o--";
+import type { RelationshipType } from "../../infrastructure/parser/Token";
 
 export interface Relationship {
   id: string;

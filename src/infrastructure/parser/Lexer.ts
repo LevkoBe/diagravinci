@@ -52,7 +52,6 @@ export class Lexer {
       this.advance();
     }
 
-    tokens.push(createToken("EOF", "", this.row, this.col));
     return tokens;
   }
 
@@ -60,7 +59,7 @@ export class Lexer {
     const start = { row: this.row, col: this.col };
     let value = "";
 
-    while (this.i < this.input.length && /[a-zA-Z0-9_]/.test(this.peek())) {
+    while (/[a-z0-9_]/i.test(this.peek())) {
       value += this.peek();
       this.advance();
     }
