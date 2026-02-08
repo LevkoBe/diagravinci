@@ -10,33 +10,35 @@ describe("Parser", () => {
 
   it("should parse a single identifier as element", () => {
     const model = parse("player");
-    expect(model.elements.size).toBe(1);
-    const elem = Array.from(model.elements.values())[0];
+    expect(Object.values(model.elements).length).toBe(1);
+    const elem = Array.from(Object.values(model.elements))[0];
     expect(elem.id).toBe("player");
     expect(elem.type).toBe("object");
   });
 
   it("should parse element with wrapper", () => {
     const model = parse("player{}");
-    expect(model.elements.size).toBe(1);
-    const elem = Array.from(model.elements.values())[0];
+    expect(Object.values(model.elements).length).toBe(1);
+    const elem = Array.from(Object.values(model.elements))[0];
     expect(elem.id).toBe("player");
     expect(elem.type).toBe("object");
   });
 
   it("should parse a collection", () => {
     const model = parse("players[]");
-    expect(model.elements.size).toBe(1);
-    const elem = Array.from(model.elements.values())[0];
+    expect(Object.values(model.elements).length).toBe(1);
+    const elem = Array.from(Object.values(model.elements))[0];
     expect(elem.id).toBe("players");
     expect(elem.type).toBe("state");
   });
 
   it("should parse element with properties", () => {
     const model = parse("player{username password}");
-    expect(model.elements.size).toBe(3);
+    expect(Object.values(model.elements).length).toBe(3);
 
-    const [player, username, password] = Array.from(model.elements.values());
+    const [player, username, password] = Array.from(
+      Object.values(model.elements),
+    );
     expect(player.id).toBe("player");
     expect(player.type).toBe("object");
     expect(player.childIds).toContain(username.id);
@@ -45,10 +47,10 @@ describe("Parser", () => {
 
   it("should parse element with properties and methods", () => {
     const model = parse("player{nick{} health items[] walk() decide<>}");
-    expect(model.elements.size).toBe(6);
+    expect(Object.values(model.elements).length).toBe(6);
 
     const [player, nick, health, items, walk, decide] = Array.from(
-      model.elements.values(),
+      Object.values(model.elements),
     );
     expect(player.childIds).toContain(nick.id);
     expect(player.childIds).toContain(health.id);
@@ -65,9 +67,11 @@ describe("Parser", () => {
 
   it("should parse collection with elements", () => {
     const model = parse("players[player1 player2]");
-    expect(model.elements.size).toBe(3);
+    expect(Object.values(model.elements).length).toBe(3);
 
-    const [player, username, password] = Array.from(model.elements.values());
+    const [player, username, password] = Array.from(
+      Object.values(model.elements),
+    );
     expect(player.childIds).toContain(username.id);
     expect(player.childIds).toContain(password.id);
     expect(player.id).toBe("players");
@@ -76,9 +80,11 @@ describe("Parser", () => {
 
   it("should parse a few elements", () => {
     const model = parse("player username password");
-    expect(model.elements.size).toBe(3);
+    expect(Object.values(model.elements).length).toBe(3);
 
-    const [player, username, password] = Array.from(model.elements.values());
+    const [player, username, password] = Array.from(
+      Object.values(model.elements),
+    );
     expect(player.childIds.size).toBe(0);
     expect(username.childIds.size).toBe(0);
     expect(password.childIds.size).toBe(0);
@@ -86,9 +92,9 @@ describe("Parser", () => {
 
   it("should parse nested elements", () => {
     const model = parse("game{player{username password} world{location}}");
-    expect(model.elements.size).toBe(6);
+    expect(Object.values(model.elements).length).toBe(6);
     const [game, player, username, password, world, location] = Array.from(
-      model.elements.values(),
+      Object.values(model.elements),
     );
     expect(game.childIds).toContain(player.id);
     expect(game.childIds).toContain(world.id);
@@ -99,9 +105,9 @@ describe("Parser", () => {
 
   it("should parse different-typed nesting", () => {
     const model = parse("game{play[walk fight] start(step1 step2)}");
-    expect(model.elements.size).toBe(7);
+    expect(Object.values(model.elements).length).toBe(7);
     const [game, play, walk, fight, start, step1, step2] = Array.from(
-      model.elements.values(),
+      Object.values(model.elements),
     );
     expect(game.childIds).toContain(play.id);
     expect(game.childIds).toContain(start.id);
@@ -121,9 +127,9 @@ describe("Parser", () => {
     const model = parse(
       "<start<if1 if2 else1> op1 op2 op3<if3 if4 if5> op4 op5 op6>",
     );
-    expect(model.elements.size).toBe(13);
+    expect(Object.values(model.elements).length).toBe(13);
     const [start, if1, if2, else1, , , op3, if3, if4, if5] = Array.from(
-      model.elements.values(),
+      Object.values(model.elements),
     );
     expect(start.childIds).toContain(if1.id);
     expect(start.childIds).toContain(if2.id);
@@ -131,119 +137,119 @@ describe("Parser", () => {
     expect(op3.childIds).toContain(if3.id);
     expect(op3.childIds).toContain(if4.id);
     expect(op3.childIds).toContain(if5.id);
-    Array.from(model.elements.values()).forEach((e) =>
+    Array.from(Object.values(model.elements)).forEach((e) =>
       expect(e.type).toBe("choice"),
     );
   });
 
   it("should parse simple arrow relationship", () => {
     const model = parse("player-->world");
-    expect(model.relationships.size).toBe(1);
-    expect(model.elements.size).toBe(2);
+    expect(Object.values(model.relationships).length).toBe(1);
+    expect(Object.values(model.elements).length).toBe(2);
 
-    const rel = Array.from(model.relationships.values())[0];
-    const [player, world] = Array.from(model.elements.values());
+    const rel = Array.from(Object.values(model.relationships))[0];
+    const [player, world] = Array.from(Object.values(model.elements));
     expect(rel.source).toBe(player.id);
     expect(rel.target).toBe(world.id);
   });
 
   it("should parse different relationships", () => {
     const model = parse("player-->world--|>item--*player--o item");
-    expect(model.relationships.size).toBe(4);
-    expect(model.elements.size).toBe(3);
+    expect(Object.values(model.relationships).length).toBe(4);
+    expect(Object.values(model.elements).length).toBe(3);
     // todo
   });
 
   it("should handle unclosed wrappers", () => {
     const model = parse("world{kingdom {castle");
-    expect(model.elements.size).toBe(3);
-    const [world, kingdom, castle] = Array.from(model.elements.values());
+    expect(Object.values(model.elements).length).toBe(3);
+    const [world, kingdom, castle] = Array.from(Object.values(model.elements));
     expect(world.childIds).toContain(kingdom.id);
     expect(kingdom.childIds).toContain(castle.id);
   });
 
   it("should handle unopened wrappers", () => {
     const model = parse("world} kingdom} castle}");
-    expect(model.elements.size).toBe(1);
+    expect(Object.values(model.elements).length).toBe(1);
   });
 
   it("should handle improper wrappers", () => {
     const model = parse("world{kingdom) castle]");
-    expect(model.elements.size).toBe(3);
-    const [world, kingdom, castle] = Array.from(model.elements.values());
+    expect(Object.values(model.elements).length).toBe(3);
+    const [world, kingdom, castle] = Array.from(Object.values(model.elements));
     expect(world.childIds).toContain(kingdom.id);
     expect(world.childIds).toContain(castle.id);
   });
 
   it("should parse relationship with label", () => {
     const model = parse("player o--owns-- tool");
-    expect(model.relationships.size).toBe(1);
-    const rel = Array.from(model.relationships.values())[0];
+    expect(Object.values(model.relationships).length).toBe(1);
+    const rel = Array.from(Object.values(model.relationships))[0];
     expect(rel.label).toBe("owns");
 
-    expect(model.elements.size).toBe(2);
-    const [player, tool] = Array.from(model.elements.values());
+    expect(Object.values(model.elements).length).toBe(2);
+    const [player, tool] = Array.from(Object.values(model.elements));
     expect(rel.source).toBe(player.id);
     expect(rel.target).toBe(tool.id);
   });
 
   it("should parse composition relationship", () => {
     const model = parse("whole *-- part");
-    const rel = Array.from(model.relationships.values())[0];
+    const rel = Array.from(Object.values(model.relationships))[0];
     expect(rel.type).toBe("*--");
   });
 
   it("should parse aggregation relationship", () => {
     const model = parse("container o-- item");
-    const rel = Array.from(model.relationships.values())[0];
+    const rel = Array.from(Object.values(model.relationships))[0];
     expect(rel.type).toBe("o--");
   });
 
   it("should parse implementation relationship", () => {
     const model = parse("class ..|> interface");
-    const rel = Array.from(model.relationships.values())[0];
+    const rel = Array.from(Object.values(model.relationships))[0];
     expect(rel.type).toBe("..|>");
   });
 
   it("should parse inheritance relationship", () => {
     const model = parse("child --|> parent");
-    const rel = Array.from(model.relationships.values())[0];
+    const rel = Array.from(Object.values(model.relationships))[0];
     expect(rel.type).toBe("--|>");
   });
 
   it("should handle whitespace-only input", () => {
     const model = parse("   \n  \t  \n  ");
-    expect(model.elements.size).toBe(0);
-    expect(model.relationships.size).toBe(0);
+    expect(Object.values(model.elements).length).toBe(0);
+    expect(Object.values(model.relationships).length).toBe(0);
   });
 
   it("should parse gibberish structure gracefully", () => {
     const model = parse("}{{{}}}{}{[]]()");
-    expect(model.elements.size).toBe(0);
-    expect(model.relationships.size).toBe(0);
+    expect(Object.values(model.elements).length).toBe(0);
+    expect(Object.values(model.relationships).length).toBe(0);
   });
 
   it("should handle empty input", () => {
     const model = parse("");
-    expect(model.elements.size).toBe(0);
-    expect(model.relationships.size).toBe(0);
+    expect(Object.values(model.elements).length).toBe(0);
+    expect(Object.values(model.relationships).length).toBe(0);
   });
 
   it("should parse relationship between nested elements", () => {
     const model = parse("game{player-->world}");
-    expect(model.elements.size).toBe(3);
-    const [game, player, world] = Array.from(model.elements.values());
+    expect(Object.values(model.elements).length).toBe(3);
+    const [game, player, world] = Array.from(Object.values(model.elements));
     expect(game.childIds).toContain(player.id);
     expect(game.childIds).toContain(world.id);
-    const rel = Array.from(model.relationships.values())[0];
+    const rel = Array.from(Object.values(model.relationships))[0];
     expect(rel.source).toBe(player.id);
     expect(rel.target).toBe(world.id);
   });
 
   it("should preserve element order", () => {
     const model = parse("first second third");
-    expect(model.elements.size).toBe(3);
-    const [first, second, third] = Array.from(model.elements.values());
+    expect(Object.values(model.elements).length).toBe(3);
+    const [first, second, third] = Array.from(Object.values(model.elements));
     expect(first.id).toBe("first");
     expect(second.id).toBe("second");
     expect(third.id).toBe("third");
@@ -251,10 +257,10 @@ describe("Parser", () => {
 
   it("should parse consecutive relationships", () => {
     const model = parse("a-->b-->c");
-    expect(model.elements.size).toBe(3);
-    expect(model.relationships.size).toBe(2);
-    const [a, b, c] = Array.from(model.elements.values());
-    const [rel1, rel2] = Array.from(model.relationships.values());
+    expect(Object.values(model.elements).length).toBe(3);
+    expect(Object.values(model.relationships).length).toBe(2);
+    const [a, b, c] = Array.from(Object.values(model.elements));
+    const [rel1, rel2] = Array.from(Object.values(model.relationships));
     expect(rel1.source).toBe(a.id);
     expect(rel1.target).toBe(b.id);
     expect(rel2.source).toBe(b.id);
@@ -286,7 +292,7 @@ describe("Parser", () => {
       match *-- gameSession
       player o-- inventory
     `);
-    expect(model.elements.size).toBe(13);
+    expect(Object.values(model.elements).length).toBe(13);
     const [
       player,
       usrname,
@@ -301,7 +307,7 @@ describe("Parser", () => {
       state,
       events,
       score,
-    ] = Array.from(model.elements.values());
+    ] = Array.from(Object.values(model.elements));
     expect(player.childIds).toContain(usrname.id);
     expect(player.childIds).toContain(rank.id);
     expect(player.childIds).toContain(stats.id);
@@ -315,8 +321,8 @@ describe("Parser", () => {
     expect(gameSession.childIds).toContain(events.id);
     expect(gameSession.childIds).toContain(score.id);
 
-    expect(model.relationships.size).toBe(3);
-    const [rel1, rel2, rel3] = Array.from(model.relationships.values());
+    expect(Object.values(model.relationships).length).toBe(3);
+    const [rel1, rel2, rel3] = Array.from(Object.values(model.relationships));
     expect(rel1.source).toBe(match.id);
     expect(rel1.target).toBe(player.id);
     expect(rel1.type).toBe("o--");
@@ -330,34 +336,36 @@ describe("Parser", () => {
 
   it("should merge double element definition", () => {
     const model = parse("player{username} player{password}");
-    expect(model.elements.size).toBe(3);
-    const [player, username, password] = Array.from(model.elements.values());
+    expect(Object.values(model.elements).length).toBe(3);
+    const [player, username, password] = Array.from(
+      Object.values(model.elements),
+    );
     expect(player.childIds).toContain(username.id);
     expect(player.childIds).toContain(password.id);
   });
 
   it("should handle relationship with anonymous element", () => {
     const model = parse("world-->{}");
-    expect(model.elements.size).toBe(2);
-    const [world, anon] = Array.from(model.elements.values());
-    const rel = Array.from(model.relationships.values())[0];
+    expect(Object.values(model.elements).length).toBe(2);
+    const [world, anon] = Array.from(Object.values(model.elements));
+    const rel = Array.from(Object.values(model.relationships))[0];
     expect(rel.source).toBe(world.id);
     expect(rel.target).toBe(anon.id);
   });
 
   it("should handle relationship with root element", () => {
     const model = parse("-->world");
-    expect(model.elements.size).toBe(2);
-    const [root, world] = Array.from(model.elements.values());
-    const rel = Array.from(model.relationships.values())[0];
+    expect(Object.values(model.elements).length).toBe(2);
+    const [root, world] = Array.from(Object.values(model.elements));
+    const rel = Array.from(Object.values(model.relationships))[0];
     expect(rel.source).toBe(root.id);
     expect(rel.target).toBe(world.id);
   });
 
   it("should handle recursion", () => {
     const model = parse("a{b{a}}");
-    expect(model.elements.size).toBe(2);
-    const [a, b] = Array.from(model.elements.values());
+    expect(Object.values(model.elements).length).toBe(2);
+    const [a, b] = Array.from(Object.values(model.elements));
     expect(a.childIds).toContain(b.id);
     expect(b.childIds).toContain(a.id);
     expect(a.childIds).not.toContain(a.id);

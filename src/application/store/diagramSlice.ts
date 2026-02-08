@@ -5,6 +5,9 @@ import {
 } from "../../domain/models/DiagramModel";
 import type { Element } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
+import { Lexer } from "../../infrastructure/parser/Lexer";
+import { Parser } from "../../infrastructure/parser/Parser";
+import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 
 interface DiagramState {
   model: DiagramModel;
@@ -25,31 +28,45 @@ const diagramSlice = createSlice({
     setModel: (state, action: PayloadAction<DiagramModel>) => {
       state.model = action.payload;
     },
-    setCode: (state, action: PayloadAction<string>) => {
-      state.code = action.payload;
-    },
     upsertElement: (state, action: PayloadAction<Element>) => {
-      state.model.elements.set(action.payload.id, action.payload);
+      state.model.elements[action.payload.id] = action.payload;
     },
     removeElement: (state, action: PayloadAction<Element>) => {
-      state.model.elements.delete(action.payload.id);
+      delete state.model.elements[action.payload.id];
     },
     upsertRelationship: (state, action: PayloadAction<Relationship>) => {
-      state.model.relationships.set(action.payload.id, action.payload);
+      state.model.relationships[action.payload.id] = action.payload;
     },
     removeRelationship: (state, action: PayloadAction<Relationship>) => {
-      state.model.relationships.delete(action.payload.id);
+      delete state.model.relationships[action.payload.id];
+    },
+    parseCode: (state, action: PayloadAction<string>) => {
+      try {
+        const tokens = new Lexer(action.payload).tokenize();
+        const parsedModel = new Parser(tokens).parse();
+
+        state.model = parsedModel;
+        state.code = action.payload;
+      } catch (error) {
+        console.error("Parse error:", error);
+      }
+    },
+
+    generateCode: (state) => {
+      const generator = new CodeGenerator(state.model);
+      state.code = generator.generate();
     },
   },
 });
 
 export const {
   setModel,
-  setCode,
   upsertElement,
   removeElement,
   upsertRelationship,
   removeRelationship,
+  parseCode,
+  generateCode,
 } = diagramSlice.actions;
 
 export default diagramSlice.reducer;

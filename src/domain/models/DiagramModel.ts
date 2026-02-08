@@ -3,24 +3,25 @@ import type { Relationship } from "./Relationship";
 
 export interface DiagramMetadata {
   version: string;
-  created: Date;
-  modified: Date;
+  created: string;
+  modified: string;
 }
 
 export interface DiagramModel {
-  elements: Map<string, Element>;
-  relationships: Map<string, Relationship>;
+  elements: Record<string, Element>;
+  relationships: Record<string, Relationship>;
   metadata: DiagramMetadata;
 }
 
 export function createEmptyDiagram(): DiagramModel {
+  const now = new Date().toISOString();
   return {
-    elements: new Map<string, Element>(),
-    relationships: new Map<string, Relationship>(),
+    elements: {},
+    relationships: {},
     metadata: {
       version: "1.0.0",
-      created: new Date(),
-      modified: new Date(),
+      created: now,
+      modified: now,
     },
   };
 }
@@ -29,15 +30,15 @@ export function addElement(
   model: DiagramModel,
   element: Element,
 ): DiagramModel {
-  const newElements = new Map(model.elements);
-  newElements.set(element.id, element);
-
   return {
     ...model,
-    elements: newElements,
+    elements: {
+      ...model.elements,
+      [element.id]: element,
+    },
     metadata: {
       ...model.metadata,
-      modified: new Date(),
+      modified: new Date().toISOString(),
     },
   };
 }
@@ -46,15 +47,15 @@ export function addRelationship(
   model: DiagramModel,
   relationship: Relationship,
 ): DiagramModel {
-  const newRelationships = new Map(model.relationships);
-  newRelationships.set(relationship.id, relationship);
-
   return {
     ...model,
-    relationships: newRelationships,
+    relationships: {
+      ...model.relationships,
+      [relationship.id]: relationship,
+    },
     metadata: {
       ...model.metadata,
-      modified: new Date(),
+      modified: new Date().toISOString(),
     },
   };
 }

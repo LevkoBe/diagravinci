@@ -46,10 +46,10 @@ export class Parser {
 
     this.parseContents(root);
 
-    const rootIsUsed = [...this.model.relationships.values()].some(
+    const rootIsUsed = Object.values(this.model.relationships).some(
       (rel) => rel.source === root.id || rel.target === root.id,
     );
-    if (!rootIsUsed) this.model.elements.delete(root.id);
+    if (!rootIsUsed) delete this.model.elements[root.id];
 
     return this.model;
   }
@@ -59,28 +59,28 @@ export class Parser {
     let lastRelationship: Relationship | null = null;
 
     while (this.peek() && this.peek()!.type !== WRAPPERS[wrapper].close) {
-      let nextToken;
-
       switch (this.peek()?.kind) {
-        case "{":
+        case "{": {
           if (lastRelationship) {
-            lastRelationship.target = this.createElement().id;
+            const elem = this.createElement();
+            lastRelationship.target = elem.id;
             lastRelationship = null;
           }
-          nextToken = defaultOpeningWrapper(this.next()?.type);
+          const nextToken = defaultOpeningWrapper(this.next()?.type);
           lastElement.type = WRAPPERS[nextToken].type;
           this.parseContents(lastElement, nextToken);
           break;
+        }
         case "}":
-          // these are redundant wrappers
-          this.next();
+          this.next(); // skip redundant wrapper
           break;
         case "-":
-        case ">":
+        case ">": {
           lastRelationship = this.parseRelationship(lastElement ?? parent);
-          this.model.relationships.set(lastRelationship.id, lastRelationship);
+          this.model.relationships[lastRelationship.id] = lastRelationship;
           break;
-        case "x":
+        }
+        case "x": {
           lastElement = this.parseElement(WRAPPERS[wrapper].type);
 
           if (lastRelationship) {
@@ -89,6 +89,7 @@ export class Parser {
           }
           parent.childIds.add(lastElement.id);
           break;
+        }
       }
     }
     this.next();
@@ -96,6 +97,7 @@ export class Parser {
 
   private parseElement = (defaultType?: ElementType): Element =>
     this.createElement(this.next()?.value, defaultType);
+
   private parseRelationship = (source: Element): Relationship => {
     let label: string | undefined = undefined;
     let relType: TokenType | undefined = undefined;
@@ -111,6 +113,7 @@ export class Parser {
     } else {
       relType = this.next()?.type;
     }
+
     return this.createRelationship(
       defaultRelationshipType(relType),
       source.id,
@@ -123,7 +126,7 @@ export class Parser {
     id: string = "[placeholder]",
     type: ElementType = "object",
   ) => {
-    const existing = this.model.elements.get(id);
+    const existing = this.model.elements[id];
 
     if (existing) {
       if (type !== "object") existing.type = type;
@@ -131,9 +134,10 @@ export class Parser {
     }
 
     const elem = createElement(id, type);
-    this.model.elements.set(id, elem);
+    this.model.elements[elem.id] = elem;
     return elem;
   };
+
   private createRelationship = (
     type: RelationshipType = "-->",
     source: string = "",

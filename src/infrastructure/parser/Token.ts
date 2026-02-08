@@ -3,6 +3,7 @@ export const OPENING_WRAPPERS = ["{", "[", "(", "<"] as const;
 export const CLOSING_WRAPPERS = ["}", "]", ")", ">"] as const;
 export const RELATIONSHIPS = [
   "-->",
+  "..>",
   "--|>",
   "..|>",
   "o--",
