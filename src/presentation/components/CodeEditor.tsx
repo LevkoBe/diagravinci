@@ -1,13 +1,15 @@
+import Editor from "@monaco-editor/react";
 import { useAppSelector, useAppDispatch } from "../../application/store/hooks";
-import { setCode } from "../../application/store/diagramSlice";
+import { parseCode } from "../../application/store/diagramSlice";
 
 export function CodeEditor() {
   const code = useAppSelector((state) => state.diagram.code);
   const dispatch = useAppDispatch();
 
-  const handleCodeChange = (newCode: string) => {
-    dispatch(setCode(newCode));
-    // TODO: trigger sync from code
+  const handleCodeChange = (value: string | undefined) => {
+    if (value !== undefined) {
+      dispatch(parseCode(value));
+    }
   };
 
   return (
@@ -15,12 +17,21 @@ export function CodeEditor() {
       <div>
         <h2 className="text-sm font-semibold mb-2">Code Editor</h2>
       </div>
-      <div className="w-full h-full">
-        <textarea
-          className="w-full h-full font-mono text-sm border border-gray-300 p-2"
+      <div className="flex-1">
+        <Editor
+          height="100%"
+          defaultLanguage="plaintext"
           value={code}
-          onChange={(e) => handleCodeChange(e.target.value)}
-          placeholder="Type diagram code here"
+          onChange={handleCodeChange}
+          theme="vs-dark"
+          options={{
+            minimap: { enabled: false },
+            fontSize: 14,
+            lineNumbers: "on",
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            tabSize: 2,
+          }}
         />
       </div>
     </div>
