@@ -335,4 +335,22 @@ describe("Parser", () => {
     expect(player.childIds).toContain(username.id);
     expect(player.childIds).toContain(password.id);
   });
+
+  it("should handle relationship with anonymous element", () => {
+    const model = parse("world-->{}");
+    expect(model.elements.size).toBe(2);
+    const [world, anon] = Array.from(model.elements.values());
+    const rel = Array.from(model.relationships.values())[0];
+    expect(rel.source).toBe(world.id);
+    expect(rel.target).toBe(anon.id);
+  });
+
+  it("should handle relationship with root element", () => {
+    const model = parse("-->world");
+    expect(model.elements.size).toBe(2);
+    const [root, world] = Array.from(model.elements.values());
+    const rel = Array.from(model.relationships.values())[0];
+    expect(rel.source).toBe(root.id);
+    expect(rel.target).toBe(world.id);
+  });
 });

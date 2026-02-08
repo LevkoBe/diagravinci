@@ -34,52 +34,48 @@ const WRAPPERS: Record<
 export class Parser {
   private tokens: Token[];
   private pos = 0;
+  private model: DiagramModel;
 
   constructor(tokens: Token[]) {
     this.tokens = tokens.filter((t) => t.type !== "NEWLINE");
+    this.model = createEmptyDiagram();
   }
 
   parse(): DiagramModel {
-    const model = createEmptyDiagram();
     const root: Element = this.createElement("root");
 
-    const { e, r } = this.parseContents(root);
-    e.forEach((elem) => {
-      if (!model.elements.has(elem.id)) model.elements.set(elem.id, elem);
-      else
-        elem.childIds.forEach((child) =>
-          model.elements.get(elem.id)!.childIds.add(child),
-        );
-    });
-    r.forEach((rel) => model.relationships.set(rel.id, rel));
+    this.parseContents(root);
 
-    return model;
+    const rootIsUsed = [...this.model.relationships.values()].some(
+      (rel) => rel.source === root.id || rel.target === root.id,
+    );
+    if (!rootIsUsed) this.model.elements.delete(root.id);
+
+    return this.model;
   }
 
   private parseContents(
     parent: Element,
     wrapper: OpeningWrapper = "{",
-  ): {
-    e: Element[];
-    r: Relationship[];
-  } {
-    const elements: Element[] = [];
-    const relationships: Relationship[] = [];
+  ): string[] {
+    const elementIds: string[] = [];
     let lastElement: Element | null = parent;
     let lastRelationship: Relationship | null = null;
 
     while (this.peek() && this.peek()!.type !== WRAPPERS[wrapper].close) {
-      let newContents: { e: Element[]; r: Relationship[] } = { e: [], r: [] };
       let nextToken;
 
       switch (this.peek()?.kind) {
         case "{":
+          if (lastRelationship) {
+            lastRelationship.target = this.createElement().id;
+            lastRelationship = null;
+          }
           nextToken = defaultOpeningWrapper(this.next()?.type);
           lastElement.type = WRAPPERS[nextToken].type;
-          newContents = this.parseContents(
-            elements[elements.length - 1] ?? parent,
-            nextToken,
-          );
+          this.parseContents(lastElement ?? parent, nextToken).forEach((id) => {
+            parent.childIds.add(id);
+          });
           break;
         case "}":
           // these are redundant wrappers
@@ -87,28 +83,23 @@ export class Parser {
           break;
         case "-":
         case ">":
-          newContents.r = [this.parseRelationship(lastElement ?? parent)];
+          lastRelationship = this.parseRelationship(lastElement ?? parent);
+          this.model.relationships.set(lastRelationship.id, lastRelationship);
           break;
         case "x":
           lastElement = this.parseElement(WRAPPERS[wrapper].type);
-          newContents.e.push(lastElement);
+
+          if (lastRelationship) {
+            lastRelationship.target = lastElement.id;
+            lastRelationship = null;
+          }
+          elementIds.push(lastElement.id);
+          parent.childIds.add(lastElement.id);
           break;
       }
-      newContents.e.forEach((e) => {
-        if (lastRelationship) {
-          lastRelationship.target = e.id;
-          lastRelationship = null;
-        }
-        elements.push(e);
-        parent.childIds.add(e.id);
-      });
-      newContents.r.forEach((r) => {
-        relationships.push(r);
-        lastRelationship = r;
-      });
     }
     this.next();
-    return { e: elements, r: relationships };
+    return elementIds;
   }
 
   private parseElement = (defaultType?: ElementType): Element =>
@@ -139,7 +130,18 @@ export class Parser {
   private createElement = (
     id: string = "[placeholder]",
     type: ElementType = "object",
-  ) => createElement(id, type);
+  ) => {
+    const existing = this.model.elements.get(id);
+
+    if (existing) {
+      if (type !== "object") existing.type = type;
+      return existing;
+    }
+
+    const elem = createElement(id, type);
+    this.model.elements.set(id, elem);
+    return elem;
+  };
   private createRelationship = (
     type: RelationshipType = "-->",
     source: string = "",
