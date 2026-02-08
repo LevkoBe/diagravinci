@@ -157,7 +157,6 @@ describe("Parser", () => {
     const model = parse("player-->world--|>item--*player--o item");
     expect(Object.values(model.relationships).length).toBe(4);
     expect(Object.values(model.elements).length).toBe(3);
-    // todo
   });
 
   it("should handle unclosed wrappers", () => {
