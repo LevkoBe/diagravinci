@@ -11,7 +11,7 @@ export interface Element {
   type: ElementType;
   position: Position;
   foldState: FoldState;
-  childIds: Set<string>;
+  childIds: string[];
 }
 
 export function createElement(
@@ -24,6 +24,6 @@ export function createElement(
     type,
     position: position || { x: 0, y: 0 },
     foldState: "expanded",
-    childIds: new Set(),
+    childIds: [],
   };
 }

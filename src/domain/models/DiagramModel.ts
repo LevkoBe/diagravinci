@@ -1,4 +1,4 @@
-import type { Element } from "./Element";
+import { createElement, type Element } from "./Element";
 import type { Relationship } from "./Relationship";
 
 export interface DiagramMetadata {
@@ -8,6 +8,7 @@ export interface DiagramMetadata {
 }
 
 export interface DiagramModel {
+  root: Element;
   elements: Record<string, Element>;
   relationships: Record<string, Relationship>;
   metadata: DiagramMetadata;
@@ -16,6 +17,7 @@ export interface DiagramModel {
 export function createEmptyDiagram(): DiagramModel {
   const now = new Date().toISOString();
   return {
+    root: createElement(Math.random().toString(36).substring(2, 11), "object"),
     elements: {},
     relationships: {},
     metadata: {

@@ -42,15 +42,7 @@ export class Parser {
   }
 
   parse(): DiagramModel {
-    const root: Element = this.createElement("root");
-
-    this.parseContents(root);
-
-    const rootIsUsed = Object.values(this.model.relationships).some(
-      (rel) => rel.source === root.id || rel.target === root.id,
-    );
-    if (!rootIsUsed) delete this.model.elements[root.id];
-
+    this.parseContents(this.model.root);
     return this.model;
   }
 
@@ -87,7 +79,8 @@ export class Parser {
             lastRelationship.target = lastElement.id;
             lastRelationship = null;
           }
-          parent.childIds.add(lastElement.id);
+          if (!parent.childIds.includes(lastElement.id))
+            parent.childIds.push(lastElement.id);
           break;
         }
       }

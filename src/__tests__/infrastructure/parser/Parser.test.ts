@@ -85,9 +85,9 @@ describe("Parser", () => {
     const [player, username, password] = Array.from(
       Object.values(model.elements),
     );
-    expect(player.childIds.size).toBe(0);
-    expect(username.childIds.size).toBe(0);
-    expect(password.childIds.size).toBe(0);
+    expect(player.childIds.length).toBe(0);
+    expect(username.childIds.length).toBe(0);
+    expect(password.childIds.length).toBe(0);
   });
 
   it("should parse nested elements", () => {
@@ -355,10 +355,10 @@ describe("Parser", () => {
 
   it("should handle relationship with root element", () => {
     const model = parse("-->world");
-    expect(Object.values(model.elements).length).toBe(2);
-    const [root, world] = Array.from(Object.values(model.elements));
+    expect(Object.values(model.elements).length).toBe(1);
+    const world = Array.from(Object.values(model.elements))[0];
     const rel = Array.from(Object.values(model.relationships))[0];
-    expect(rel.source).toBe(root.id);
+    expect(rel.source).toBe(model.root.id);
     expect(rel.target).toBe(world.id);
   });
 
@@ -369,5 +369,13 @@ describe("Parser", () => {
     expect(a.childIds).toContain(b.id);
     expect(b.childIds).toContain(a.id);
     expect(a.childIds).not.toContain(a.id);
+  });
+
+  it("should handle child duplicate", () => {
+    const model = parse("a{b b}");
+    expect(Object.values(model.elements).length).toBe(2);
+    const [a, b] = Array.from(Object.values(model.elements));
+    expect(a.childIds).toContain(b.id);
+    expect(a.childIds.length).toBe(1);
   });
 });
