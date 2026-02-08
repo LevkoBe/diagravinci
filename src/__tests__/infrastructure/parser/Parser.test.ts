@@ -12,7 +12,7 @@ describe("Parser", () => {
     const model = parse("player");
     expect(model.elements.size).toBe(1);
     const elem = Array.from(model.elements.values())[0];
-    expect(elem.name).toBe("player");
+    expect(elem.id).toBe("player");
     expect(elem.type).toBe("object");
   });
 
@@ -20,7 +20,7 @@ describe("Parser", () => {
     const model = parse("player{}");
     expect(model.elements.size).toBe(1);
     const elem = Array.from(model.elements.values())[0];
-    expect(elem.name).toBe("player");
+    expect(elem.id).toBe("player");
     expect(elem.type).toBe("object");
   });
 
@@ -28,7 +28,7 @@ describe("Parser", () => {
     const model = parse("players[]");
     expect(model.elements.size).toBe(1);
     const elem = Array.from(model.elements.values())[0];
-    expect(elem.name).toBe("players");
+    expect(elem.id).toBe("players");
     expect(elem.type).toBe("state");
   });
 
@@ -37,7 +37,7 @@ describe("Parser", () => {
     expect(model.elements.size).toBe(3);
 
     const [player, username, password] = Array.from(model.elements.values());
-    expect(player.name).toBe("player");
+    expect(player.id).toBe("player");
     expect(player.type).toBe("object");
     expect(player.childIds).toContain(username.id);
     expect(player.childIds).toContain(password.id);
@@ -70,7 +70,7 @@ describe("Parser", () => {
     const [player, username, password] = Array.from(model.elements.values());
     expect(player.childIds).toContain(username.id);
     expect(player.childIds).toContain(password.id);
-    expect(player.name).toBe("players");
+    expect(player.id).toBe("players");
     expect(player.type).toBe("state");
   });
 
@@ -79,9 +79,9 @@ describe("Parser", () => {
     expect(model.elements.size).toBe(3);
 
     const [player, username, password] = Array.from(model.elements.values());
-    expect(player.childIds.length).toBe(0);
-    expect(username.childIds.length).toBe(0);
-    expect(password.childIds.length).toBe(0);
+    expect(player.childIds.size).toBe(0);
+    expect(username.childIds.size).toBe(0);
+    expect(password.childIds.size).toBe(0);
   });
 
   it("should parse nested elements", () => {
@@ -150,7 +150,7 @@ describe("Parser", () => {
   it("should parse different relationships", () => {
     const model = parse("player-->world--|>item--*player--o item");
     expect(model.relationships.size).toBe(4);
-    expect(model.elements.size).toBe(5);
+    expect(model.elements.size).toBe(3);
     // todo
   });
 
@@ -244,9 +244,9 @@ describe("Parser", () => {
     const model = parse("first second third");
     expect(model.elements.size).toBe(3);
     const [first, second, third] = Array.from(model.elements.values());
-    expect(first.name).toBe("first");
-    expect(second.name).toBe("second");
-    expect(third.name).toBe("third");
+    expect(first.id).toBe("first");
+    expect(second.id).toBe("second");
+    expect(third.id).toBe("third");
   });
 
   it("should parse consecutive relationships", () => {
@@ -271,7 +271,7 @@ describe("Parser", () => {
       }
       
       match{
-        players
+        players[player]
         map
         mode
       }
@@ -286,7 +286,53 @@ describe("Parser", () => {
       match *-- gameSession
       player o-- inventory
     `);
-    expect(model.elements.size).toBe(19);
+    expect(model.elements.size).toBe(13);
+    const [
+      player,
+      usrname,
+      rank,
+      stats,
+      inventory,
+      match,
+      players,
+      map,
+      mode,
+      gameSession,
+      state,
+      events,
+      score,
+    ] = Array.from(model.elements.values());
+    expect(player.childIds).toContain(usrname.id);
+    expect(player.childIds).toContain(rank.id);
+    expect(player.childIds).toContain(stats.id);
+    expect(player.childIds).toContain(inventory.id);
+
+    expect(match.childIds).toContain(players.id);
+    expect(match.childIds).toContain(map.id);
+    expect(match.childIds).toContain(mode.id);
+
+    expect(gameSession.childIds).toContain(state.id);
+    expect(gameSession.childIds).toContain(events.id);
+    expect(gameSession.childIds).toContain(score.id);
+
     expect(model.relationships.size).toBe(3);
+    const [rel1, rel2, rel3] = Array.from(model.relationships.values());
+    expect(rel1.source).toBe(match.id);
+    expect(rel1.target).toBe(player.id);
+    expect(rel1.type).toBe("o--");
+    expect(rel2.source).toBe(match.id);
+    expect(rel2.target).toBe(gameSession.id);
+    expect(rel2.type).toBe("*--");
+    expect(rel3.source).toBe(player.id);
+    expect(rel3.target).toBe(inventory.id);
+    expect(rel3.type).toBe("o--");
+  });
+
+  it("should merge double element definition", () => {
+    const model = parse("player{username} player{password}");
+    expect(model.elements.size).toBe(3);
+    const [player, username, password] = Array.from(model.elements.values());
+    expect(player.childIds).toContain(username.id);
+    expect(player.childIds).toContain(password.id);
   });
 });

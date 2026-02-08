@@ -8,25 +8,22 @@ export interface Position {
 
 export interface Element {
   id: string;
-  name: string;
   type: ElementType;
   position: Position;
   foldState: FoldState;
-  childIds: string[];
+  childIds: Set<string>;
 }
 
 export function createElement(
   id: string,
-  name: string,
   type: ElementType,
   position?: Position,
 ): Element {
   return {
     id,
-    name,
     type,
     position: position || { x: 0, y: 0 },
     foldState: "expanded",
-    childIds: [],
+    childIds: new Set(),
   };
 }

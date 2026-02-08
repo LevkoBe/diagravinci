@@ -44,7 +44,13 @@ export class Parser {
     const root: Element = this.createElement("root");
 
     const { e, r } = this.parseContents(root);
-    e.forEach((elem) => model.elements.set(elem.id, elem));
+    e.forEach((elem) => {
+      if (!model.elements.has(elem.id)) model.elements.set(elem.id, elem);
+      else
+        elem.childIds.forEach((child) =>
+          model.elements.get(elem.id)!.childIds.add(child),
+        );
+    });
     r.forEach((rel) => model.relationships.set(rel.id, rel));
 
     return model;
@@ -94,7 +100,7 @@ export class Parser {
           lastRelationship = null;
         }
         elements.push(e);
-        parent.childIds.push(e.id);
+        parent.childIds.add(e.id);
       });
       newContents.r.forEach((r) => {
         relationships.push(r);
@@ -131,9 +137,9 @@ export class Parser {
   };
 
   private createElement = (
-    name: string = "[no-name]",
+    id: string = "[placeholder]",
     type: ElementType = "object",
-  ) => createElement(this.genId(), name, type);
+  ) => createElement(id, type);
   private createRelationship = (
     type: RelationshipType = "-->",
     source: string = "",
