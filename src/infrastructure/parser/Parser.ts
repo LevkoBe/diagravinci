@@ -11,17 +11,24 @@ import {
   type DiagramModel,
   createEmptyDiagram,
 } from "../../domain/models/DiagramModel";
-import { type Element, createElement } from "../../domain/models/Element";
+import {
+  type Element,
+  type ElementType,
+  createElement,
+} from "../../domain/models/Element";
 import {
   type Relationship,
   createRelationship,
 } from "../../domain/models/Relationship";
 
-const WRAPPERS: Record<OpeningWrapper, ClosingWrapper> = {
-  "{": "}",
-  "[": "]",
-  "(": ")",
-  "<": ">",
+const WRAPPERS: Record<
+  OpeningWrapper,
+  { close: ClosingWrapper; type: ElementType }
+> = {
+  "{": { close: "}", type: "object" },
+  "[": { close: "]", type: "state" },
+  "(": { close: ")", type: "function" },
+  "<": { close: ">", type: "choice" },
 };
 
 export class Parser {
@@ -45,47 +52,62 @@ export class Parser {
 
   private parseContents(
     parent: Element,
-    close: TokenType = "}",
+    wrapper: OpeningWrapper = "{",
   ): {
     e: Element[];
     r: Relationship[];
   } {
     const elements: Element[] = [];
     const relationships: Relationship[] = [];
+    let lastElement: Element | null = parent;
+    let lastRelationship: Relationship | null = null;
 
-    while (this.peek() && this.peek()!.type !== close) {
+    while (this.peek() && this.peek()!.type !== WRAPPERS[wrapper].close) {
       let newContents: { e: Element[]; r: Relationship[] } = { e: [], r: [] };
+      let nextToken;
 
       switch (this.peek()?.kind) {
         case "{":
+          nextToken = defaultOpeningWrapper(this.next()?.type);
+          lastElement.type = WRAPPERS[nextToken].type;
           newContents = this.parseContents(
             elements[elements.length - 1] ?? parent,
-            WRAPPERS[defaultOpeningWrapper(this.next()?.type)],
+            nextToken,
           );
           break;
         case "}":
-          throw new Error(
-            `Closing wrapper of type ${this.peek()?.type} should have been closed.`,
-          );
+          // these are redundant wrappers
+          this.next();
+          break;
         case "-":
         case ">":
-          newContents.r = [this.parseRelationshipWithTarget(parent.id)];
+          newContents.r = [this.parseRelationship(lastElement ?? parent)];
           break;
         case "x":
-          newContents.e = [this.parseElement()];
+          lastElement = this.parseElement(WRAPPERS[wrapper].type);
+          newContents.e.push(lastElement);
           break;
       }
       newContents.e.forEach((e) => {
+        if (lastRelationship) {
+          lastRelationship.target = e.id;
+          lastRelationship = null;
+        }
         elements.push(e);
-        parent.children.push(e);
+        parent.childIds.push(e.id);
       });
-      newContents.r.forEach((r) => relationships.push(r));
+      newContents.r.forEach((r) => {
+        relationships.push(r);
+        lastRelationship = r;
+      });
     }
+    this.next();
     return { e: elements, r: relationships };
   }
 
-  private parseElement = (): Element => this.createElement(this.next()?.value);
-  private parseRelationshipWithTarget = (sourceId: string): Relationship => {
+  private parseElement = (defaultType?: ElementType): Element =>
+    this.createElement(this.next()?.value, defaultType);
+  private parseRelationship = (source: Element): Relationship => {
     let label: string | undefined = undefined;
     let relType: TokenType | undefined = undefined;
 
@@ -102,14 +124,16 @@ export class Parser {
     }
     return this.createRelationship(
       defaultRelationshipType(relType),
-      sourceId,
-      this.createElement(this.next()?.value).id,
+      source.id,
+      source.id,
       label,
     );
   };
 
-  private createElement = (name: string = "[no-name]") =>
-    createElement(this.genId(), name, "object");
+  private createElement = (
+    name: string = "[no-name]",
+    type: ElementType = "object",
+  ) => createElement(this.genId(), name, type);
   private createRelationship = (
     type: RelationshipType = "-->",
     source: string = "",
@@ -120,11 +144,8 @@ export class Parser {
   private peek = (offset = 0): Token | undefined =>
     this.tokens[this.pos + offset];
   private next = (): Token | undefined => this.tokens[this.pos++];
-  private nextLike(pattern: string, at: number = 0) {
-    return pattern
-      .split("")
-      .every((k, i) => this.peek(this.pos + at + i)?.kind === k);
-  }
+  private nextLike = (pattern: string) =>
+    pattern.split("").every((k, i) => this.peek(i)?.kind === k);
 
   private genId = (prefix: string = "elem") =>
     `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;

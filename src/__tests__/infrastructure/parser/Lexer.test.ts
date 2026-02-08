@@ -142,4 +142,9 @@ describe("Lexer", () => {
     const tokens = new Lexer(input).tokenize();
     expect(tokens.length).toBe(input.length);
   });
+
+  it("should tokenize relationship with label", () => {
+    const tokens = new Lexer("player o--owns-- tool").tokenize();
+    expect(tokens.some((t) => t.type === "o--")).toBe(true);
+  });
 });
