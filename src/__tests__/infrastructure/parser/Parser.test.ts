@@ -353,4 +353,13 @@ describe("Parser", () => {
     expect(rel.source).toBe(root.id);
     expect(rel.target).toBe(world.id);
   });
+
+  it("should handle recursion", () => {
+    const model = parse("a{b{a}}");
+    expect(model.elements.size).toBe(2);
+    const [a, b] = Array.from(model.elements.values());
+    expect(a.childIds).toContain(b.id);
+    expect(b.childIds).toContain(a.id);
+    expect(a.childIds).not.toContain(a.id);
+  });
 });

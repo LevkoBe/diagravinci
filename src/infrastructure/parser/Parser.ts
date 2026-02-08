@@ -54,12 +54,8 @@ export class Parser {
     return this.model;
   }
 
-  private parseContents(
-    parent: Element,
-    wrapper: OpeningWrapper = "{",
-  ): string[] {
-    const elementIds: string[] = [];
-    let lastElement: Element | null = parent;
+  private parseContents(parent: Element, wrapper: OpeningWrapper = "{") {
+    let lastElement: Element = parent;
     let lastRelationship: Relationship | null = null;
 
     while (this.peek() && this.peek()!.type !== WRAPPERS[wrapper].close) {
@@ -73,9 +69,7 @@ export class Parser {
           }
           nextToken = defaultOpeningWrapper(this.next()?.type);
           lastElement.type = WRAPPERS[nextToken].type;
-          this.parseContents(lastElement ?? parent, nextToken).forEach((id) => {
-            parent.childIds.add(id);
-          });
+          this.parseContents(lastElement, nextToken);
           break;
         case "}":
           // these are redundant wrappers
@@ -93,13 +87,11 @@ export class Parser {
             lastRelationship.target = lastElement.id;
             lastRelationship = null;
           }
-          elementIds.push(lastElement.id);
           parent.childIds.add(lastElement.id);
           break;
       }
     }
     this.next();
-    return elementIds;
   }
 
   private parseElement = (defaultType?: ElementType): Element =>
