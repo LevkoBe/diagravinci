@@ -533,4 +533,46 @@ describe("Parser", () => {
     expect(a.childIds).toContain(anon.id);
     expect(a.childIds.length).toBe(1);
   });
+
+  it("should parse curried function (QUESTIONABLE)", () => {
+    const model = parse("f(x)(y)(z)");
+    expect(Object.values(model.elements).length).toBe(4);
+    const [f, x, y, z] = Array.from(Object.values(model.elements));
+    expect(f.id).toBe("f");
+    expect(f.type).toBe("function");
+    expect(f.childIds).toContain(x.id);
+    expect(f.childIds).toContain(y.id);
+    expect(f.childIds).toContain(z.id);
+    expect(x.type).toBe("function");
+    expect(y.type).toBe("function");
+    expect(z.type).toBe("function");
+  });
+
+  it("should parse other chainings", () => {
+    const model = parse("f(a){b}[c]<d>");
+    expect(Object.values(model.elements).length).toBe(5);
+    const [f, a, b, c, d] = Array.from(Object.values(model.elements));
+    expect(f.id).toBe("f");
+    expect(f.type).toBe("choice");
+    expect(f.childIds).toContain(a.id);
+    expect(f.childIds).toContain(b.id);
+    expect(f.childIds).toContain(c.id);
+    expect(f.childIds).toContain(d.id);
+    expect(a.type).toBe("function");
+    expect(b.type).toBe("object");
+    expect(c.type).toBe("state");
+    expect(d.type).toBe("choice");
+  });
+
+  it("should handle relationships inside and outside of scope", () => {
+    const model = parse("a{-->b-->}");
+    expect(Object.values(model.elements).length).toBe(2);
+    expect(Object.values(model.relationships).length).toBe(2);
+    const [a, b] = Array.from(Object.values(model.elements));
+    const [rel1, rel2] = Object.values(model.relationships);
+    expect(rel1.source).toBe(a.id);
+    expect(rel1.target).toBe(b.id);
+    expect(rel2.source).toBe(b.id);
+    expect(rel2.target).toBe(a.id);
+  });
 });

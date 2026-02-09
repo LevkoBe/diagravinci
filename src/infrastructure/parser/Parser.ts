@@ -85,6 +85,7 @@ export class Parser {
         }
       }
     }
+    if (lastRel) this.updateRelationship(lastRel.id, parent.id);
     this.next();
   }
 

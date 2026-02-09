@@ -5,13 +5,6 @@ export const store = configureStore({
   reducer: {
     diagram: diagramReducer,
   },
-  middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware({
-      serializableCheck: {
-        ignoredActions: ["diagram/setModel"],
-        ignoredPaths: ["diagram.model.elements"],
-      },
-    }),
 });
 
 export type RootState = ReturnType<typeof store.getState>;
