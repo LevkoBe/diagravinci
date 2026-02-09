@@ -13,7 +13,6 @@ export function ElementNode({
   path?: Set<string>;
 }) {
   const isCycle = path.has(element.id);
-  console.log(element);
 
   return (
     <div style={{ marginLeft: depth * 16 }}>

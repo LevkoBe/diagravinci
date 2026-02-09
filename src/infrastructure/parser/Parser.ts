@@ -52,62 +52,67 @@ export class Parser {
     wrapper: OpeningWrapper = "{",
     defaultType?: ElementType,
   ) {
-    let lastElement: Element = parent;
-    let lastRelationship: Relationship | null = null;
+    let lastEl: Element | null = parent;
+    let lastRel: Relationship | null = null;
     let nextToken: TokenType;
-    let flowElement: Element | null = null;
 
     while (this.peek() && this.peek()!.type !== WRAPPERS[wrapper].close) {
       switch (this.peek()?.kind) {
         case "}":
           if (this.peek()?.type !== ">") {
             this.next(); // skip redundant wrapper
+            lastEl = null;
             break;
           }
-          flowElement = this.createElement(this.genId(">"), "flow");
-          if (lastRelationship) {
-            lastRelationship.target = flowElement.id;
-            lastRelationship = null;
-          }
           nextToken = defaultOpeningWrapper(this.next()?.type);
-          this.parseContents(flowElement, nextToken, "object");
-          if (!parent.childIds.includes(flowElement.id))
-            parent.childIds.push(flowElement.id);
+          lastRel = lastRel ?? this.createRelationship(lastEl?.id ?? parent.id);
+          lastEl = this.openWrapper(lastRel, null, ">");
+          this.parseContents(lastEl, nextToken, "object");
+          if (!parent.childIds.includes(lastEl.id))
+            parent.childIds.push(lastEl.id);
           break;
         case "{": {
-          if (lastRelationship) {
-            const elem = this.createElement();
-            lastRelationship.target = elem.id;
-            lastRelationship = null;
-          }
           nextToken = defaultOpeningWrapper(this.next()?.type);
-          lastElement.type = WRAPPERS[nextToken].type;
-          this.parseContents(lastElement, nextToken);
+          lastEl = this.openWrapper(lastRel, lastEl, nextToken);
+          this.parseContents(lastEl, nextToken);
           break;
         }
         case "-":
         case ">": {
-          lastRelationship = this.parseRelationship(lastElement ?? parent);
-          this.model.relationships[lastRelationship.id] = lastRelationship;
+          lastRel = this.parseRelationship(lastEl ?? parent);
+          this.model.relationships[lastRel.id] = lastRel;
+          lastEl = null;
           break;
         }
         case "x": {
-          lastElement = this.parseElement(
-            defaultType ?? WRAPPERS[wrapper].type,
-          );
+          lastEl = this.parseElement(defaultType ?? WRAPPERS[wrapper].type);
 
-          if (lastRelationship) {
-            lastRelationship.target = lastElement.id;
-            lastRelationship = null;
+          if (lastRel) {
+            lastRel.target = lastEl.id;
+            lastRel = null;
           }
-          if (!parent.childIds.includes(lastElement.id))
-            parent.childIds.push(lastElement.id);
+          if (!parent.childIds.includes(lastEl.id))
+            parent.childIds.push(lastEl.id);
           break;
         }
       }
     }
     this.next();
   }
+
+  private openWrapper = (
+    lastRel: Relationship | null,
+    lastEl: Element | null,
+    nextToken: OpeningWrapper,
+  ): Element => {
+    if (!lastEl) lastEl = this.createElement(this.genId("anon"));
+    if (lastRel) {
+      lastRel.target = lastEl.id;
+      lastRel = null;
+    }
+    lastEl.type = WRAPPERS[nextToken].type;
+    return lastEl;
+  };
 
   private parseElement = (defaultType?: ElementType): Element =>
     this.createElement(this.next()?.value, defaultType);
@@ -129,8 +134,8 @@ export class Parser {
     }
 
     return this.createRelationship(
-      defaultRelationshipType(relType),
       source.id,
+      defaultRelationshipType(relType),
       source.id,
       label,
     );
@@ -153,8 +158,8 @@ export class Parser {
   };
 
   private createRelationship = (
-    type: RelationshipType = "-->",
     source: string = "",
+    type: RelationshipType = "-->",
     target: string = "",
     label: string = "",
   ) => createRelationship(this.genId("rel"), source, target, type, label);

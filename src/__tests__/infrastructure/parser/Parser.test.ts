@@ -420,6 +420,20 @@ describe("Parser", () => {
     expect(shop.type).toBe("object");
     const rel = Array.from(Object.values(model.relationships))[0];
     expect(rel.source).toBe(player.id);
-    expect(rel.target).toBe(flow.id);
+    expect(rel.target).toBe(shop.id);
+  });
+
+  it("should handle anonymity", () => {
+    const model = parse("player-->{}-->X");
+    expect(Object.values(model.elements).length).toBe(3);
+    const [player, anon, x] = Array.from(Object.values(model.elements));
+    expect(player.type).toBe("object");
+    expect(anon.type).toBe("object");
+    expect(x.type).toBe("object");
+    const [rel1, rel2] = Array.from(Object.values(model.relationships));
+    expect(rel1.source).toBe(player.id);
+    expect(rel1.target).toBe(anon.id);
+    expect(rel2.source).toBe(anon.id);
+    expect(rel2.target).toBe(x.id);
   });
 });
