@@ -4,18 +4,16 @@ import type { Element } from "../../../domain/models/Element";
 export function ElementNode({
   element,
   model,
-  depth = 0,
   path = new Set<string>(),
 }: {
   element: Element;
   model: DiagramModel;
-  depth?: number;
   path?: Set<string>;
 }) {
   const isCycle = path.has(element.id);
 
   return (
-    <div style={{ marginLeft: depth * 16 }}>
+    <div>
       <div className="bg-gray-800 border border-gray-600 rounded p-3 shadow-sm">
         <div className="font-semibold text-gray-400">
           {element.id}{" "}
@@ -37,7 +35,6 @@ export function ElementNode({
                   key={child.id}
                   element={child}
                   model={model}
-                  depth={depth + 1}
                   path={new Set(path).add(element.id)}
                 />
               ))}

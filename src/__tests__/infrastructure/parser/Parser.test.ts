@@ -123,12 +123,12 @@ describe("Parser", () => {
     expect(step2.type).toBe("function");
   });
 
-  it("shuold parse decision tree", () => {
+  it("should parse decision tree", () => {
     const model = parse(
       "<start<if1 if2 else1> op1 op2 op3<if3 if4 if5> op4 op5 op6>",
     );
-    expect(Object.values(model.elements).length).toBe(13);
-    const [start, if1, if2, else1, , , op3, if3, if4, if5] = Array.from(
+    expect(Object.values(model.elements).length).toBe(14);
+    const [, start, if1, if2, else1, , , op3, if3, if4, if5] = Array.from(
       Object.values(model.elements),
     );
     expect(start.childIds).toContain(if1.id);
@@ -523,5 +523,14 @@ describe("Parser", () => {
     expect(b.id).toBe("b");
     const rel = Array.from(Object.values(model.relationships))[0];
     expect(rel.source).toBe(a.id);
+  });
+
+  it("should handle multilayer nesting properly", () => {
+    const model = parse("a{{}}");
+    expect(Object.values(model.elements).length).toBe(2);
+    const [a, anon] = Array.from(Object.values(model.elements));
+    expect(a.id).toBe("a");
+    expect(a.childIds).toContain(anon.id);
+    expect(a.childIds.length).toBe(1);
   });
 });

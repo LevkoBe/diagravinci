@@ -48,7 +48,7 @@ export class Parser {
   }
 
   private parseContents(parent: Element, wrapper: OpeningWrapper = "{") {
-    let lastEl: Element | null = parent;
+    let lastEl: Element | null = null;
     let lastRel: Relationship | null = null;
 
     while (this.peek() && this.peek()!.type !== WRAPPERS[wrapper].close) {
