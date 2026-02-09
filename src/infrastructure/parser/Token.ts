@@ -1,5 +1,5 @@
 export const PARTIAL_RELATIONSHIPS = ["..", "--"] as const;
-export const OPENING_WRAPPERS = ["{", "[", "(", "<"] as const;
+export const OPENING_WRAPPERS = ["{", "[", "(", "<", ">"] as const;
 export const CLOSING_WRAPPERS = ["}", "]", ")", ">"] as const;
 export const RELATIONSHIPS = [
   "-->",

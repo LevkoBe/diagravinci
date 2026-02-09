@@ -377,4 +377,49 @@ describe("Parser", () => {
     expect(a.childIds).toContain(b.id);
     expect(a.childIds.length).toBe(1);
   });
+
+  it("should handle flow between elements", () => {
+    const model = parse("player >emeralds> shop");
+    expect(Object.values(model.elements).length).toBe(4);
+    expect(model.root.childIds.length).toBe(3);
+    const [player, flow, emeralds, shop] = Array.from(
+      Object.values(model.elements),
+    );
+    expect(player.type).toBe("object");
+    expect(flow.type).toBe("flow");
+    expect(emeralds.type).toBe("object");
+    expect(shop.type).toBe("object");
+  });
+
+  it("should handle io", () => {
+    const model = parse(">input> step1() >intermediate> step2() >output>");
+    expect(Object.values(model.elements).length).toBe(8);
+    expect(model.root.childIds.length).toBe(5);
+    const [flow1, input, step1, flow2, intermediate, step2, flow3, output] =
+      Array.from(Object.values(model.elements));
+    expect(flow1.type).toBe("flow");
+    expect(input.type).toBe("object");
+    expect(step1.type).toBe("function");
+    expect(flow2.type).toBe("flow");
+    expect(intermediate.type).toBe("object");
+    expect(step2.type).toBe("function");
+    expect(flow3.type).toBe("flow");
+    expect(output.type).toBe("object");
+  });
+
+  it("should handle flow with arrow", () => {
+    const model = parse("player -->>walk()> shop");
+    expect(Object.values(model.elements).length).toBe(4);
+    expect(model.root.childIds.length).toBe(3);
+    const [player, flow, walk, shop] = Array.from(
+      Object.values(model.elements),
+    );
+    expect(player.type).toBe("object");
+    expect(flow.type).toBe("flow");
+    expect(walk.type).toBe("function");
+    expect(shop.type).toBe("object");
+    const rel = Array.from(Object.values(model.relationships))[0];
+    expect(rel.source).toBe(player.id);
+    expect(rel.target).toBe(flow.id);
+  });
 });

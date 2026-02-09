@@ -29,6 +29,7 @@ const WRAPPERS: Record<
   "[": { close: "]", type: "state" },
   "(": { close: ")", type: "function" },
   "<": { close: ">", type: "choice" },
+  ">": { close: ">", type: "flow" },
 };
 
 export class Parser {
@@ -46,26 +47,44 @@ export class Parser {
     return this.model;
   }
 
-  private parseContents(parent: Element, wrapper: OpeningWrapper = "{") {
+  private parseContents(
+    parent: Element,
+    wrapper: OpeningWrapper = "{",
+    defaultType?: ElementType,
+  ) {
     let lastElement: Element = parent;
     let lastRelationship: Relationship | null = null;
+    let nextToken: TokenType;
+    let flowElement: Element | null = null;
 
     while (this.peek() && this.peek()!.type !== WRAPPERS[wrapper].close) {
       switch (this.peek()?.kind) {
+        case "}":
+          if (this.peek()?.type !== ">") {
+            this.next(); // skip redundant wrapper
+            break;
+          }
+          flowElement = this.createElement(this.genId(">"), "flow");
+          if (lastRelationship) {
+            lastRelationship.target = flowElement.id;
+            lastRelationship = null;
+          }
+          nextToken = defaultOpeningWrapper(this.next()?.type);
+          this.parseContents(flowElement, nextToken, "object");
+          if (!parent.childIds.includes(flowElement.id))
+            parent.childIds.push(flowElement.id);
+          break;
         case "{": {
           if (lastRelationship) {
             const elem = this.createElement();
             lastRelationship.target = elem.id;
             lastRelationship = null;
           }
-          const nextToken = defaultOpeningWrapper(this.next()?.type);
+          nextToken = defaultOpeningWrapper(this.next()?.type);
           lastElement.type = WRAPPERS[nextToken].type;
           this.parseContents(lastElement, nextToken);
           break;
         }
-        case "}":
-          this.next(); // skip redundant wrapper
-          break;
         case "-":
         case ">": {
           lastRelationship = this.parseRelationship(lastElement ?? parent);
@@ -73,7 +92,9 @@ export class Parser {
           break;
         }
         case "x": {
-          lastElement = this.parseElement(WRAPPERS[wrapper].type);
+          lastElement = this.parseElement(
+            defaultType ?? WRAPPERS[wrapper].type,
+          );
 
           if (lastRelationship) {
             lastRelationship.target = lastElement.id;
