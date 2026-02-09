@@ -418,9 +418,11 @@ describe("Parser", () => {
     expect(flow.type).toBe("flow");
     expect(walk.type).toBe("function");
     expect(shop.type).toBe("object");
-    const rel = Array.from(Object.values(model.relationships))[0];
-    expect(rel.source).toBe(player.id);
-    expect(rel.target).toBe(shop.id);
+    const [rel1, rel2] = Array.from(Object.values(model.relationships));
+    expect(rel1.source).toBe(player.id);
+    expect(rel1.target).toBe(flow.id);
+    expect(rel2.source).toBe(flow.id);
+    expect(rel2.target).toBe(shop.id);
   });
 
   it("should handle anonymity", () => {
@@ -435,5 +437,78 @@ describe("Parser", () => {
     expect(rel1.target).toBe(anon.id);
     expect(rel2.source).toBe(anon.id);
     expect(rel2.target).toBe(x.id);
+  });
+
+  it("should parse different anonymous elements", () => {
+    const model = parse(
+      "a-->[a1]-->b-->{b1}-->c-->(c1)-->d--><d1>-->e-->>e1>-->f",
+    );
+    expect(Object.values(model.elements).length).toBe(16);
+    expect(model.root.childIds.length).toBe(11);
+    expect(Object.values(model.relationships).length).toBe(10);
+    const [
+      a,
+      anon1,
+      a1,
+      b,
+      anon2,
+      b1,
+      c,
+      anon3,
+      c1,
+      d,
+      anon4,
+      d1,
+      e,
+      anon5,
+      e1,
+      f,
+    ] = Array.from(Object.values(model.elements));
+    expect(a.type).toBe("object");
+    expect(anon1.type).toBe("state");
+    expect(a1.type).toBe("state");
+    expect(b.type).toBe("object");
+    expect(anon2.type).toBe("object");
+    expect(b1.type).toBe("object");
+    expect(c.type).toBe("object");
+    expect(anon3.type).toBe("function");
+    expect(c1.type).toBe("function");
+    expect(d.type).toBe("object");
+    expect(anon4.type).toBe("choice");
+    expect(d1.type).toBe("choice");
+    expect(e.type).toBe("object");
+    expect(anon5.type).toBe("flow");
+    expect(e1.type).toBe("object");
+    expect(f.type).toBe("object");
+
+    expect(anon1.childIds).toContain(a1.id);
+    expect(anon2.childIds).toContain(b1.id);
+    expect(anon3.childIds).toContain(c1.id);
+    expect(anon4.childIds).toContain(d1.id);
+    expect(anon5.childIds).toContain(e1.id);
+    expect(anon1.childIds.length).toBe(1);
+    expect(anon2.childIds.length).toBe(1);
+    expect(anon3.childIds.length).toBe(1);
+    expect(anon4.childIds.length).toBe(1);
+    expect(anon5.childIds.length).toBe(1);
+  });
+
+  it("should ensure element and relationship uniqueness", () => {
+    const model = parse("a --> b --> a --> b --> a a b *-- a");
+    expect(Object.values(model.elements).length).toBe(2);
+    expect(Object.values(model.relationships).length).toBe(3);
+    const [a, b] = Array.from(Object.values(model.elements));
+    expect(a.id).toBe("a");
+    expect(b.id).toBe("b");
+    const [rel1, rel2, rel3] = Array.from(Object.values(model.relationships));
+    expect(rel1.source).toBe(a.id);
+    expect(rel1.target).toBe(b.id);
+    expect(rel1.type).toBe("-->");
+    expect(rel2.source).toBe(b.id);
+    expect(rel2.target).toBe(a.id);
+    expect(rel2.type).toBe("-->");
+    expect(rel3.source).toBe(b.id);
+    expect(rel3.target).toBe(a.id);
+    expect(rel3.type).toBe("*--");
   });
 });

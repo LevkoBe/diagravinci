@@ -23,13 +23,13 @@ import {
 
 const WRAPPERS: Record<
   OpeningWrapper,
-  { close: ClosingWrapper; type: ElementType }
+  { close: ClosingWrapper; type: ElementType; defaultChildType: ElementType }
 > = {
-  "{": { close: "}", type: "object" },
-  "[": { close: "]", type: "state" },
-  "(": { close: ")", type: "function" },
-  "<": { close: ">", type: "choice" },
-  ">": { close: ">", type: "flow" },
+  "{": { close: "}", type: "object", defaultChildType: "object" },
+  "[": { close: "]", type: "state", defaultChildType: "state" },
+  "(": { close: ")", type: "function", defaultChildType: "function" },
+  "<": { close: ">", type: "choice", defaultChildType: "choice" },
+  ">": { close: ">", type: "flow", defaultChildType: "object" },
 };
 
 export class Parser {
@@ -47,14 +47,9 @@ export class Parser {
     return this.model;
   }
 
-  private parseContents(
-    parent: Element,
-    wrapper: OpeningWrapper = "{",
-    defaultType?: ElementType,
-  ) {
+  private parseContents(parent: Element, wrapper: OpeningWrapper = "{") {
     let lastEl: Element | null = parent;
     let lastRel: Relationship | null = null;
-    let nextToken: TokenType;
 
     while (this.peek() && this.peek()!.type !== WRAPPERS[wrapper].close) {
       switch (this.peek()?.kind) {
@@ -64,33 +59,27 @@ export class Parser {
             lastEl = null;
             break;
           }
-          nextToken = defaultOpeningWrapper(this.next()?.type);
           lastRel = lastRel ?? this.createRelationship(lastEl?.id ?? parent.id);
-          lastEl = this.openWrapper(lastRel, null, ">");
-          this.parseContents(lastEl, nextToken, "object");
-          if (!parent.childIds.includes(lastEl.id))
-            parent.childIds.push(lastEl.id);
+          lastEl = this.parseOpeningWrapper(parent, lastRel, null, ">");
+          lastRel = this.createRelationship(lastEl.id);
           break;
         case "{": {
-          nextToken = defaultOpeningWrapper(this.next()?.type);
-          lastEl = this.openWrapper(lastRel, lastEl, nextToken);
-          this.parseContents(lastEl, nextToken);
+          lastEl = this.parseOpeningWrapper(parent, lastRel, lastEl);
+          lastRel = null;
           break;
         }
         case "-":
         case ">": {
+          if (lastRel) delete this.model.relationships[lastRel.id];
           lastRel = this.parseRelationship(lastEl ?? parent);
-          this.model.relationships[lastRel.id] = lastRel;
           lastEl = null;
           break;
         }
         case "x": {
-          lastEl = this.parseElement(defaultType ?? WRAPPERS[wrapper].type);
+          lastEl = this.parseElement(WRAPPERS[wrapper].defaultChildType);
 
-          if (lastRel) {
-            lastRel.target = lastEl.id;
-            lastRel = null;
-          }
+          if (lastRel) this.updateRelationship(lastRel.id, lastEl.id);
+          lastRel = null;
           if (!parent.childIds.includes(lastEl.id))
             parent.childIds.push(lastEl.id);
           break;
@@ -100,19 +89,22 @@ export class Parser {
     this.next();
   }
 
-  private openWrapper = (
+  private parseOpeningWrapper(
+    parent: Element,
     lastRel: Relationship | null,
     lastEl: Element | null,
-    nextToken: OpeningWrapper,
-  ): Element => {
+    nextToken?: OpeningWrapper,
+  ): Element {
+    const next = this.next();
+    nextToken = nextToken ?? defaultOpeningWrapper(next?.type);
+
     if (!lastEl) lastEl = this.createElement(this.genId("anon"));
-    if (lastRel) {
-      lastRel.target = lastEl.id;
-      lastRel = null;
-    }
+    if (lastRel) this.updateRelationship(lastRel.id, lastEl.id);
     lastEl.type = WRAPPERS[nextToken].type;
+    this.parseContents(lastEl, nextToken);
+    if (!parent.childIds.includes(lastEl.id)) parent.childIds.push(lastEl.id);
     return lastEl;
-  };
+  }
 
   private parseElement = (defaultType?: ElementType): Element =>
     this.createElement(this.next()?.value, defaultType);
@@ -121,7 +113,7 @@ export class Parser {
     let label: string | undefined = undefined;
     let relType: TokenType | undefined = undefined;
 
-    if (this.nextLike("-x>")) {
+    if (this.nextLike("-x>") || this.nextLike("-x-")) {
       this.next();
       label = this.next()?.value;
       relType = this.next()?.type;
@@ -141,6 +133,15 @@ export class Parser {
     );
   };
 
+  private updateRelationship(id: string, newTarget: string) {
+    const rel = this.model.relationships[id];
+    rel.target = newTarget;
+    rel.id = `${rel.source}-${rel.type}-${rel.target}`;
+
+    delete this.model.relationships[id];
+    this.model.relationships[rel.id] = rel;
+  }
+
   private createElement = (
     id: string = "[placeholder]",
     type: ElementType = "object",
@@ -157,12 +158,22 @@ export class Parser {
     return elem;
   };
 
-  private createRelationship = (
+  private createRelationship(
     source: string = "",
     type: RelationshipType = "-->",
     target: string = "",
     label: string = "",
-  ) => createRelationship(this.genId("rel"), source, target, type, label);
+  ): Relationship {
+    const rel = createRelationship(
+      this.genId("rel"),
+      source,
+      target,
+      type,
+      label,
+    );
+    this.model.relationships[rel.id] = rel;
+    return rel;
+  }
 
   private peek = (offset = 0): Token | undefined =>
     this.tokens[this.pos + offset];
