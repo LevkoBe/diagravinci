@@ -70,8 +70,7 @@ export class Parser {
         }
         case "-":
         case ">": {
-          if (lastRel) delete this.model.relationships[lastRel.id];
-          lastRel = this.parseRelationship(lastEl ?? parent);
+          lastRel = this.parseRelationship(lastEl ?? parent, lastRel);
           lastEl = null;
           break;
         }
@@ -109,7 +108,10 @@ export class Parser {
   private parseElement = (defaultType?: ElementType): Element =>
     this.createElement(this.next()?.value, defaultType);
 
-  private parseRelationship = (source: Element): Relationship => {
+  private parseRelationship = (
+    source: Element,
+    lastRel: Relationship | null,
+  ): Relationship => {
     let label: string | undefined = undefined;
     let relType: TokenType | undefined = undefined;
 
@@ -125,6 +127,11 @@ export class Parser {
       relType = this.next()?.type;
     }
 
+    if (lastRel) {
+      lastRel.label = label ?? lastRel.label;
+      lastRel.type = defaultRelationshipType(relType) ?? lastRel.type;
+      return lastRel;
+    }
     return this.createRelationship(
       source.id,
       defaultRelationshipType(relType),
@@ -136,7 +143,7 @@ export class Parser {
   private updateRelationship(id: string, newTarget: string) {
     const rel = this.model.relationships[id];
     rel.target = newTarget;
-    rel.id = `${rel.source}-${rel.type}-${rel.target}`;
+    rel.id = `${rel.source}${rel.type}${rel.target}`;
 
     delete this.model.relationships[id];
     this.model.relationships[rel.id] = rel;

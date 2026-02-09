@@ -511,4 +511,17 @@ describe("Parser", () => {
     expect(rel3.target).toBe(a.id);
     expect(rel3.type).toBe("*--");
   });
+
+  it("should parse relationship of arbitrary length", () => {
+    const model = parse(
+      "a -- b a --- b a ----------------------- b a ------------------------ b",
+    );
+    expect(Object.values(model.elements).length).toBe(2);
+    expect(Object.values(model.relationships).length).toBe(1);
+    const [a, b] = Array.from(Object.values(model.elements));
+    expect(a.id).toBe("a");
+    expect(b.id).toBe("b");
+    const rel = Array.from(Object.values(model.relationships))[0];
+    expect(rel.source).toBe(a.id);
+  });
 });
