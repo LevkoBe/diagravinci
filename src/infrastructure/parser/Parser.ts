@@ -47,7 +47,15 @@ export class Parser {
     return this.model;
   }
 
-  private parseContents(parent: Element, wrapper: OpeningWrapper = "{") {
+  private parseContents(
+    parent: Element,
+    wrapper: OpeningWrapper = "{",
+    depth = 0,
+  ) {
+    if (depth > 1000) {
+      throw new Error("Maximum parser nesting depth exceeded");
+    }
+
     let lastEl: Element | null = null;
     let lastRel: Relationship | null = null;
 
@@ -60,11 +68,11 @@ export class Parser {
             break;
           }
           lastRel = lastRel ?? this.createRelationship(lastEl?.id ?? parent.id);
-          lastEl = this.parseOpeningWrapper(parent, lastRel, null, ">");
+          lastEl = this.parseOpeningWrapper(parent, lastRel, null, depth, ">");
           lastRel = this.createRelationship(lastEl.id);
           break;
         case "{": {
-          lastEl = this.parseOpeningWrapper(parent, lastRel, lastEl);
+          lastEl = this.parseOpeningWrapper(parent, lastRel, lastEl, depth);
           lastRel = null;
           break;
         }
@@ -93,6 +101,7 @@ export class Parser {
     parent: Element,
     lastRel: Relationship | null,
     lastEl: Element | null,
+    depth: number,
     nextToken?: OpeningWrapper,
   ): Element {
     const next = this.next();
@@ -101,7 +110,7 @@ export class Parser {
     if (!lastEl) lastEl = this.createElement(this.genId("anon"));
     if (lastRel) this.updateRelationship(lastRel.id, lastEl.id);
     lastEl.type = WRAPPERS[nextToken].type;
-    this.parseContents(lastEl, nextToken);
+    this.parseContents(lastEl, nextToken, depth + 1);
     if (!parent.childIds.includes(lastEl.id)) parent.childIds.push(lastEl.id);
     return lastEl;
   }
