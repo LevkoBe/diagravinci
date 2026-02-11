@@ -1,1 +1,84 @@
+@import url("https://fonts.googleapis.com/css2?family=Aleo:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap");
 @import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-bg-primary: #e9cc8c;
+  --color-bg-secondary: #d9bd7a;
+  --color-bg-ternary: #f2dda8;
+  --color-fg-primary: #4a3821;
+  --color-fg-secondary: #726a63;
+  --color-fg-ternary: #978d84;
+  --color-accent: #a06527;
+  --color-danger: #b41e1e;
+
+  --color-state-selected: #d4a574;
+  --color-state-child: #c47835;
+  --color-state-parent: #6b8e4e;
+  --color-state-anchored: #8b6b9d;
+  --color-state-secondary: #5b7c9e;
+
+  --font-sans: "Aleo", ui-serif, Georgia, serif;
+
+  --shadow-parchment: 0 2px 8px rgba(106, 89, 76, 0.15);
+  --shadow-parchment-lg: 0 4px 16px rgba(106, 89, 76, 0.2);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: var(--color-bg-primary);
+    color: var(--color-fg-primary);
+    transition:
+      background-color 200ms,
+      color 200ms;
+  }
+
+  .dark body {
+    --color-bg-primary: #0b0d10;
+    --color-bg-secondary: #151820;
+    --color-bg-ternary: #1f2329;
+    --color-fg-primary: #e8f2ff;
+    --color-fg-secondary: #8b98ab;
+    --color-fg-ternary: #5a6478;
+    --color-accent: #4a9eff;
+    --color-danger: #ff4d4d;
+
+    --color-state-selected: #ffb84d;
+    --color-state-child: #ff8c42;
+    --color-state-parent: #6fcf97;
+    --color-state-anchored: #bb6bd9;
+    --color-state-secondary: #4a9eff;
+
+    --shadow-parchment: 0 0 10px rgba(74, 158, 255, 0.15);
+    --shadow-parchment-lg: 0 0 20px rgba(74, 158, 255, 0.3);
+
+    background-color: var(--color-bg-primary);
+    color: var(--color-fg-primary);
+  }
+
+  ::-webkit-scrollbar {
+    width: 0.5rem;
+    height: 0.5rem;
+  }
+
+  ::-webkit-scrollbar-track {
+    background-color: var(--color-bg-secondary);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-fg-secondary);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-accent);
+  }
+}
