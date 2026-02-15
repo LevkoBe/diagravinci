@@ -3,20 +3,27 @@ import {
   type DiagramModel,
   createEmptyDiagram,
 } from "../../domain/models/DiagramModel";
-import type { Element } from "../../domain/models/Element";
+import type { Element, Position } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
+import type { ViewState } from "../../domain/models/ViewState";
+import {
+  createEmptyViewState,
+  updateElementPosition,
+} from "../../domain/models/ViewState";
+import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 import { Lexer } from "../../infrastructure/parser/Lexer";
 import { Parser } from "../../infrastructure/parser/Parser";
-import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 
 interface DiagramState {
   model: DiagramModel;
+  viewState: ViewState;
   code: string;
   selectedElementId: string | null;
 }
 
 const initialState: DiagramState = {
   model: createEmptyDiagram(),
+  viewState: createEmptyViewState(),
   code: "",
   selectedElementId: null,
 };
@@ -27,6 +34,19 @@ const diagramSlice = createSlice({
   reducers: {
     setModel: (state, action: PayloadAction<DiagramModel>) => {
       state.model = action.payload;
+    },
+    setViewState: (state, action: PayloadAction<ViewState>) => {
+      state.viewState = action.payload;
+    },
+    updateElementPositionInView: (
+      state,
+      action: PayloadAction<{ id: string; position: Position }>,
+    ) => {
+      state.viewState = updateElementPosition(
+        state.viewState,
+        action.payload.id,
+        action.payload.position,
+      );
     },
     upsertElement: (state, action: PayloadAction<Element>) => {
       state.model.elements[action.payload.id] = action.payload;
@@ -40,6 +60,9 @@ const diagramSlice = createSlice({
     removeRelationship: (state, action: PayloadAction<Relationship>) => {
       delete state.model.relationships[action.payload.id];
     },
+    setSelectedElement: (state, action: PayloadAction<string | null>) => {
+      state.selectedElementId = action.payload;
+    },
     parseCode: (state, action: PayloadAction<string>) => {
       try {
         const tokens = new Lexer(action.payload).tokenize();
@@ -47,11 +70,11 @@ const diagramSlice = createSlice({
 
         state.model = parsedModel;
         state.code = action.payload;
+        state.viewState = createEmptyViewState();
       } catch (error) {
         console.error("Parse error:", error);
       }
     },
-
     generateCode: (state) => {
       const generator = new CodeGenerator(state.model);
       state.code = generator.generate();
@@ -61,12 +84,15 @@ const diagramSlice = createSlice({
 
 export const {
   setModel,
+  setViewState,
+  updateElementPositionInView,
   upsertElement,
   removeElement,
   upsertRelationship,
   removeRelationship,
   parseCode,
   generateCode,
+  setSelectedElement,
 } = diagramSlice.actions;
 
 export default diagramSlice.reducer;
