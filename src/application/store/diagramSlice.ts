@@ -6,10 +6,7 @@ import {
 import type { Element, Position } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
 import type { ViewState } from "../../domain/models/ViewState";
-import {
-  createEmptyViewState,
-  updateElementPosition,
-} from "../../domain/models/ViewState";
+import { createEmptyViewState } from "../../domain/models/ViewState";
 import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 import { Lexer } from "../../infrastructure/parser/Lexer";
 import { Parser } from "../../infrastructure/parser/Parser";
@@ -42,11 +39,27 @@ const diagramSlice = createSlice({
       state,
       action: PayloadAction<{ id: string; position: Position }>,
     ) => {
-      state.viewState = updateElementPosition(
-        state.viewState,
-        action.payload.id,
-        action.payload.position,
+      const { id, position } = action.payload;
+      if (state.viewState.positions[id]) {
+        state.viewState.positions[id].position = position;
+      }
+    },
+    moveElementToParent: (
+      state,
+      action: PayloadAction<{ elementId: string; newParentId: string }>,
+    ) => {
+      const { elementId, newParentId } = action.payload;
+
+      Object.values(state.model.elements).forEach((element) => {
+        element.childIds = element.childIds.filter((id) => id !== elementId);
+      });
+      state.model.root.childIds = state.model.root.childIds.filter(
+        (id) => id !== elementId,
       );
+
+      const newParent = state.model.elements[newParentId] || state.model.root;
+      if (!newParent.childIds.includes(elementId))
+        newParent.childIds.push(elementId);
     },
     upsertElement: (state, action: PayloadAction<Element>) => {
       state.model.elements[action.payload.id] = action.payload;
@@ -86,6 +99,7 @@ export const {
   setModel,
   setViewState,
   updateElementPositionInView,
+  moveElementToParent,
   upsertElement,
   removeElement,
   upsertRelationship,

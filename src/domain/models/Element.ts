@@ -9,20 +9,14 @@ export interface Position {
 export interface Element {
   id: string;
   type: ElementType;
-  position: Position;
   foldState: FoldState;
   childIds: string[];
 }
 
-export function createElement(
-  id: string,
-  type: ElementType,
-  position?: Position,
-): Element {
+export function createElement(id: string, type: ElementType): Element {
   return {
     id,
     type,
-    position: position || { x: 0, y: 0 },
     foldState: "expanded",
     childIds: [],
   };
