@@ -1,6 +1,6 @@
 import type { DiagramModel } from "../domain/models/DiagramModel";
 import type { ViewState } from "../domain/models/ViewState";
-import { CircularLayout } from "../domain/layout/CircularLayout";
+import CircularLayout from "../domain/layout/CircularLayout";
 import type { LayoutAlgorithm } from "../domain/layout/LayoutAlgorithm";
 
 export class ViewTransformer {
