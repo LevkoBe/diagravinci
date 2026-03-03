@@ -6,6 +6,19 @@ import {
 } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
 
+class AncestryTracker {
+  private readonly _set: Set<string>;
+  constructor(_set: Set<string> = new Set()) {
+    this._set = _set;
+  }
+  tryAdd(id: string): AncestryTracker | null {
+    if (this._set.has(id)) return null;
+    const newSet = new Set(this._set);
+    newSet.add(id);
+    return new AncestryTracker(newSet);
+  }
+}
+
 export class CodeGenerator {
   private model: DiagramModel;
 
@@ -20,7 +33,7 @@ export class CodeGenerator {
     );
 
     for (const element of rootElements)
-      lines.push(this.generateElement(element, 0));
+      lines.push(this.generateElement(element, 0, new AncestryTracker()));
     lines.push("");
     for (const relationship of Object.values(this.model.relationships))
       lines.push(this.generateRelationship(relationship));
@@ -33,7 +46,11 @@ export class CodeGenerator {
     return element ?? createElement("[NON-EXISTING ELEMENT]", "object");
   }
 
-  private generateElement(element: Element, indent: number): string {
+  private generateElement(
+    element: Element,
+    indent: number,
+    ancestry: AncestryTracker,
+  ): string {
     const indentation = this.getIndentation(indent);
     const wrapper = this.getWrapperFromType(element.type);
     const opening = wrapper[0];
@@ -43,11 +60,18 @@ export class CodeGenerator {
 
     if (!hasContent) return `${indentation}${element.id}${opening}${closing}`;
 
+    const newAncestry = ancestry.tryAdd(element.id);
+    if (!newAncestry)
+      return `${indentation}${element.id}${opening}${closing} # recursion`;
+
     const lines: string[] = [];
     lines.push(`${indentation}${element.id}${opening}`);
 
-    for (const id of element.childIds)
-      lines.push(this.generateElement(this.getElementById(id), indent + 1));
+    for (const id of element.childIds) {
+      lines.push(
+        this.generateElement(this.getElementById(id), indent + 1, newAncestry),
+      );
+    }
     lines.push(`${indentation}${closing}`);
 
     return lines.join("\n");
