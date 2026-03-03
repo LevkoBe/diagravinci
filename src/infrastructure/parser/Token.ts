@@ -22,8 +22,9 @@ export const TOKEN_LITERALS = [
   ...CLOSING_WRAPPERS,
 ] as const;
 
-export type PartialRelationship = (typeof PARTIAL_RELATIONSHIPS)[number];
-export type RelationshipType = (typeof RELATIONSHIPS)[number];
+export type RelationshipType =
+  | (typeof PARTIAL_RELATIONSHIPS)[number]
+  | (typeof RELATIONSHIPS)[number];
 export type OpeningWrapper = (typeof OPENING_WRAPPERS)[number];
 export type ClosingWrapper = (typeof CLOSING_WRAPPERS)[number];
 export type NameType = "IDENTIFIER";

@@ -575,4 +575,30 @@ describe("Parser", () => {
     expect(rel2.source).toBe(b.id);
     expect(rel2.target).toBe(a.id);
   });
+
+  it("should handle deep nesting duplicates", () => {
+    const model = parse("a{a{a{a{a}}}}");
+    expect(Object.values(model.elements).length).toBe(1);
+    const a = Array.from(Object.values(model.elements))[0];
+    expect(a.id).toBe("a");
+    expect(a.childIds).toContain(a.id);
+  });
+
+  it("should parse correctly complex nesting duplicates", () => {
+    const model = parse("a{a b{a{a b c} b}} c{a{b}}");
+    expect(Object.values(model.elements).length).toBe(3);
+    const [a, b, c] = Array.from(Object.values(model.elements));
+    expect(a.id).toBe("a");
+    expect(b.id).toBe("b");
+    expect(c.id).toBe("c");
+    expect(a.childIds).toHaveLength(3);
+    expect(a.childIds).toContain(a.id);
+    expect(a.childIds).toContain(b.id);
+    expect(a.childIds).toContain(c.id);
+    expect(b.childIds).toHaveLength(2);
+    expect(b.childIds).toContain(a.id);
+    expect(b.childIds).toContain(b.id);
+    expect(c.childIds).toHaveLength(1);
+    expect(c.childIds).toContain(a.id);
+  });
 });

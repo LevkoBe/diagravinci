@@ -98,7 +98,7 @@ export class Parser {
     const next = this.next();
     nextToken = nextToken ?? defaultOpeningWrapper(next?.type);
 
-    if (!lastEl) lastEl = this.createElement(this.genId("anon"));
+    if (!lastEl) lastEl = this.createElement(this.genId(parent, "anon"));
     if (lastRel) this.updateRelationship(lastRel.id, lastEl.id);
     lastEl.type = WRAPPERS[nextToken].type;
     this.parseContents(lastEl, nextToken);
@@ -173,7 +173,7 @@ export class Parser {
     label: string = "",
   ): Relationship {
     const rel = createRelationship(
-      this.genId("rel"),
+      this.genId(null, "rel"),
       source,
       target,
       type,
@@ -189,6 +189,8 @@ export class Parser {
   private nextLike = (pattern: string) =>
     pattern.split("").every((k, i) => this.peek(i)?.kind === k);
 
-  private genId = (prefix: string = "elem") =>
-    `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  private genId = (parent: Element | null, prefix: string = "anon") =>
+    parent
+      ? `${prefix}_${parent.childIds.length + 1}`
+      : `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
