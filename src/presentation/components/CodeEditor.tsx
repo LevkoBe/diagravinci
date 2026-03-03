@@ -1,14 +1,13 @@
 import Editor from "@monaco-editor/react";
-import { useAppSelector, useAppDispatch } from "../../application/store/hooks";
-import { parseCode } from "../../application/store/diagramSlice";
+import { useAppSelector } from "../../application/store/hooks";
+import { syncManager } from "../../application/store/store";
 
 export function CodeEditor() {
   const code = useAppSelector((state) => state.diagram.code);
-  const dispatch = useAppDispatch();
 
   const handleCodeChange = (value: string | undefined) => {
     if (value !== undefined) {
-      dispatch(parseCode(value));
+      syncManager.syncFromCode(value);
     }
   };
 
