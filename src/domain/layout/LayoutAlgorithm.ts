@@ -6,5 +6,6 @@ export interface LayoutAlgorithm {
   apply(
     model: DiagramModel,
     canvasSize: { width: number; height: number },
+    previousViewState?: ViewState,
   ): ViewState;
 }
