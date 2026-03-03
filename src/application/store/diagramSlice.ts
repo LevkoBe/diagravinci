@@ -7,22 +7,19 @@ import type { Element, Position } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
 import type { ViewState } from "../../domain/models/ViewState";
 import { createEmptyViewState } from "../../domain/models/ViewState";
-import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
-import { Lexer } from "../../infrastructure/parser/Lexer";
-import { Parser } from "../../infrastructure/parser/Parser";
 
 interface DiagramState {
   model: DiagramModel;
   viewState: ViewState;
   code: string;
-  selectedElementId: string | null;
+  canvasSize: { width: number; height: number };
 }
 
 const initialState: DiagramState = {
   model: createEmptyDiagram(),
   viewState: createEmptyViewState(),
   code: "",
-  selectedElementId: null,
+  canvasSize: { width: 800, height: 600 },
 };
 
 const diagramSlice = createSlice({
@@ -35,6 +32,15 @@ const diagramSlice = createSlice({
     setViewState: (state, action: PayloadAction<ViewState>) => {
       state.viewState = action.payload;
     },
+    setCode: (state, action: PayloadAction<string>) => {
+      state.code = action.payload;
+    },
+    setCanvasSize: (
+      state,
+      action: PayloadAction<{ width: number; height: number }>,
+    ) => {
+      state.canvasSize = action.payload;
+    },
     updateElementPositionInView: (
       state,
       action: PayloadAction<{ id: string; position: Position }>,
@@ -44,53 +50,17 @@ const diagramSlice = createSlice({
         state.viewState.positions[id].position = position;
       }
     },
-    moveElementToParent: (
-      state,
-      action: PayloadAction<{ elementId: string; newParentId: string }>,
-    ) => {
-      const { elementId, newParentId } = action.payload;
-
-      Object.values(state.model.elements).forEach((element) => {
-        element.childIds = element.childIds.filter((id) => id !== elementId);
-      });
-      state.model.root.childIds = state.model.root.childIds.filter(
-        (id) => id !== elementId,
-      );
-
-      const newParent = state.model.elements[newParentId] || state.model.root;
-      if (!newParent.childIds.includes(elementId))
-        newParent.childIds.push(elementId);
-    },
     upsertElement: (state, action: PayloadAction<Element>) => {
       state.model.elements[action.payload.id] = action.payload;
     },
-    removeElement: (state, action: PayloadAction<Element>) => {
-      delete state.model.elements[action.payload.id];
+    removeElement: (state, action: PayloadAction<string>) => {
+      delete state.model.elements[action.payload];
     },
     upsertRelationship: (state, action: PayloadAction<Relationship>) => {
       state.model.relationships[action.payload.id] = action.payload;
     },
-    removeRelationship: (state, action: PayloadAction<Relationship>) => {
-      delete state.model.relationships[action.payload.id];
-    },
-    setSelectedElement: (state, action: PayloadAction<string | null>) => {
-      state.selectedElementId = action.payload;
-    },
-    parseCode: (state, action: PayloadAction<string>) => {
-      try {
-        const tokens = new Lexer(action.payload).tokenize();
-        const parsedModel = new Parser(tokens).parse();
-
-        state.model = parsedModel;
-        state.code = action.payload;
-        state.viewState = createEmptyViewState();
-      } catch (error) {
-        console.error("Parse error:", error);
-      }
-    },
-    generateCode: (state) => {
-      const generator = new CodeGenerator(state.model);
-      state.code = generator.generate();
+    removeRelationship: (state, action: PayloadAction<string>) => {
+      delete state.model.relationships[action.payload];
     },
   },
 });
@@ -98,15 +68,13 @@ const diagramSlice = createSlice({
 export const {
   setModel,
   setViewState,
+  setCode,
+  setCanvasSize,
   updateElementPositionInView,
-  moveElementToParent,
   upsertElement,
   removeElement,
   upsertRelationship,
   removeRelationship,
-  parseCode,
-  generateCode,
-  setSelectedElement,
 } = diagramSlice.actions;
 
 export default diagramSlice.reducer;
