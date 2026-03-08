@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   MousePointer2,
   Pencil,
@@ -15,6 +15,9 @@ import {
   Unlink,
   FileCode,
   FileInput,
+  SlidersHorizontal,
+  EyeOff,
+  Eye,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { toggleTheme } from "../../application/store/themeSlice";
@@ -29,8 +32,14 @@ import {
   setViewState,
   setCode,
 } from "../../application/store/diagramSlice";
+import {
+  setFilterMode,
+  setFilterActive,
+} from "../../application/store/filterSlice";
 import { ELEMENT_SVGS } from "../ElementConfigs";
+import { FilterModal } from "./FilterModal";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
+import type { FilterMode } from "../../domain/models/FilterRule";
 
 const ELEMENT_TYPES = [
   { type: "object" },
@@ -131,9 +140,13 @@ export function ToolBar() {
   const model = useAppSelector((s) => s.diagram.model);
   const viewState = useAppSelector((s) => s.diagram.viewState);
   const code = useAppSelector((s) => s.diagram.code);
+  const { mode: filterMode, isActive: filterIsActive } = useAppSelector(
+    (s) => s.filter,
+  );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -185,6 +198,19 @@ export function ToolBar() {
     );
   };
 
+  const reapplyFilter = useCallback(() => {
+    import("../../application/store/store").then(({ syncManager }) =>
+      syncManager.reapplyFilter(),
+    );
+  }, []);
+
+  const handleFilterMode = (mode: FilterMode) => {
+    const toggling = filterIsActive && filterMode === mode;
+    dispatch(setFilterMode(mode));
+    dispatch(setFilterActive(!toggling));
+    reapplyFilter();
+  };
+
   return (
     <>
       <input
@@ -201,6 +227,10 @@ export function ToolBar() {
         className="hidden"
         onChange={handleCodeFile}
       />
+
+      {filterModalOpen && (
+        <FilterModal onClose={() => setFilterModalOpen(false)} />
+      )}
 
       <div className="flex items-center gap-2 px-4 py-2.5 flex-wrap border-b-2 border-fg-ternary/60">
         {/* Create */}
@@ -276,6 +306,33 @@ export function ToolBar() {
               </span>
             </Btn>
           ))}
+        </Pill>
+
+        <Divider />
+
+        {/* Filter */}
+        <Pill label="Filter">
+          <Btn
+            title="Edit filter rules"
+            active={filterModalOpen}
+            onClick={() => setFilterModalOpen((v) => !v)}
+          >
+            <SlidersHorizontal size={15} />
+          </Btn>
+          <Btn
+            title="Hide filtered elements"
+            active={filterIsActive && filterMode === "hide"}
+            onClick={() => handleFilterMode("hide")}
+          >
+            <EyeOff size={15} />
+          </Btn>
+          <Btn
+            title="Dim filtered elements"
+            active={filterIsActive && filterMode === "dim"}
+            onClick={() => handleFilterMode("dim")}
+          >
+            <Eye size={15} />
+          </Btn>
         </Pill>
 
         <div className="flex-1" />
