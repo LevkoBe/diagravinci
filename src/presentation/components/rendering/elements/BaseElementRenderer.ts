@@ -42,6 +42,10 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     y: number;
   }): ElementRenderResult | undefined;
 
+  protected isHidden(): boolean {
+    return this.viewState.positions[this.path]?.isHidden === true;
+  }
+
   protected createElementGroup(parentPos?: {
     x: number;
     y: number;
@@ -145,8 +149,10 @@ export abstract class BaseElementRenderer implements IElementRenderer {
   ): { onHoverIn: () => void; onHoverOut: () => void } {
     const hoverScale = 1.15;
     const hoverStrokeWidth = initialStrokeWidth * 0.8;
+    const isDimmed = this.viewState.positions[this.path]?.isDimmed === true;
 
     const onHoverIn = () => {
+      if (isDimmed) return;
       new Konva.Tween({
         node: group,
         duration: 0.15,
@@ -154,7 +160,6 @@ export abstract class BaseElementRenderer implements IElementRenderer {
         scaleX: hoverScale,
         scaleY: hoverScale,
       }).play();
-
       new Konva.Tween({
         node: shapeNode,
         duration: 0.15,
@@ -164,6 +169,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     };
 
     const onHoverOut = () => {
+      if (isDimmed) return;
       new Konva.Tween({
         node: group,
         duration: 0.15,
@@ -171,7 +177,6 @@ export abstract class BaseElementRenderer implements IElementRenderer {
         scaleX: 1,
         scaleY: 1,
       }).play();
-
       new Konva.Tween({
         node: shapeNode,
         duration: 0.15,

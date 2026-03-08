@@ -71,6 +71,7 @@ export class DiagramLayerRenderer {
     path: string,
     parentPos?: { x: number; y: number },
   ): void {
+    if (this.viewState.positions[path]?.isHidden) return;
     const elementGroup = this.renderElement(element, path, parentPos);
     if (!elementGroup) return;
 
