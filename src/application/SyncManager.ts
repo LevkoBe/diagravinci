@@ -6,9 +6,12 @@ import { CodeGenerator } from "../infrastructure/codegen/CodeGenerator";
 import { Lexer } from "../infrastructure/parser/Lexer";
 import { Parser } from "../infrastructure/parser/Parser";
 import { setCode, setModel, setViewState } from "./store/diagramSlice";
+import { ViewTransformer } from "./ViewTransformer";
 import type { AppStore } from "./store/store";
+import type { FilterConfig } from "../domain/models/FilterRule";
 
 export type SyncSource = "code" | "vis" | "ai";
+
 export interface SyncEvent {
   source: SyncSource;
   model: DiagramModel;
@@ -20,9 +23,11 @@ export interface SyncEvent {
 export class SyncManager {
   private listeners: Array<(event: SyncEvent) => void> = [];
   private store: AppStore;
+  private transformer: ViewTransformer;
 
   constructor(store: AppStore) {
     this.store = store;
+    this.transformer = new ViewTransformer();
   }
 
   subscribe(callback: (event: SyncEvent) => void): () => void {
@@ -48,12 +53,12 @@ export class SyncManager {
         return;
       }
 
-      const newViewState = ViewStateMerger.merge(
+      const base = ViewStateMerger.merge(
         currentViewState,
         newModel,
         canvasSize,
       );
-
+      const newViewState = this.withFilter(base, newModel);
       this.store.dispatch(setModel(newModel));
       this.store.dispatch(setViewState(newViewState));
       this.store.dispatch(setCode(code));
@@ -76,20 +81,19 @@ export class SyncManager {
       canvasSize,
     } = this.store.getState().diagram;
 
-    const newViewState = ViewStateMerger.merge(
+    const base = ViewStateMerger.merge(
       currentViewState,
       updatedModel,
       canvasSize,
     );
+    const newViewState = this.withFilter(base, updatedModel);
     this.store.dispatch(setViewState(newViewState));
 
     const diff = ModelDiffer.diff(currentModel, updatedModel);
     if (ModelDiffer.isEmpty(diff)) return;
 
     const code = new CodeGenerator(updatedModel).generate();
-
     this.store.dispatch(setModel(updatedModel));
-
     this.store.dispatch(setCode(code));
     this.notify({
       source: "vis",
@@ -102,6 +106,27 @@ export class SyncManager {
 
   syncFromAI(code: string): void {
     this.syncFromCode(code);
+  }
+
+  reapplyFilter(): void {
+    const state = this.store.getState();
+    const { model, viewState } = state.diagram;
+    const filterConfig = (state as unknown as { filter: FilterConfig }).filter;
+    if (!filterConfig) return;
+    const updated = this.transformer.applyFilter(
+      viewState,
+      model,
+      filterConfig,
+    );
+    this.store.dispatch(setViewState(updated));
+  }
+
+  private withFilter(viewState: ViewState, model: DiagramModel): ViewState {
+    const filterConfig = (
+      this.store.getState() as unknown as { filter: FilterConfig }
+    ).filter;
+    if (!filterConfig) return viewState;
+    return this.transformer.applyFilter(viewState, model, filterConfig);
   }
 
   private notify(event: SyncEvent): void {
