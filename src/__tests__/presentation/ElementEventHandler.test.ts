@@ -5,7 +5,7 @@ import { KonvaTestHelper } from "../utils";
 import {
   type ElementEventCallbacks,
   ElementEventHandler,
-} from "../../presentation/components/rendering/ElementEventHandler";
+} from "../../presentation/components/rendering/elements/ElementEventHandler";
 
 describe("ElementEventHandler", () => {
   let helper: KonvaTestHelper;
@@ -29,7 +29,7 @@ describe("ElementEventHandler", () => {
       };
 
       const handler = new ElementEventHandler(
-        { id: "a" },
+        { id: "a", path: "a" },
         "a",
         helper.getStage(),
         callbacks as ElementEventCallbacks,
@@ -50,7 +50,7 @@ describe("ElementEventHandler", () => {
       const callbacks: Partial<ElementEventCallbacks> = { onClick };
 
       const handler = new ElementEventHandler(
-        { id: "a" },
+        { id: "a", path: "a" },
         "a",
         helper.getStage(),
         callbacks as ElementEventCallbacks,
@@ -75,7 +75,7 @@ describe("ElementEventHandler", () => {
       const callbacks: Partial<ElementEventCallbacks> = { onClick };
 
       const handler = new ElementEventHandler(
-        { id: "a" },
+        { id: "a", path: "a" },
         "a",
         helper.getStage(),
         callbacks as ElementEventCallbacks,
@@ -102,7 +102,7 @@ describe("ElementEventHandler", () => {
       const callbacks: Partial<ElementEventCallbacks> = { setHovered };
 
       const handler = new ElementEventHandler(
-        { id: "a" },
+        { id: "a", path: "a" },
         "a",
         helper.getStage(),
         callbacks as ElementEventCallbacks,
@@ -127,7 +127,7 @@ describe("ElementEventHandler", () => {
       const callbacks: Partial<ElementEventCallbacks> = { setHovered };
 
       const handler = new ElementEventHandler(
-        { id: "a" },
+        { id: "a", path: "a" },
         "a",
         helper.getStage(),
         callbacks as ElementEventCallbacks,

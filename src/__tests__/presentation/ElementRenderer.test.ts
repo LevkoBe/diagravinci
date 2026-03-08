@@ -1,6 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import Konva from "konva";
-import { ElementRenderer } from "../../presentation/components/rendering/ElementRenderer";
 import type { Colors } from "../../presentation/components/rendering/types";
 import {
   MockElementFactory,
@@ -8,6 +7,11 @@ import {
   KonvaTestHelper,
 } from "../utils";
 import type { Position } from "../../domain/models/Element";
+import { SvgPathElementRenderer } from "../../presentation/components/rendering/elements/SvgPathElementRenderer";
+import {
+  ElementEventHandler,
+  type ElementEventCallbacks,
+} from "../../presentation/components/rendering/elements/ElementEventHandler";
 
 describe("ElementRenderer", () => {
   let helper: KonvaTestHelper;
@@ -35,7 +39,7 @@ describe("ElementRenderer", () => {
         .addElement("a", 100, 100, 60, false)
         .build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "a",
         viewState,
@@ -59,7 +63,7 @@ describe("ElementRenderer", () => {
         .addElement("a", 100, 100, 60, false)
         .build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "a",
         viewState,
@@ -83,7 +87,7 @@ describe("ElementRenderer", () => {
         .addElement("b", 100, 100, 60, false)
         .build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "b",
         viewState,
@@ -109,7 +113,7 @@ describe("ElementRenderer", () => {
         .addElement("a", 200, 150, 60, false)
         .build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "a",
         viewState,
@@ -132,7 +136,7 @@ describe("ElementRenderer", () => {
         .addElement("b", 150, 150, 60, false)
         .build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "b",
         viewState,
@@ -156,7 +160,7 @@ describe("ElementRenderer", () => {
         .addElement("a", 100, 100, 60, false)
         .build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "a",
         viewState,
@@ -178,7 +182,7 @@ describe("ElementRenderer", () => {
         .addElement("a", 100, 100, 60, false)
         .build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "a",
         viewState,
@@ -202,7 +206,7 @@ describe("ElementRenderer", () => {
         .addElement("a", 100, 100, 60, false)
         .build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "a",
         viewState,
@@ -226,7 +230,7 @@ describe("ElementRenderer", () => {
         .addElement("a", 100, 100, 60, false)
         .build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "a",
         viewState,
@@ -252,7 +256,7 @@ describe("ElementRenderer", () => {
         .addElement("a", 100, 100, 60, true)
         .build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "a",
         viewState,
@@ -282,7 +286,7 @@ describe("ElementRenderer", () => {
         .addElement("a", 100, 100, 60, false)
         .build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "a",
         viewState,
@@ -310,7 +314,7 @@ describe("ElementRenderer", () => {
         .addElement("a", 100, 100, 60, false)
         .build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "a",
         viewState,
@@ -334,7 +338,7 @@ describe("ElementRenderer", () => {
         .addElement("a", 100, 100, 60, false)
         .build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "a",
         viewState,
@@ -360,7 +364,7 @@ describe("ElementRenderer", () => {
         .addElement("a", 100, 100, 60, false)
         .build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "a",
         viewState,
@@ -384,7 +388,7 @@ describe("ElementRenderer", () => {
       const element = MockElementFactory.createElement("a", "object");
       const viewState = new ViewStateBuilder().build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "a",
         viewState,
@@ -407,7 +411,7 @@ describe("ElementRenderer", () => {
         .addElement("a", 100, 100, 100, false)
         .build();
 
-      const renderer = new ElementRenderer(
+      const renderer = new SvgPathElementRenderer(
         element,
         "a",
         viewState,
@@ -424,6 +428,229 @@ describe("ElementRenderer", () => {
 
       expect(pathShape?.scaleX()).toBeGreaterThan(0);
       expect(pathShape?.scaleY()).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Handler Creation", () => {
+    it("should create event handlers with all required methods", () => {
+      const onClick = vi.fn();
+      const setHovered = vi.fn();
+      const callbacks: Partial<ElementEventCallbacks> = {
+        onClick,
+        setHovered,
+      };
+      const handler = new ElementEventHandler(
+        { id: "a", path: "a" },
+        "a",
+        helper.getStage(),
+        callbacks as ElementEventCallbacks,
+      );
+      const handlers = handler.createHandlers();
+      expect(handlers).toHaveProperty("onClick");
+      expect(handlers).toHaveProperty("onMouseEnter");
+      expect(handlers).toHaveProperty("onMouseLeave");
+      expect(handlers).toHaveProperty("onDragMove");
+      expect(handlers).toHaveProperty("onDragEnd");
+    });
+  });
+
+  describe("Click Handling", () => {
+    it("should call onClick callback when element is clicked", () => {
+      const onClick = vi.fn();
+      const callbacks: Partial<ElementEventCallbacks> = { onClick };
+      const handler = new ElementEventHandler(
+        { id: "a", path: "a" },
+        "a",
+        helper.getStage(),
+        callbacks as ElementEventCallbacks,
+      );
+      const handlers = handler.createHandlers();
+      const clickEvent: Konva.KonvaEventObject<MouseEvent> = {
+        type: "click",
+        evt: new MouseEvent("click"),
+        target: null as any,
+        currentTarget: null as any,
+        cancelBubble: false,
+        pointerId: 0,
+      };
+      handlers.onClick(clickEvent);
+      expect(onClick).toHaveBeenCalled();
+    });
+    it("should pass correct element ID to onClick callback", () => {
+      const onClick = vi.fn();
+      const callbacks: Partial<ElementEventCallbacks> = { onClick };
+      const handler = new ElementEventHandler(
+        { id: "a", path: "a" },
+        "a",
+        helper.getStage(),
+        callbacks as ElementEventCallbacks,
+      );
+      const handlers = handler.createHandlers();
+      const clickEvent: Konva.KonvaEventObject<MouseEvent> = {
+        type: "click",
+        evt: new MouseEvent("click"),
+        target: null as any,
+        currentTarget: null as any,
+        cancelBubble: false,
+        pointerId: 0,
+      };
+      handlers.onClick(clickEvent);
+      expect(onClick).toHaveBeenCalledWith("a");
+    });
+  });
+
+  describe("Hover Handling", () => {
+    it("should call setHovered when mouse enters", () => {
+      const setHovered = vi.fn();
+      const callbacks: Partial<ElementEventCallbacks> = { setHovered };
+      const handler = new ElementEventHandler(
+        { id: "a", path: "a" },
+        "a",
+        helper.getStage(),
+        callbacks as ElementEventCallbacks,
+      );
+      const handlers = handler.createHandlers();
+      const mouseEnterEvent: Konva.KonvaEventObject<MouseEvent> = {
+        type: "mouseenter",
+        evt: new MouseEvent("mouseenter"),
+        target: null as any,
+        currentTarget: null as any,
+        cancelBubble: false,
+        pointerId: 0,
+      };
+      handlers.onMouseEnter?.(mouseEnterEvent);
+      expect(setHovered).toHaveBeenCalledWith("a");
+    });
+    it("should call setHovered(null) when mouse leaves", () => {
+      const setHovered = vi.fn();
+      const callbacks: Partial<ElementEventCallbacks> = { setHovered };
+      const handler = new ElementEventHandler(
+        { id: "a", path: "a" },
+        "a",
+        helper.getStage(),
+        callbacks as ElementEventCallbacks,
+      );
+      const handlers = handler.createHandlers();
+      const mouseLeaveEvent: Konva.KonvaEventObject<MouseEvent> = {
+        type: "mouseleave",
+        evt: new MouseEvent("mouseleave"),
+        target: null as any,
+        currentTarget: null as any,
+        cancelBubble: false,
+        pointerId: 0,
+      };
+      handlers.onMouseLeave?.(mouseLeaveEvent);
+      expect(setHovered).toHaveBeenCalledWith(null);
+    });
+  });
+
+  describe("Nested Paths", () => {
+    it("should correctly handle nested element paths", () => {
+      const setHovered = vi.fn();
+      const callbacks: Partial<ElementEventCallbacks> = { setHovered };
+      const handler = new ElementEventHandler(
+        { id: "nested", path: "root.nested.a" },
+        "root.nested.a",
+        helper.getStage(),
+        callbacks as ElementEventCallbacks,
+      );
+      const handlers = handler.createHandlers();
+      const mouseEnterEvent: Konva.KonvaEventObject<MouseEvent> = {
+        type: "mouseenter",
+        evt: new MouseEvent("mouseenter"),
+        target: null as any,
+        currentTarget: null as any,
+        cancelBubble: false,
+        pointerId: 0,
+      };
+      handlers.onMouseEnter?.(mouseEnterEvent);
+      expect(setHovered).toHaveBeenCalledWith("root.nested.a");
+    });
+  });
+
+  describe("Drag Handling", () => {
+    it("should position into b.c when dragging b.c.a over b.c.a", () => {
+      const setHovered = vi.fn();
+      const findHoveredPath = vi.fn().mockReturnValue("b.c");
+      const updateRelationshipLines = vi.fn();
+      const updateChildRelationshipLines = vi.fn();
+      const callbacks: Partial<ElementEventCallbacks> = {
+        setHovered,
+        findHoveredPath,
+        updateRelationshipLines,
+        updateChildRelationshipLines,
+      };
+      const stage = helper.getStage();
+      const handler = new ElementEventHandler(
+        { id: "a", path: "b.c.a" },
+        "b.c.a",
+        stage,
+        callbacks as ElementEventCallbacks,
+      );
+      const handlers = handler.createHandlers();
+      vi.spyOn(stage, "getPointerPosition").mockReturnValue({ x: 0, y: 0 });
+      const dragMoveEvent: Konva.KonvaEventObject<DragEvent> = {
+        type: "dragmove",
+        evt: new DragEvent("dragmove"),
+        target: null as any,
+        currentTarget: null as any,
+        cancelBubble: false,
+        pointerId: 0,
+      };
+      handlers.onDragMove(dragMoveEvent);
+      expect(findHoveredPath).toHaveBeenCalledWith("a", {
+        x: expect.any(Number),
+        y: expect.any(Number),
+      });
+      expect(setHovered).toHaveBeenCalledWith("b.c");
+      expect(updateRelationshipLines).toHaveBeenCalledWith("b.c.a");
+      expect(updateChildRelationshipLines).toHaveBeenCalledWith("b.c.a");
+    });
+    it("should change positions back to original when dragging b.c.a to a.c.a", () => {
+      const setHovered = vi.fn();
+      const onPositionChange = vi.fn();
+      const updateChildPositions = vi.fn();
+      const onReparent = vi.fn();
+      const findNewParentPath = vi.fn().mockReturnValue("b.c");
+      const getRootId = vi.fn().mockReturnValue("root");
+      const callbacks: Partial<ElementEventCallbacks> = {
+        setHovered,
+        onPositionChange,
+        updateChildPositions,
+        onReparent,
+        findNewParentPath,
+        getRootId,
+      };
+      const stage = helper.getStage();
+      const handler = new ElementEventHandler(
+        { id: "a", path: "b.c.a" },
+        "b.c.a",
+        stage,
+        callbacks as ElementEventCallbacks,
+      );
+      const handlers = handler.createHandlers();
+      const group = new Konva.Group();
+      vi.spyOn(group, "getAbsolutePosition").mockReturnValue({ x: 0, y: 0 });
+      const dragEndEvent: Konva.KonvaEventObject<DragEvent> = {
+        type: "dragend",
+        evt: new DragEvent("dragend"),
+        target: group as any,
+        currentTarget: null as any,
+        cancelBubble: false,
+        pointerId: 0,
+      };
+      handlers.onDragEnd(dragEndEvent);
+      expect(setHovered).toHaveBeenCalledWith(null);
+      expect(onPositionChange).toHaveBeenCalledWith("b.c.a", {
+        x: expect.any(Number),
+        y: expect.any(Number),
+      });
+      expect(updateChildPositions).toHaveBeenCalledWith("b.c.a");
+      expect(findNewParentPath).toHaveBeenCalledWith("b.c.a", {
+        x: expect.any(Number),
+        y: expect.any(Number),
+      });
+      expect(onReparent).not.toHaveBeenCalled();
     });
   });
 });
