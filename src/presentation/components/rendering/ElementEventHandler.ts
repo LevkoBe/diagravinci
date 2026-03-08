@@ -2,13 +2,13 @@ import Konva from "konva";
 import { screenToWorld } from "./arrowUtils";
 
 export class ElementEventHandler {
-  private readonly element: { id: string };
+  private readonly element: { id: string; path: string };
   private readonly path: string;
   private readonly stage: Konva.Stage;
   private callbacks: ElementEventCallbacks;
 
   constructor(
-    element: { id: string },
+    element: { id: string; path: string },
     path: string,
     stage: Konva.Stage,
     callbacks: ElementEventCallbacks,
@@ -68,7 +68,7 @@ export class ElementEventHandler {
             : segments.slice(0, -1).join(".");
 
         const newParentPath = this.callbacks.findNewParentPath(
-          this.element.id,
+          this.element.path,
           worldPos,
         );
 
@@ -98,7 +98,7 @@ export interface ElementEventCallbacks {
     worldCenter: { x: number; y: number },
   ) => string | null;
   findNewParentPath: (
-    draggedElementId: string,
+    draggedElementPath: string,
     worldCenter: { x: number; y: number },
   ) => string;
   updateRelationshipLines: (changedPath: string) => void;

@@ -1,4 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import type { ElementType } from "../../domain/models/Element";
+import type { RelationshipType } from "../../infrastructure/parser/Token";
 
 export type InteractionMode =
   | "select"
@@ -10,8 +12,8 @@ export type ZoomCommand = { type: "in" | "out" | "reset"; ts: number };
 
 export interface UIState {
   interactionMode: InteractionMode;
-  activeElementType: string;
-  activeRelationshipType: string;
+  activeElementType: ElementType;
+  activeRelationshipType: RelationshipType;
   connectingFromId: string | null;
   selectedElementId: string | null;
   zoomCommand: ZoomCommand | null;
@@ -34,11 +36,11 @@ const uiSlice = createSlice({
       state.interactionMode = action.payload;
       state.connectingFromId = null;
     },
-    setActiveElementType(state, action: PayloadAction<string>) {
+    setActiveElementType(state, action: PayloadAction<ElementType>) {
       state.activeElementType = action.payload;
       state.interactionMode = "create";
     },
-    setActiveRelationshipType(state, action: PayloadAction<string>) {
+    setActiveRelationshipType(state, action: PayloadAction<RelationshipType>) {
       state.activeRelationshipType = action.payload;
       state.interactionMode = "connect";
       state.connectingFromId = null;

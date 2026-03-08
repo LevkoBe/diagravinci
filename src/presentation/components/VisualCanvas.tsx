@@ -14,7 +14,7 @@ import { syncManager } from "../../application/store/store";
 import { getCSSVariable } from "../../shared/utils";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
-import type { Element } from "../../domain/models/Element";
+import type { Element, ElementType } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
 import type { Position } from "../../domain/models/Element";
 
@@ -208,6 +208,7 @@ export function VisualCanvas() {
           dispatch(updateElementPositionInView({ id, position: worldPos }));
         },
         onReparent: (elementId, oldParentPath, newParentPath) => {
+          console.log("Repar:", model, elementId, oldParentPath, newParentPath);
           const updatedModel = applyReparent(
             model,
             elementId,
@@ -317,7 +318,7 @@ export function VisualCanvas() {
 
 function createNewElement(
   model: DiagramModel,
-  elementType: string,
+  elementType: ElementType,
   parentElementId: string | null,
   worldPos: Position | null,
   dispatch: ReturnType<
@@ -327,8 +328,8 @@ function createNewElement(
   const newId = `${elementType}_${Date.now()}`;
   const newElement: Element = {
     id: newId,
-    type: elementType as Element["type"],
-    foldState: "open" as Element["foldState"],
+    type: elementType,
+    foldState: "expanded",
     childIds: [],
   };
 
@@ -367,6 +368,7 @@ function applyReparent(
   const elements = { ...model.elements };
   let root = { ...model.root };
 
+  console.log("app:", elementId, oldParentPath, newParentPath);
   if (oldParentPath === model.root.id) {
     root = { ...root, childIds: root.childIds.filter((n) => n !== elementId) };
   } else {

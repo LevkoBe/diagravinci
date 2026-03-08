@@ -126,18 +126,24 @@ export class DiagramLayerRenderer {
     this.hoverIn.set(path, onHoverIn);
     this.hoverOut.set(path, onHoverOut);
 
-    const eventHandler = new ElementEventHandler(element, path, this.stage, {
-      onClick: this.callbacks.onClick,
-      onPositionChange: this.callbacks.onPositionChange,
-      onReparent: this.callbacks.onReparent,
-      setHovered: (p) => this.setHovered(p),
-      findHoveredPath: (id, pos) => this.findHoveredPath(id, pos),
-      findNewParentPath: (id, pos) => this.findNewParentPath(id, pos),
-      updateRelationshipLines: (p) => this.updateRelationshipLines(p),
-      updateChildRelationshipLines: (p) => this.updateChildRelationshipLines(p),
-      updateChildPositions: (p) => this.updateChildPositions(p),
-      getRootId: () => this.model.root.id,
-    });
+    const eventHandler = new ElementEventHandler(
+      { id: element.id, path: path },
+      path,
+      this.stage,
+      {
+        onClick: this.callbacks.onClick,
+        onPositionChange: this.callbacks.onPositionChange,
+        onReparent: this.callbacks.onReparent,
+        setHovered: (p) => this.setHovered(p),
+        findHoveredPath: (id, pos) => this.findHoveredPath(id, pos),
+        findNewParentPath: (path, pos) => this.findNewParentPath(path, pos),
+        updateRelationshipLines: (p) => this.updateRelationshipLines(p),
+        updateChildRelationshipLines: (p) =>
+          this.updateChildRelationshipLines(p),
+        updateChildPositions: (p) => this.updateChildPositions(p),
+        getRootId: () => this.model.root.id,
+      },
+    );
 
     const handlers = eventHandler.createHandlers();
 
@@ -216,14 +222,15 @@ export class DiagramLayerRenderer {
   }
 
   private findNewParentPath(
-    draggedElementId: string,
+    draggedElementPath: string,
     worldCenter: { x: number; y: number },
   ): string {
     let bestPath: string | null = null;
     let bestSize = Infinity;
 
     Object.entries(this.viewState.positions).forEach(([path, pos]) => {
-      if (path.startsWith(draggedElementId)) return;
+      console.log("path:", bestPath, path, draggedElementPath);
+      if (path.startsWith(draggedElementPath)) return;
 
       const dx = worldCenter.x - pos.position.x,
         dy = worldCenter.y - pos.position.y;
