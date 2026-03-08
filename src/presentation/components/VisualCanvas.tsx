@@ -208,7 +208,6 @@ export function VisualCanvas() {
           dispatch(updateElementPositionInView({ id, position: worldPos }));
         },
         onReparent: (elementId, oldParentPath, newParentPath) => {
-          console.log("Repar:", model, elementId, oldParentPath, newParentPath);
           const updatedModel = applyReparent(
             model,
             elementId,
@@ -368,7 +367,6 @@ function applyReparent(
   const elements = { ...model.elements };
   let root = { ...model.root };
 
-  console.log("app:", elementId, oldParentPath, newParentPath);
   if (oldParentPath === model.root.id) {
     root = { ...root, childIds: root.childIds.filter((n) => n !== elementId) };
   } else {

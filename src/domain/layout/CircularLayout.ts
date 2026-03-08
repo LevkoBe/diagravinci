@@ -89,6 +89,21 @@ export default class CircularLayout implements LayoutAlgorithm {
     return value;
   }
 
+  private circlePosition(
+    index: number,
+    total: number,
+    cx: number,
+    cy: number,
+    radius: number,
+  ): { x: number; y: number } {
+    if (total === 1) return { x: cx, y: cy };
+    const angle = index * ((2 * Math.PI) / total);
+    return {
+      x: cx + radius * Math.cos(angle),
+      y: cy + radius * Math.sin(angle),
+    };
+  }
+
   private positionElement(
     element: Element,
     x: number,
@@ -113,43 +128,53 @@ export default class CircularLayout implements LayoutAlgorithm {
 
     const childRadius = this.positions[key].size / RADIO;
 
-    if (!forceReposition) {
-      const oldChildPaths = Object.keys(this.oldPositions).filter(
-        (p) =>
-          p.startsWith(key + ".") && !p.slice(key.length + 1).includes("."),
-      );
-      const newChildPaths = children.map((c) => `${key}.${c.id}`);
-      const oldSet = new Set(oldChildPaths);
-      const newSet = new Set(newChildPaths);
-      const childrenChanged =
-        oldSet.size !== newSet.size || [...oldSet].some((p) => !newSet.has(p));
-      const radiusChanged =
-        this.oldPositions[key]?.size !== this.positions[key].size;
-      const childValuesChanged = newChildPaths.some(
-        (p) => this.oldPositions[p]?.value !== this.positions[p].value,
-      );
-      forceReposition = childrenChanged || radiusChanged || childValuesChanged;
-    }
-
     if (forceReposition) {
       this.positionInCircle(children, x, y, childRadius, newTracker, key, true);
-    } else {
-      const oldParent = this.oldPositions[key]?.position ?? { x, y };
-      const dx = x - oldParent.x;
-      const dy = y - oldParent.y;
-      children.forEach((child) => {
-        const childKey = `${key}.${child.id}`;
-        const oldChild = this.oldPositions[childKey]?.position ?? { x, y };
-        this.positionElement(
-          child,
-          oldChild.x + dx,
-          oldChild.y + dy,
-          newTracker,
-          key,
-          false,
-        );
-      });
+      return;
     }
+
+    const oldParent = this.oldPositions[key]?.position ?? { x, y };
+    const dx = x - oldParent.x;
+    const dy = y - oldParent.y;
+
+    children.forEach((child, index) => {
+      const childKey = `${key}.${child.id}`;
+      const isNew = !this.oldPositions[childKey];
+      const valueChanged =
+        this.oldPositions[childKey]?.value !== this.positions[childKey]?.value;
+
+      if (isNew || valueChanged) {
+        const pos = this.circlePosition(
+          index,
+          children.length,
+          x,
+          y,
+          childRadius,
+        );
+        this.positionElement(child, pos.x, pos.y, newTracker, key, true);
+        return;
+      }
+
+      const oldChild = this.oldPositions[childKey]?.position ?? { x, y };
+      let childX = oldChild.x + dx;
+      let childY = oldChild.y + dy;
+      const dist = Math.hypot(childX - x, childY - y);
+      if (dist > childRadius) {
+        const pos = this.circlePosition(
+          index,
+          children.length,
+          x,
+          y,
+          childRadius,
+        );
+        childX = pos.x;
+        childY = pos.y;
+        this.positionElement(child, childX, childY, newTracker, key, true);
+        return;
+      }
+
+      this.positionElement(child, childX, childY, newTracker, key, false);
+    });
   }
 
   private positionInCircle(
@@ -214,58 +239,70 @@ export default class CircularLayout implements LayoutAlgorithm {
     });
 
     const virtualValue = totalValue + this.model.root.childIds.length + 1;
-    const virtualSize = calculateSize(virtualValue);
+    const newRadius = calculateSize(virtualValue) / RADIO;
     const centerX = this.canvas.width / 2;
     const centerY = this.canvas.height / 2;
-    const newRadius = virtualSize / RADIO;
 
-    const oldRootChildPaths = Object.keys(this.oldPositions).filter(
-      (p) => !p.includes("."),
-    );
-    const oldVirtualValue =
-      oldRootChildPaths.reduce(
-        (sum, p) => sum + this.oldPositions[p].value,
-        0,
-      ) +
-      oldRootChildPaths.length +
-      1;
-    const oldRadius = calculateSize(oldVirtualValue) / RADIO;
+    rootChildren.forEach((child, index) => {
+      const key = child.id;
+      const isNew = !this.oldPositions[key];
+      const valueChanged =
+        this.oldPositions[key]?.value !== this.positions[key]?.value;
 
-    const oldSet = new Set(oldRootChildPaths);
-    const newSet = new Set(rootChildren.map((c) => c.id));
-    const childrenChanged =
-      oldSet.size !== newSet.size || [...oldSet].some((p) => !newSet.has(p));
-    const valuesChanged = [...newSet].some(
-      (id) => this.positions[id]?.value !== this.oldPositions[id]?.value,
-    );
-    const radiusChanged = oldRadius !== newRadius;
-    const needsReposition = childrenChanged || valuesChanged || radiusChanged;
+      if (isNew || valueChanged) {
+        const pos = this.circlePosition(
+          index,
+          rootChildren.length,
+          centerX,
+          centerY,
+          newRadius,
+        );
+        this.positionElement(
+          child,
+          pos.x,
+          pos.y,
+          new AncestryTracker(),
+          "",
+          true,
+        );
+        return;
+      }
 
-    this.positionInCircle(
-      rootChildren,
-      centerX,
-      centerY,
-      newRadius,
-      new AncestryTracker(),
-      "",
-      needsReposition,
-    );
-    if (!needsReposition) {
-      rootChildren.forEach((child) => {
-        const key = child.id;
-        const old = this.oldPositions[key]?.position;
-        if (old) {
-          this.positionElement(
-            child,
-            old.x,
-            old.y,
-            new AncestryTracker(),
-            "",
-            false,
-          );
-        }
-      });
-    }
+      const old = this.oldPositions[key]?.position;
+      let childX = old?.x ?? centerX;
+      let childY = old?.y ?? centerY;
+
+      const dist = Math.hypot(childX - centerX, childY - centerY);
+      if (dist > newRadius) {
+        const pos = this.circlePosition(
+          index,
+          rootChildren.length,
+          centerX,
+          centerY,
+          newRadius,
+        );
+        childX = pos.x;
+        childY = pos.y;
+        this.positionElement(
+          child,
+          childX,
+          childY,
+          new AncestryTracker(),
+          "",
+          true,
+        );
+        return;
+      }
+
+      this.positionElement(
+        child,
+        childX,
+        childY,
+        new AncestryTracker(),
+        "",
+        false,
+      );
+    });
 
     return {
       positions: this.positions,

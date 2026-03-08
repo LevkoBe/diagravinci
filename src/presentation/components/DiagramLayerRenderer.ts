@@ -229,7 +229,6 @@ export class DiagramLayerRenderer {
     let bestSize = Infinity;
 
     Object.entries(this.viewState.positions).forEach(([path, pos]) => {
-      console.log("path:", bestPath, path, draggedElementPath);
       if (path.startsWith(draggedElementPath)) return;
 
       const dx = worldCenter.x - pos.position.x,
