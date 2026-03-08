@@ -1,12 +1,12 @@
 import Konva from "konva";
-import { ElementRenderer } from "./rendering/ElementRenderer";
-import { RelationshipRenderer } from "./rendering/RelationshipRenderer";
-import { screenToWorld } from "./rendering/arrowUtils";
+import { screenToWorld } from "./rendering/relationships/arrowUtils";
 import type { Element } from "../../domain/models/Element";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { ViewState } from "../../domain/models/ViewState";
 import type { Colors, RenderCallbacks } from "./rendering/types";
-import { ElementEventHandler } from "./rendering/ElementEventHandler";
+import { ElementEventHandler } from "./rendering/elements/ElementEventHandler";
+import { RelationshipRenderer } from "./rendering/relationships/RelationshipRenderer";
+import { SvgPathElementRenderer } from "./rendering/elements/SvgPathElementRenderer";
 
 export class DiagramLayerRenderer {
   private readonly stage: Konva.Stage;
@@ -108,7 +108,7 @@ export class DiagramLayerRenderer {
   ): Konva.Group | undefined {
     const isNew = !this.prevPaths.has(path);
 
-    const elementRenderer = new ElementRenderer(
+    const elementRenderer = new SvgPathElementRenderer(
       element,
       path,
       this.viewState,

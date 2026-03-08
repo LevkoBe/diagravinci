@@ -48,14 +48,11 @@ export class SyncManager {
         return;
       }
 
-      console.log(diff);
-      console.log(currentViewState);
       const newViewState = ViewStateMerger.merge(
         currentViewState,
         newModel,
         canvasSize,
       );
-      console.log(newViewState);
 
       this.store.dispatch(setModel(newModel));
       this.store.dispatch(setViewState(newViewState));

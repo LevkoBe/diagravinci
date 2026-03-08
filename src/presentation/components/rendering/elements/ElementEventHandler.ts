@@ -1,5 +1,5 @@
 import Konva from "konva";
-import { screenToWorld } from "./arrowUtils";
+import { screenToWorld } from "../relationships/arrowUtils";
 
 export class ElementEventHandler {
   private readonly element: { id: string; path: string };

@@ -1,20 +1,23 @@
 import Konva from "konva";
-import type { Colors, ElementRenderResult } from "./types";
-import type { ViewState } from "../../../domain/models/ViewState";
-import { ELEMENT_SVGS } from "../../ElementConfigs";
-import type { Element } from "../../../domain/models/Element";
+import type { Colors, ElementRenderResult } from "../types";
+import type { ViewState } from "../../../../domain/models/ViewState";
+import type { Element } from "../../../../domain/models/Element";
 
 const RECURSIVE_COLOR = "#f97316";
 const CONNECTING_FROM_COLOR = "#3b82f6";
 
-export class ElementRenderer {
-  private readonly element: Element;
-  private readonly path: string;
-  private readonly viewState: ViewState;
-  private readonly selectedElementId: string | null;
-  private readonly connectingFromId: string | null;
-  private readonly colors: Colors;
-  private readonly isNew: boolean;
+export interface IElementRenderer {
+  render(parentPos?: { x: number; y: number }): ElementRenderResult | undefined;
+}
+
+export abstract class BaseElementRenderer implements IElementRenderer {
+  protected readonly element: Element;
+  protected readonly path: string;
+  protected readonly viewState: ViewState;
+  protected readonly selectedElementId: string | null;
+  protected readonly connectingFromId: string | null;
+  protected readonly colors: Colors;
+  protected readonly isNew: boolean;
 
   constructor(
     element: Element,
@@ -34,28 +37,12 @@ export class ElementRenderer {
     this.isNew = isNew;
   }
 
-  render(parentPos?: {
+  abstract render(parentPos?: {
     x: number;
     y: number;
-  }): ElementRenderResult | undefined {
-    const pos = this.viewState.positions[this.path];
-    if (!pos) return;
+  }): ElementRenderResult | undefined;
 
-    const group = this.createElementGroup(parentPos);
-    const pathNode = this.addElementShape(group, pos.size);
-    this.addLabel(group, pos.size);
-    this.addDecorationsIfNeeded(group, pos.size);
-
-    const { onHoverIn, onHoverOut } = this.createHoverCallbacks(
-      group,
-      pathNode,
-      pos.size,
-    );
-
-    return { group, onHoverIn, onHoverOut };
-  }
-
-  private createElementGroup(parentPos?: {
+  protected createElementGroup(parentPos?: {
     x: number;
     y: number;
   }): Konva.Group {
@@ -76,28 +63,7 @@ export class ElementRenderer {
     return group;
   }
 
-  private addElementShape(group: Konva.Group, size: number): Konva.Path {
-    const config = ELEMENT_SVGS[this.element.type];
-    const scale = size / Math.max(config.viewBoxWidth, config.viewBoxHeight);
-    const strokeWidth = Math.pow(size, 0.4) / scale;
-
-    const pathNode = new Konva.Path({
-      data: config.data,
-      stroke:
-        this.selectedElementId === this.element.id
-          ? this.colors.selected
-          : this.colors.accent,
-      strokeWidth,
-      scale: { x: scale, y: scale },
-      x: -(config.viewBoxWidth * scale) / 2,
-      y: -(config.viewBoxHeight * scale) / 2,
-    });
-
-    group.add(pathNode);
-    return pathNode;
-  }
-
-  private addLabel(group: Konva.Group, size: number): void {
+  protected addLabel(group: Konva.Group, size: number): void {
     const hasVisibleChildren = Object.keys(this.viewState.positions).some(
       (p) =>
         p.startsWith(this.path + ".") &&
@@ -118,7 +84,7 @@ export class ElementRenderer {
     );
   }
 
-  private addDecorationsIfNeeded(group: Konva.Group, size: number): void {
+  protected addDecorationsIfNeeded(group: Konva.Group, size: number): void {
     const pos = this.viewState.positions[this.path];
     if (!pos) return;
 
@@ -172,17 +138,13 @@ export class ElementRenderer {
     }
   }
 
-  private createHoverCallbacks(
+  protected createHoverCallbacks(
     group: Konva.Group,
-    pathNode: Konva.Path,
-    size: number,
+    shapeNode: Konva.Shape,
+    initialStrokeWidth: number,
   ): { onHoverIn: () => void; onHoverOut: () => void } {
-    const config = ELEMENT_SVGS[this.element.type];
-    const scale = size / Math.max(config.viewBoxWidth, config.viewBoxHeight);
-    const strokeWidth = Math.pow(size, 0.4) / scale;
-
     const hoverScale = 1.15;
-    const hoverStrokeWidth = strokeWidth * 0.8;
+    const hoverStrokeWidth = initialStrokeWidth * 0.8;
 
     const onHoverIn = () => {
       new Konva.Tween({
@@ -194,7 +156,7 @@ export class ElementRenderer {
       }).play();
 
       new Konva.Tween({
-        node: pathNode,
+        node: shapeNode,
         duration: 0.15,
         easing: Konva.Easings.EaseOut,
         strokeWidth: hoverStrokeWidth,
@@ -211,10 +173,10 @@ export class ElementRenderer {
       }).play();
 
       new Konva.Tween({
-        node: pathNode,
+        node: shapeNode,
         duration: 0.15,
         easing: Konva.Easings.EaseOut,
-        strokeWidth,
+        strokeWidth: initialStrokeWidth,
       }).play();
     };
 

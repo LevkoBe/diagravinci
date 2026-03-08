@@ -1,6 +1,6 @@
 import Konva from "konva";
-import type { EndKind, EndSpec } from "./types";
-import type { RelationshipType } from "../../../infrastructure/parser/Token";
+import type { EndKind, EndSpec } from "../types";
+import type { RelationshipType } from "../../../../infrastructure/parser/Token";
 
 export function screenToWorld(
   pos: { x: number; y: number },

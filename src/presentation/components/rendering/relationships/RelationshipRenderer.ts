@@ -1,13 +1,13 @@
 import Konva from "konva";
+import type { ViewState } from "../../../../domain/models/ViewState";
+import type { RelationshipType } from "../../../../infrastructure/parser/Token";
 import {
   parseEndSpec,
   isDashed,
-  decorationInset,
   addDecoration,
+  decorationInset,
 } from "./arrowUtils";
-import type { ViewState } from "../../../domain/models/ViewState";
-import type { Colors } from "./types";
-import type { RelationshipType } from "../../../infrastructure/parser/Token";
+import type { Colors } from "../types";
 
 export class RelationshipRenderer {
   private readonly viewState: ViewState;
