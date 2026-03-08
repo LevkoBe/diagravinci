@@ -1,3 +1,5 @@
+import Konva from "konva";
+
 export type Colors = {
   accent: string;
   fgPrimary: string;
@@ -23,4 +25,10 @@ export interface EndSpec {
   target: EndKind;
   sourceFilled: boolean;
   targetFilled: boolean;
+}
+
+export interface ElementRenderResult {
+  group: Konva.Group;
+  onHoverIn: () => void;
+  onHoverOut: () => void;
 }
