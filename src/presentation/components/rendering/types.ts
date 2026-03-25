@@ -9,7 +9,10 @@ export type Colors = {
 };
 
 export type RenderCallbacks = {
-  onPositionChange: (path: string, worldPos: { x: number; y: number }) => void;
+  onPositionChange: (
+    path: string,
+    worldPos: { x: number; y: number } | null,
+  ) => void;
   onReparent: (
     elementId: string,
     oldParentId: string,

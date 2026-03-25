@@ -238,7 +238,9 @@ export function VisualCanvas() {
       },
       {
         onPositionChange: (id, worldPos) => {
-          dispatch(updateElementPositionInView({ id, position: worldPos }));
+          if (worldPos)
+            dispatch(updateElementPositionInView({ id, position: worldPos }));
+          else syncManager.syncFromVis(model);
         },
         onReparent: (elementId, oldParentPath, newParentPath) => {
           const updatedModel = applyReparent(

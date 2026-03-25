@@ -219,12 +219,12 @@ export class DiagramLayerRenderer {
     Object.keys(this.viewState.positions).forEach((p) => {
       if (!p.startsWith(parentPath + ".")) return;
       const childGroup = this.groupMap.get(p);
-      if (childGroup) {
-        this.callbacks.onPositionChange(
-          p,
-          screenToWorld(childGroup.getAbsolutePosition(), this.stage),
-        );
-      }
+      this.callbacks.onPositionChange(
+        p,
+        childGroup
+          ? screenToWorld(childGroup.getAbsolutePosition(), this.stage)
+          : null,
+      );
     });
   }
 

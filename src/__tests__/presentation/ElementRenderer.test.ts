@@ -47,6 +47,7 @@ describe("ElementRenderer", () => {
         null,
         defaultColors,
         false,
+        false,
       );
 
       const result = renderer.render();
@@ -71,6 +72,7 @@ describe("ElementRenderer", () => {
         null,
         defaultColors,
         false,
+        false,
       );
 
       const result = renderer.render();
@@ -94,6 +96,7 @@ describe("ElementRenderer", () => {
         null,
         null,
         defaultColors,
+        false,
         false,
       );
 
@@ -121,6 +124,7 @@ describe("ElementRenderer", () => {
         null,
         defaultColors,
         false,
+        false,
       );
 
       const result = renderer.render();
@@ -143,6 +147,7 @@ describe("ElementRenderer", () => {
         null,
         null,
         defaultColors,
+        false,
         false,
       );
 
@@ -168,6 +173,7 @@ describe("ElementRenderer", () => {
         null,
         defaultColors,
         true,
+        false,
       );
 
       const result = renderer.render();
@@ -189,6 +195,7 @@ describe("ElementRenderer", () => {
         null,
         null,
         defaultColors,
+        false,
         false,
       );
 
@@ -214,6 +221,7 @@ describe("ElementRenderer", () => {
         null,
         defaultColors,
         false,
+        false,
       );
 
       const result = renderer.render();
@@ -237,6 +245,7 @@ describe("ElementRenderer", () => {
         "b",
         null,
         defaultColors,
+        false,
         false,
       );
 
@@ -263,6 +272,7 @@ describe("ElementRenderer", () => {
         null,
         null,
         defaultColors,
+        false,
         false,
       );
 
@@ -294,6 +304,7 @@ describe("ElementRenderer", () => {
         null,
         defaultColors,
         false,
+        false,
       );
 
       const result = renderer.render();
@@ -322,6 +333,7 @@ describe("ElementRenderer", () => {
         "a",
         defaultColors,
         false,
+        false,
       );
 
       const result = renderer.render();
@@ -345,6 +357,7 @@ describe("ElementRenderer", () => {
         null,
         "b",
         defaultColors,
+        false,
         false,
       );
 
@@ -372,6 +385,7 @@ describe("ElementRenderer", () => {
         null,
         defaultColors,
         false,
+        false,
       );
 
       const result = renderer.render();
@@ -396,6 +410,7 @@ describe("ElementRenderer", () => {
         null,
         defaultColors,
         false,
+        false,
       );
 
       const result = renderer.render();
@@ -418,6 +433,7 @@ describe("ElementRenderer", () => {
         null,
         null,
         defaultColors,
+        false,
         false,
       );
 
