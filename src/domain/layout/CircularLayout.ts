@@ -310,6 +310,9 @@ export default class CircularLayout implements LayoutAlgorithm {
       viewMode: "circular",
       zoom: previousViewState?.zoom ?? 1,
       pan: previousViewState?.pan ?? { x: 0, y: 0 },
+      hiddenPaths: previousViewState?.hiddenPaths ?? [],
+      dimmedPaths: previousViewState?.dimmedPaths ?? [],
+      foldedPaths: previousViewState?.foldedPaths ?? [],
     };
   }
 }

@@ -16,6 +16,7 @@ export type RenderCallbacks = {
     newParentId: string,
   ) => void;
   onClick: (elementId: string) => void;
+  onContextMenu?: (elementId: string, path: string) => void;
 };
 
 export type EndKind = "none" | "arrow" | "triangle" | "diamond" | "circle";

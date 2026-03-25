@@ -2,10 +2,12 @@ import { configureStore } from "@reduxjs/toolkit";
 import diagramReducer from "./diagramSlice";
 import themeReducer from "./themeSlice";
 import uiReducer from "./uiSlice";
+import filterReducer from "./filterSlice";
 import { SyncManager } from "../SyncManager";
 
 export const store = configureStore({
   reducer: {
+    filter: filterReducer,
     diagram: diagramReducer,
     theme: themeReducer,
     ui: uiReducer,
