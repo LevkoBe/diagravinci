@@ -23,6 +23,9 @@ export interface ViewState {
   viewMode: "basic" | "hierarchical" | "timeline" | "pipeline" | "circular";
   zoom: number;
   pan: Position;
+  hiddenPaths: string[];
+  dimmedPaths: string[];
+  foldedPaths: string[];
 }
 
 export function createEmptyViewState(): ViewState {
@@ -32,6 +35,9 @@ export function createEmptyViewState(): ViewState {
     viewMode: "basic",
     zoom: 1,
     pan: { x: 0, y: 0 },
+    hiddenPaths: [],
+    dimmedPaths: [],
+    foldedPaths: [],
   };
 }
 

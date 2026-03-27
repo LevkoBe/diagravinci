@@ -137,42 +137,33 @@ export default class CircularLayout implements LayoutAlgorithm {
     const dx = x - oldParent.x;
     const dy = y - oldParent.y;
 
-    children.forEach((child, index) => {
+    const needsForceReposition = children.some((child) => {
       const childKey = `${key}.${child.id}`;
       const isNew = !this.oldPositions[childKey];
       const valueChanged =
         this.oldPositions[childKey]?.value !== this.positions[childKey]?.value;
 
       if (isNew || valueChanged) {
-        const pos = this.circlePosition(
-          index,
-          children.length,
-          x,
-          y,
-          childRadius,
-        );
-        this.positionElement(child, pos.x, pos.y, newTracker, key, true);
-        return;
+        return true;
       }
 
       const oldChild = this.oldPositions[childKey]?.position ?? { x, y };
-      let childX = oldChild.x + dx;
-      let childY = oldChild.y + dy;
+      const childX = oldChild.x + dx;
+      const childY = oldChild.y + dy;
       const dist = Math.hypot(childX - x, childY - y);
-      if (dist > childRadius) {
-        const pos = this.circlePosition(
-          index,
-          children.length,
-          x,
-          y,
-          childRadius,
-        );
-        childX = pos.x;
-        childY = pos.y;
-        this.positionElement(child, childX, childY, newTracker, key, true);
-        return;
-      }
+      return dist > childRadius;
+    });
 
+    if (needsForceReposition) {
+      this.positionInCircle(children, x, y, childRadius, newTracker, key, true);
+      return;
+    }
+
+    children.forEach((child) => {
+      const childKey = `${key}.${child.id}`;
+      const oldChild = this.oldPositions[childKey]?.position ?? { x, y };
+      const childX = oldChild.x + dx;
+      const childY = oldChild.y + dy;
       this.positionElement(child, childX, childY, newTracker, key, false);
     });
   }
@@ -246,10 +237,8 @@ export default class CircularLayout implements LayoutAlgorithm {
     rootChildren.forEach((child, index) => {
       const key = child.id;
       const isNew = !this.oldPositions[key];
-      const valueChanged =
-        this.oldPositions[key]?.value !== this.positions[key]?.value;
 
-      if (isNew || valueChanged) {
+      if (isNew) {
         const pos = this.circlePosition(
           index,
           rootChildren.length,
@@ -265,43 +254,17 @@ export default class CircularLayout implements LayoutAlgorithm {
           "",
           true,
         );
-        return;
-      }
-
-      const old = this.oldPositions[key]?.position;
-      let childX = old?.x ?? centerX;
-      let childY = old?.y ?? centerY;
-
-      const dist = Math.hypot(childX - centerX, childY - centerY);
-      if (dist > newRadius) {
-        const pos = this.circlePosition(
-          index,
-          rootChildren.length,
-          centerX,
-          centerY,
-          newRadius,
-        );
-        childX = pos.x;
-        childY = pos.y;
+      } else {
+        const oldPos = this.oldPositions[key]!.position;
         this.positionElement(
           child,
-          childX,
-          childY,
+          oldPos.x,
+          oldPos.y,
           new AncestryTracker(),
           "",
-          true,
+          false,
         );
-        return;
       }
-
-      this.positionElement(
-        child,
-        childX,
-        childY,
-        new AncestryTracker(),
-        "",
-        false,
-      );
     });
 
     return {
@@ -310,6 +273,9 @@ export default class CircularLayout implements LayoutAlgorithm {
       viewMode: "circular",
       zoom: previousViewState?.zoom ?? 1,
       pan: previousViewState?.pan ?? { x: 0, y: 0 },
+      hiddenPaths: previousViewState?.hiddenPaths ?? [],
+      dimmedPaths: previousViewState?.dimmedPaths ?? [],
+      foldedPaths: previousViewState?.foldedPaths ?? [],
     };
   }
 }

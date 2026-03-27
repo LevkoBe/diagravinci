@@ -3,6 +3,7 @@ import Konva from "konva";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import {
   setCanvasSize,
+  setViewState,
   updateElementPositionInView,
 } from "../../application/store/diagramSlice";
 import {
@@ -10,9 +11,11 @@ import {
   setInteractionMode,
   setSelectedElement,
 } from "../../application/store/uiSlice";
+import { toggleElementFold } from "../../application/store/filterSlice";
 import { syncManager } from "../../application/store/store";
 import { getCSSVariable } from "../../shared/utils";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
+import { FilterResolver } from "../../domain/sync/FilterResolver";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { Element, ElementType } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
@@ -28,6 +31,7 @@ export function VisualCanvas() {
   const dispatch = useAppDispatch();
   const model = useAppSelector((s) => s.diagram.model);
   const viewState = useAppSelector((s) => s.diagram.viewState);
+  const filterState = useAppSelector((s) => s.filter);
   const isDark = useAppSelector((s) => s.theme.isDark);
   const {
     interactionMode,
@@ -58,6 +62,37 @@ export function VisualCanvas() {
   useEffect(() => {
     modelRef.current = model;
   }, [model]);
+
+  // Filter list recomputation
+  useEffect(() => {
+    const newLists = FilterResolver.resolve(
+      filterState,
+      viewState.positions,
+      model,
+    );
+
+    const unchanged = FilterResolver.equal(newLists, {
+      hiddenPaths: viewState.hiddenPaths,
+      dimmedPaths: viewState.dimmedPaths,
+      foldedPaths: viewState.foldedPaths,
+    });
+
+    if (!unchanged) {
+      console.log(
+        "[VisualCanvas] Filter lists changed, updating viewState:",
+        newLists,
+      );
+      dispatch(
+        setViewState({
+          ...viewState,
+          hiddenPaths: newLists.hiddenPaths,
+          dimmedPaths: newLists.dimmedPaths,
+          foldedPaths: newLists.foldedPaths,
+        }),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterState, viewState.positions, model]);
 
   // Stage setup: runs once
   useEffect(() => {
@@ -106,7 +141,6 @@ export function VisualCanvas() {
       stage.batchDraw();
     });
 
-    // Background click: only fires when hitting empty canvas
     stage.on("click", (e) => {
       if (e.target !== stage) return;
       const pointer = stage.getPointerPosition();
@@ -174,7 +208,6 @@ export function VisualCanvas() {
     stage.batchDraw();
   }, [zoomCommand]);
 
-  // Cursor based on mode
   useEffect(() => {
     if (!stageRef.current) return;
     stageRef.current.container().style.cursor =
@@ -205,7 +238,9 @@ export function VisualCanvas() {
       },
       {
         onPositionChange: (id, worldPos) => {
-          dispatch(updateElementPositionInView({ id, position: worldPos }));
+          if (worldPos)
+            dispatch(updateElementPositionInView({ id, position: worldPos }));
+          else syncManager.syncFromVis(model);
         },
         onReparent: (elementId, oldParentPath, newParentPath) => {
           const updatedModel = applyReparent(
@@ -303,6 +338,18 @@ export function VisualCanvas() {
           } else {
             dispatch(setSelectedElement(elementId));
           }
+        },
+        onContextMenu: (elementId, path) => {
+          const currentlyFolded = viewState.foldedPaths.includes(path);
+          console.log(
+            "[VisualCanvas] RMC on element:",
+            elementId,
+            "path:",
+            path,
+            "currentlyFolded:",
+            currentlyFolded,
+          );
+          dispatch(toggleElementFold({ path, currentlyFolded }));
         },
       },
       prevPathsRef.current,

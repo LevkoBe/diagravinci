@@ -15,6 +15,10 @@ import {
   Unlink,
   FileCode,
   FileInput,
+  ListFilter,
+  Minimize2,
+  AlignJustify,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { toggleTheme } from "../../application/store/themeSlice";
@@ -29,8 +33,15 @@ import {
   setViewState,
   setCode,
 } from "../../application/store/diagramSlice";
+import {
+  openFilterModal,
+  setFoldLevel,
+  toggleFoldActive,
+} from "../../application/store/filterSlice";
+import { FilterModal } from "./FilterModal";
 import { ELEMENT_SVGS } from "../ElementConfigs";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
+import { FOLD_PRESET_ID } from "../../domain/models/Selector";
 
 const ELEMENT_TYPES = [
   { type: "object" },
@@ -53,22 +64,18 @@ function ElementIcon({ type }: { type: string }) {
   const config = ELEMENT_SVGS[type as keyof typeof ELEMENT_SVGS];
   if (!config)
     return <span className="text-xs font-bold">{type[0].toUpperCase()}</span>;
-
   const vbMax = Math.max(config.viewBoxWidth, config.viewBoxHeight);
-  const displaySize = 22;
-  const scaledStroke = (vbMax / displaySize) * 1.5;
-
   return (
     <svg
-      width={displaySize}
-      height={displaySize}
+      width={22}
+      height={22}
       viewBox={`0 0 ${config.viewBoxWidth} ${config.viewBoxHeight}`}
       fill="none"
     >
       <path
         d={config.data}
         stroke="currentColor"
-        strokeWidth={scaledStroke}
+        strokeWidth={(vbMax / 22) * 1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -100,8 +107,8 @@ function Pill({
 function Btn({
   children,
   active,
-  title,
   danger,
+  title,
   onClick,
 }: {
   children: React.ReactNode;
@@ -123,15 +130,27 @@ function Btn({
   );
 }
 
+const FOLD_MODE_ICONS = {
+  expanded: <AlignJustify size={15} />,
+  collapsed: <Minimize2 size={15} />,
+  edited: <SlidersHorizontal size={15} />,
+} as const;
+
+const FOLD_MODE_TITLES = {
+  expanded: "All expanded — click to fold at depth N",
+  collapsed: "Folded at depth N — click to expand all",
+  edited: "Custom fold overrides — click to reset",
+} as const;
+
+type FoldMode = "expanded" | "collapsed" | "edited";
+
 export function ToolBar() {
   const dispatch = useAppDispatch();
   const isDark = useAppSelector((s) => s.theme.isDark);
   const { interactionMode, activeElementType, activeRelationshipType } =
     useAppSelector((s) => s.ui);
-  const model = useAppSelector((s) => s.diagram.model);
-  const viewState = useAppSelector((s) => s.diagram.viewState);
-  const code = useAppSelector((s) => s.diagram.code);
-
+  const { model, viewState, code } = useAppSelector((s) => s.diagram);
+  const { presets, isModalOpen, foldLevel } = useAppSelector((s) => s.filter);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
 
@@ -141,14 +160,25 @@ export function ToolBar() {
 
   const is = (m: string) => interactionMode === m;
 
-  const handleSaveDiagram = () => {
-    const blob = new Blob(
-      [JSON.stringify({ model, viewState, code }, null, 2)],
-      { type: "application/json" },
-    );
-    trigger(blob, `diagram_${today()}.json`);
-  };
+  const foldPreset = presets.find((p) => p.id === FOLD_PRESET_ID);
+  const foldMode: FoldMode = !foldPreset?.isActive
+    ? "expanded"
+    : foldPreset.selector.atoms.length > 1
+      ? "edited"
+      : "collapsed";
 
+  const activePresetCount = presets.filter(
+    (p) => p.isActive && p.id !== FOLD_PRESET_ID,
+  ).length;
+
+  const handleSaveDiagram = () => {
+    trigger(
+      new Blob([JSON.stringify({ model, viewState, code }, null, 2)], {
+        type: "application/json",
+      }),
+      `diagram_${today()}.json`,
+    );
+  };
   const handleLoadDiagram = () => fileInputRef.current?.click();
   const handleDiagramFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     readFile(e, (text) => {
@@ -163,11 +193,8 @@ export function ToolBar() {
     });
     e.target.value = "";
   };
-
-  const handleSaveCode = () => {
+  const handleSaveCode = () =>
     trigger(new Blob([code], { type: "text/plain" }), `diagram_${today()}.dg`);
-  };
-
   const handleLoadCode = () => codeInputRef.current?.click();
   const handleCodeFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     readFile(e, (text) => {
@@ -177,7 +204,6 @@ export function ToolBar() {
     });
     e.target.value = "";
   };
-
   const handleNew = () => {
     if (!confirm("Start a new diagram? Unsaved work will be lost.")) return;
     import("../../application/store/store").then(({ syncManager }) =>
@@ -201,7 +227,7 @@ export function ToolBar() {
         className="hidden"
         onChange={handleCodeFile}
       />
-
+      {isModalOpen && <FilterModal />}
       <div className="flex items-center gap-2 px-4 py-2.5 flex-wrap border-b-2 border-fg-ternary/60">
         {/* Create */}
         <Pill label="Create">
@@ -259,9 +285,7 @@ export function ToolBar() {
             <Unlink size={15} />
           </Btn>
         </Pill>
-
         <Divider />
-
         {/* Relationship types */}
         <Pill label="Rel">
           {REL_TYPES.map(({ type, label, glyph }) => (
@@ -277,10 +301,42 @@ export function ToolBar() {
             </Btn>
           ))}
         </Pill>
-
+        <Divider />
+        {/* Filter & Fold */}
+        <Pill label="Select">
+          <div className="relative">
+            <Btn
+              title="Filter presets"
+              active={isModalOpen || activePresetCount > 0}
+              onClick={() => dispatch(openFilterModal())}
+            >
+              <ListFilter size={15} />
+            </Btn>
+            {activePresetCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-3.5 h-3.5 rounded-full bg-accent text-bg-primary text-[9px] font-bold flex items-center justify-center pointer-events-none px-0.5">
+                {activePresetCount}
+              </span>
+            )}
+          </div>
+          <input
+            type="number"
+            min={1}
+            max={99}
+            value={foldLevel}
+            onChange={(e) => dispatch(setFoldLevel(Number(e.target.value)))}
+            title="Fold depth threshold"
+            className="w-9 text-center text-[11px] font-mono bg-bg-secondary/60 border border-fg-ternary/30 rounded px-1 py-0.5 focus:outline-none focus:border-accent/60 text-fg-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+          <Btn
+            title={FOLD_MODE_TITLES[foldMode]}
+            active={foldMode !== "expanded"}
+            danger={foldMode === "edited"}
+            onClick={() => dispatch(toggleFoldActive())}
+          >
+            {FOLD_MODE_ICONS[foldMode]}
+          </Btn>
+        </Pill>
         <div className="flex-1" />
-
-        {/* Diagram file */}
         <Pill label="Project">
           <Btn title="Save diagram (.json)" onClick={handleSaveDiagram}>
             <Download size={15} />
@@ -292,10 +348,7 @@ export function ToolBar() {
             <FilePlus size={15} />
           </Btn>
         </Pill>
-
         <Divider />
-
-        {/* Code file */}
         <Pill label="Code">
           <Btn title="Save code (.dg)" onClick={handleSaveCode}>
             <FileCode size={15} />
@@ -304,10 +357,7 @@ export function ToolBar() {
             <FileInput size={15} />
           </Btn>
         </Pill>
-
         <Divider />
-
-        {/* View */}
         <Pill label="View">
           <Btn title="Zoom in" onClick={() => dispatch(sendZoomCommand("in"))}>
             <ZoomIn size={15} />
@@ -336,7 +386,6 @@ export function ToolBar() {
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
-
 function trigger(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -345,7 +394,6 @@ function trigger(blob: Blob, filename: string) {
   a.click();
   URL.revokeObjectURL(url);
 }
-
 function readFile(
   e: React.ChangeEvent<HTMLInputElement>,
   onText: (text: string) => void,

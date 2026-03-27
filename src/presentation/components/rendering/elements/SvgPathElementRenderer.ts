@@ -5,6 +5,8 @@ import type { Element } from "../../../../domain/models/Element";
 import { ELEMENT_SVGS } from "../../../ElementConfigs";
 import { BaseElementRenderer } from "./BaseElementRenderer";
 
+const DIM_OPACITY = 0.2;
+
 export interface IElementRenderer {
   render(parentPos?: { x: number; y: number }): ElementRenderResult | undefined;
 }
@@ -23,6 +25,7 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
     connectingFromId: string | null,
     colors: Colors,
     isNew: boolean,
+    isDimmed: boolean,
     elementSvgs: Record<
       string,
       { data: string; viewBoxWidth: number; viewBoxHeight: number }
@@ -36,6 +39,7 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
       connectingFromId,
       colors,
       isNew,
+      isDimmed,
     );
     this.elementSvgs = elementSvgs;
   }
@@ -76,6 +80,7 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
       scale: { x: scale, y: scale },
       x: -(config.viewBoxWidth * scale) / 2,
       y: -(config.viewBoxHeight * scale) / 2,
+      opacity: this.isDimmed ? DIM_OPACITY : 1,
     });
 
     group.add(pathNode);

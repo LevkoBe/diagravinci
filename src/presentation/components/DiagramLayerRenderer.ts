@@ -22,6 +22,9 @@ export class DiagramLayerRenderer {
   private hoveredPath: string | null = null;
   private readonly hoverIn = new Map<string, () => void>();
   private readonly hoverOut = new Map<string, () => void>();
+  private readonly hiddenSet: Set<string>;
+  private readonly dimmedSet: Set<string>;
+  private readonly foldedSet: Set<string>;
 
   constructor(
     stage: Konva.Stage,
@@ -41,6 +44,16 @@ export class DiagramLayerRenderer {
     this.colors = colors;
     this.callbacks = callbacks;
     this.prevPaths = prevPaths;
+
+    this.hiddenSet = new Set(viewState.hiddenPaths);
+    this.dimmedSet = new Set(viewState.dimmedPaths);
+    this.foldedSet = new Set(viewState.foldedPaths);
+
+    console.log("[DiagramLayerRenderer] Filter sets:", {
+      hidden: this.hiddenSet.size,
+      dimmed: this.dimmedSet.size,
+      folded: this.foldedSet.size,
+    });
 
     this.relationshipRenderer = new RelationshipRenderer(viewState, colors);
   }
@@ -71,7 +84,17 @@ export class DiagramLayerRenderer {
     path: string,
     parentPos?: { x: number; y: number },
   ): void {
-    const elementGroup = this.renderElement(element, path, parentPos);
+    if (this.hiddenSet.has(path)) {
+      console.log("[DiagramLayerRenderer] Skipping hidden element:", path);
+      return;
+    }
+
+    const isDimmed = this.dimmedSet.has(path);
+    if (isDimmed) {
+      console.log("[DiagramLayerRenderer] Rendering dimmed element:", path);
+    }
+
+    const elementGroup = this.renderElement(element, path, parentPos, isDimmed);
     if (!elementGroup) return;
 
     parentGroup.add(elementGroup);
@@ -85,19 +108,27 @@ export class DiagramLayerRenderer {
         scaleY: 1,
       }).play();
     }
+    if (this.foldedSet.has(path)) {
+      console.log(
+        "[DiagramLayerRenderer] Element folded, skipping children:",
+        path,
+      );
+      return;
+    }
 
     const pos = this.viewState.positions[path];
     if (!pos) return;
 
     element.childIds.forEach((childId) => {
       const child = this.model.elements[childId];
-      if (child)
+      if (child) {
         this.renderRecursive(
           child,
           elementGroup,
           `${path}.${childId}`,
           pos.position,
         );
+      }
     });
   }
 
@@ -105,6 +136,7 @@ export class DiagramLayerRenderer {
     element: Element,
     path: string,
     parentPos?: { x: number; y: number },
+    isDimmed = false,
   ): Konva.Group | undefined {
     const isNew = !this.prevPaths.has(path);
 
@@ -116,6 +148,7 @@ export class DiagramLayerRenderer {
       this.connectingFromId,
       this.colors,
       isNew,
+      isDimmed,
     );
 
     const renderResult = elementRenderer.render(parentPos);
@@ -152,6 +185,11 @@ export class DiagramLayerRenderer {
     group.on("mouseleave", handlers.onMouseLeave);
     group.on("dragmove", handlers.onDragMove);
     group.on("dragend", handlers.onDragEnd);
+    group.on("contextmenu", (e: Konva.KonvaEventObject<MouseEvent>) => {
+      e.evt.preventDefault();
+      console.log("[DiagramLayerRenderer] RMC contextmenu on path:", path);
+      this.callbacks.onContextMenu?.(element.id, path);
+    });
 
     return group;
   }
@@ -181,12 +219,12 @@ export class DiagramLayerRenderer {
     Object.keys(this.viewState.positions).forEach((p) => {
       if (!p.startsWith(parentPath + ".")) return;
       const childGroup = this.groupMap.get(p);
-      if (childGroup) {
-        this.callbacks.onPositionChange(
-          p,
-          screenToWorld(childGroup.getAbsolutePosition(), this.stage),
-        );
-      }
+      this.callbacks.onPositionChange(
+        p,
+        childGroup
+          ? screenToWorld(childGroup.getAbsolutePosition(), this.stage)
+          : null,
+      );
     });
   }
 

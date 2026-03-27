@@ -18,6 +18,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
   protected readonly connectingFromId: string | null;
   protected readonly colors: Colors;
   protected readonly isNew: boolean;
+  protected readonly isDimmed: boolean;
 
   constructor(
     element: Element,
@@ -27,6 +28,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     connectingFromId: string | null,
     colors: Colors,
     isNew: boolean,
+    isDimmed: boolean,
   ) {
     this.element = element;
     this.path = path;
@@ -35,6 +37,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     this.connectingFromId = connectingFromId;
     this.colors = colors;
     this.isNew = isNew;
+    this.isDimmed = isDimmed;
   }
 
   abstract render(parentPos?: {
@@ -145,8 +148,10 @@ export abstract class BaseElementRenderer implements IElementRenderer {
   ): { onHoverIn: () => void; onHoverOut: () => void } {
     const hoverScale = 1.15;
     const hoverStrokeWidth = initialStrokeWidth * 0.8;
+    const isDimmed = this.isDimmed === true;
 
     const onHoverIn = () => {
+      if (isDimmed) return;
       new Konva.Tween({
         node: group,
         duration: 0.15,
@@ -164,6 +169,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     };
 
     const onHoverOut = () => {
+      if (isDimmed) return;
       new Konva.Tween({
         node: group,
         duration: 0.15,
