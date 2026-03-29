@@ -1,8 +1,40 @@
 import Konva from "konva";
 import type { ElementRenderResult } from "../types";
+import type { ViewState } from "../../../../domain/models/ViewState";
+import type { Element } from "../../../../domain/models/Element";
+import type { Colors } from "../types";
 import { BaseElementRenderer } from "./BaseElementRenderer";
+import { VConfig } from "../../visualConfig";
+
+const { DIM_OPACITY } = VConfig.elements;
 
 export class SimpleRectElementRenderer extends BaseElementRenderer {
+  constructor(
+    element: Element,
+    path: string,
+    viewState: ViewState,
+    selectedElementId: string | null,
+    connectingFromId: string | null,
+    colors: Colors,
+    isNew: boolean,
+    isDimmed: boolean,
+    size: number,
+    zoom: number,
+  ) {
+    super(
+      element,
+      path,
+      viewState,
+      selectedElementId,
+      connectingFromId,
+      colors,
+      isNew,
+      isDimmed,
+      size,
+      zoom,
+    );
+  }
+
   render(parentPos?: {
     x: number;
     y: number;
@@ -11,9 +43,9 @@ export class SimpleRectElementRenderer extends BaseElementRenderer {
     if (!pos) return;
 
     const group = this.createElementGroup(parentPos);
-    const rectNode = this.addElementShape(group, pos.size);
-    this.addLabel(group, pos.size);
-    this.addDecorationsIfNeeded(group, pos.size);
+    const rectNode = this.addElementShape(group);
+    this.addLabel(group);
+    this.addDecorationsIfNeeded(group);
 
     const { onHoverIn, onHoverOut } = this.createHoverCallbacks(
       group,
@@ -24,8 +56,10 @@ export class SimpleRectElementRenderer extends BaseElementRenderer {
     return { group, onHoverIn, onHoverOut };
   }
 
-  private addElementShape(group: Konva.Group, size: number): Konva.Rect {
-    const strokeWidth = 2;
+  private addElementShape(group: Konva.Group): Konva.Rect {
+    const { size } = this;
+
+    const strokeWidth = 2 / Math.max(this.zoom, 0.1);
     let dash: number[] | undefined;
 
     switch (this.element.type) {
@@ -60,6 +94,7 @@ export class SimpleRectElementRenderer extends BaseElementRenderer {
       cornerRadius: 5,
       x: -size / 2,
       y: -size / 2,
+      opacity: this.isDimmed ? DIM_OPACITY : 1,
     });
 
     group.add(rectNode);

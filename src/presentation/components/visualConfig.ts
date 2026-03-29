@@ -1,0 +1,62 @@
+export const VConfig = {
+  sizing: {
+    BASE_PX: 160,
+
+    MIN_SCREEN_PX: 10,
+
+    MAX_SCREEN_PX: 160 * 2,
+
+    ZOOM_FACTOR: 2,
+
+    DEPTH_SHRINK: 0.6,
+
+    SIBLING_VISUAL_EXP: 0.45,
+
+    WORLD_SIBLING_EXP: 0.7,
+  },
+
+  elements: {
+    DIM_OPACITY: 0.18,
+
+    HOVER_SCALE_FACTOR: 1.15,
+
+    HOVER_DURATION: 0.15,
+
+    SPAWN_DURATION: 0.25,
+
+    LABEL_SIZE_RATIO: 0.24,
+    LABEL_MIN_FONT: 10,
+    LABEL_MAX_FONT: 18,
+
+    LABEL_WIDTH_RATIO: 1.6,
+
+    LABEL_BELOW_OFFSET: 10,
+    LABEL_FONT_FAMILY: "system-ui, sans-serif",
+
+    STROKE_EXP: 0.4,
+
+    CONTAINER_BG_OPACITY: 0.3,
+  },
+
+  decorations: {
+    RECURSIVE_COLOR: "#f97316",
+    CONNECTING_COLOR: "#3b82f6",
+
+    RECURSIVE_RING_OFFSET: 5,
+    RECURSIVE_RING_DASH: [5, 4] as number[],
+    RECURSIVE_RING_WIDTH: 2,
+
+    CONNECTING_RING_OFFSET: 8,
+
+    CONNECTING_RING_OFFSET_RECURSIVE: 14,
+    CONNECTING_RING_WIDTH: 2.5,
+  },
+
+  relationships: {
+    DIM_OPACITY: 0.12,
+
+    STROKE_WIDTH: 1.5,
+
+    ARROW_SIZE: 8,
+  },
+} as const;

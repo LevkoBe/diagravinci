@@ -41,7 +41,7 @@ export class RelationshipRenderer {
 
       const isDimmed =
         this.dimmedSet.has(sourcePath) || this.dimmedSet.has(targetPath);
-      const opacity = isDimmed ? 0.35 : 0.75;
+      const opacity = isDimmed ? 0.1 : 0.75;
 
       const sourcePos = this.viewState.positions[sourcePath];
       const targetPos = this.viewState.positions[targetPath];
@@ -109,7 +109,7 @@ export class RelationshipRenderer {
           text: rel.label,
           fontSize: 10,
           fill: stroke,
-          opacity: 0.9,
+          opacity: opacity,
           offsetY: 6,
           align: "center",
         });

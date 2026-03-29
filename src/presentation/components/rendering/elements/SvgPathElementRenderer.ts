@@ -4,8 +4,9 @@ import type { ViewState } from "../../../../domain/models/ViewState";
 import type { Element } from "../../../../domain/models/Element";
 import { ELEMENT_SVGS } from "../../../ElementConfigs";
 import { BaseElementRenderer } from "./BaseElementRenderer";
+import { VConfig } from "../../visualConfig";
 
-const DIM_OPACITY = 0.2;
+const { STROKE_EXP, DIM_OPACITY } = VConfig.elements;
 
 export interface IElementRenderer {
   render(parentPos?: { x: number; y: number }): ElementRenderResult | undefined;
@@ -26,6 +27,8 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
     colors: Colors,
     isNew: boolean,
     isDimmed: boolean,
+    size: number,
+    zoom: number,
     elementSvgs: Record<
       string,
       { data: string; viewBoxWidth: number; viewBoxHeight: number }
@@ -40,6 +43,8 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
       colors,
       isNew,
       isDimmed,
+      size,
+      zoom,
     );
     this.elementSvgs = elementSvgs;
   }
@@ -52,9 +57,9 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
     if (!pos) return;
 
     const group = this.createElementGroup(parentPos);
-    const pathNode = this.addElementShape(group, pos.size);
-    this.addLabel(group, pos.size);
-    this.addDecorationsIfNeeded(group, pos.size);
+    const pathNode = this.addElementShape(group);
+    this.addLabel(group);
+    this.addDecorationsIfNeeded(group);
 
     const { onHoverIn, onHoverOut } = this.createHoverCallbacks(
       group,
@@ -65,10 +70,14 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
     return { group, onHoverIn, onHoverOut };
   }
 
-  private addElementShape(group: Konva.Group, size: number): Konva.Path {
+  private addElementShape(group: Konva.Group): Konva.Path {
+    const { size } = this;
     const config = this.elementSvgs[this.element.type];
     const scale = size / Math.max(config.viewBoxWidth, config.viewBoxHeight);
-    const strokeWidth = Math.pow(size, 0.4) / scale;
+
+    const strokeWidth =
+      Math.pow(size, STROKE_EXP) /
+      (scale * Math.max(Math.pow(this.zoom, 0.5), 0.01));
 
     const pathNode = new Konva.Path({
       data: config.data,
