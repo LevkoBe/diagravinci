@@ -1,7 +1,6 @@
 import type { ViewState } from "../models/ViewState";
 import type { DiagramModel } from "../models/DiagramModel";
-import CircularLayout from "../layout/CircularLayout";
-import { resolveRelationships } from "../layout/CircularLayout";
+import { getLayout } from "../layout/LayoutRegistry";
 
 export class ViewStateMerger {
   static merge(
@@ -9,13 +8,8 @@ export class ViewStateMerger {
     newModel: DiagramModel,
     canvasSize: { width: number; height: number },
   ): ViewState {
-    console.log("[ViewStateMerger] Merging viewState with new model");
-
-    const viewState = new CircularLayout().apply(newModel, canvasSize, current);
-    viewState.relationships = resolveRelationships(
-      newModel,
-      viewState.positions,
-    );
+    const layout = getLayout(current.viewMode);
+    const viewState = layout.apply(newModel, canvasSize, current);
 
     return {
       ...viewState,

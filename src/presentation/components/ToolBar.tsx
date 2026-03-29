@@ -19,6 +19,10 @@ import {
   Minimize2,
   AlignJustify,
   SlidersHorizontal,
+  Circle,
+  TreePine,
+  ArrowRightLeft,
+  Workflow,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { toggleTheme } from "../../application/store/themeSlice";
@@ -32,6 +36,7 @@ import {
   setModel,
   setViewState,
   setCode,
+  setViewMode,
 } from "../../application/store/diagramSlice";
 import {
   openFilterModal,
@@ -147,9 +152,10 @@ type FoldMode = "expanded" | "collapsed" | "edited";
 export function ToolBar() {
   const dispatch = useAppDispatch();
   const isDark = useAppSelector((s) => s.theme.isDark);
+  const { model, viewState, code } = useAppSelector((s) => s.diagram);
+  const viewMode = viewState.viewMode;
   const { interactionMode, activeElementType, activeRelationshipType } =
     useAppSelector((s) => s.ui);
-  const { model, viewState, code } = useAppSelector((s) => s.diagram);
   const { presets, isModalOpen, foldLevel } = useAppSelector((s) => s.filter);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
@@ -355,6 +361,57 @@ export function ToolBar() {
           </Btn>
           <Btn title="Load code (.dg)" onClick={handleLoadCode}>
             <FileInput size={15} />
+          </Btn>
+        </Pill>
+        <Divider />
+        <Pill label="Layout">
+          <Btn
+            title="Circular layout"
+            active={viewMode === "circular" || viewMode === "basic"}
+            onClick={() => {
+              dispatch(setViewMode("circular"));
+              import("../../application/store/store").then(({ syncManager }) =>
+                syncManager.reLayout(),
+              );
+            }}
+          >
+            <Circle size={15} />
+          </Btn>
+          <Btn
+            title="Hierarchical layout"
+            active={viewMode === "hierarchical"}
+            onClick={() => {
+              dispatch(setViewMode("hierarchical"));
+              import("../../application/store/store").then(({ syncManager }) =>
+                syncManager.reLayout(),
+              );
+            }}
+          >
+            <TreePine size={15} />
+          </Btn>
+          <Btn
+            title="Timeline layout"
+            active={viewMode === "timeline"}
+            onClick={() => {
+              dispatch(setViewMode("timeline"));
+              import("../../application/store/store").then(({ syncManager }) =>
+                syncManager.reLayout(),
+              );
+            }}
+          >
+            <ArrowRightLeft size={15} />
+          </Btn>
+          <Btn
+            title="Pipeline layout"
+            active={viewMode === "pipeline"}
+            onClick={() => {
+              dispatch(setViewMode("pipeline"));
+              import("../../application/store/store").then(({ syncManager }) =>
+                syncManager.reLayout(),
+              );
+            }}
+          >
+            <Workflow size={15} />
           </Btn>
         </Pill>
         <Divider />

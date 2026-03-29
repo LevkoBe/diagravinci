@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Konva from "konva";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import {
@@ -27,6 +27,7 @@ export function VisualCanvas() {
   const relationshipLayerRef = useRef<Konva.Layer | null>(null);
   const elementLayerRef = useRef<Konva.Layer | null>(null);
   const prevPathsRef = useRef<Set<string>>(new Set());
+  const [zoom, setZoom] = useState(1);
 
   const dispatch = useAppDispatch();
   const model = useAppSelector((s) => s.diagram.model);
@@ -82,14 +83,7 @@ export function VisualCanvas() {
         "[VisualCanvas] Filter lists changed, updating viewState:",
         newLists,
       );
-      dispatch(
-        setViewState({
-          ...viewState,
-          hiddenPaths: newLists.hiddenPaths,
-          dimmedPaths: newLists.dimmedPaths,
-          foldedPaths: newLists.foldedPaths,
-        }),
-      );
+      dispatch(setViewState({ ...viewState, ...newLists }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterState, viewState.positions, model]);
@@ -139,6 +133,7 @@ export function VisualCanvas() {
         y: pointer.y - mousePointTo.y * newScale,
       });
       stage.batchDraw();
+      setZoom(newScale);
     });
 
     stage.on("click", (e) => {
@@ -190,12 +185,13 @@ export function VisualCanvas() {
       stage.scale({ x: 1, y: 1 });
       stage.position({ x: 0, y: 0 });
       stage.batchDraw();
+      setZoom(1);
       return;
     }
 
     const oldScale = stage.scaleX();
     const factor = zoomCommand.type === "in" ? 1.2 : 1 / 1.2;
-    const newScale = Math.max(0.1, Math.min(5, oldScale * factor));
+    const newScale = Math.max(0.1, Math.min(15, oldScale * factor));
     const mousePointTo = {
       x: (center.x - stage.x()) / oldScale,
       y: (center.y - stage.y()) / oldScale,
@@ -206,6 +202,7 @@ export function VisualCanvas() {
       y: center.y - mousePointTo.y * newScale,
     });
     stage.batchDraw();
+    setZoom(newScale);
   }, [zoomCommand]);
 
   useEffect(() => {
@@ -353,11 +350,20 @@ export function VisualCanvas() {
         },
       },
       prevPathsRef.current,
+      zoom,
     );
 
     renderer.render(relationshipLayerRef.current, elementLayerRef.current);
     prevPathsRef.current = new Set(Object.keys(viewState.positions));
-  }, [model, viewState, selectedElementId, connectingFromId, isDark, dispatch]);
+  }, [
+    model,
+    viewState,
+    selectedElementId,
+    connectingFromId,
+    isDark,
+    zoom,
+    dispatch,
+  ]);
 
   return <div ref={containerRef} className="w-full h-full bg-bg-primary" />;
 }
@@ -395,11 +401,8 @@ function createNewElement(
   }
 
   syncManager.syncFromVis({ ...model, root: newRoot, elements: newElements });
-
-  if (worldPos) {
+  if (worldPos)
     dispatch(updateElementPositionInView({ id: newId, position: worldPos }));
-  }
-
   dispatch(setSelectedElement(newId));
 }
 

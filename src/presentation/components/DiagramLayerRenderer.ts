@@ -8,6 +8,8 @@ import { ElementEventHandler } from "./rendering/elements/ElementEventHandler";
 import { RelationshipRenderer } from "./rendering/relationships/RelationshipRenderer";
 import { SvgPathElementRenderer } from "./rendering/elements/SvgPathElementRenderer";
 
+import { computeElementSizes } from "./rendering/elementSizing";
+
 export class DiagramLayerRenderer {
   private readonly stage: Konva.Stage;
   private readonly model: DiagramModel;
@@ -22,9 +24,13 @@ export class DiagramLayerRenderer {
   private hoveredPath: string | null = null;
   private readonly hoverIn = new Map<string, () => void>();
   private readonly hoverOut = new Map<string, () => void>();
+
   private readonly hiddenSet: Set<string>;
   private readonly dimmedSet: Set<string>;
-  private readonly foldedSet: Set<string>;
+
+  private readonly pixelSizes: Map<string, number>;
+
+  private readonly zoom: number;
 
   constructor(
     stage: Konva.Stage,
@@ -35,6 +41,7 @@ export class DiagramLayerRenderer {
     colors: Colors,
     callbacks: RenderCallbacks,
     prevPaths: Set<string>,
+    zoom: number,
   ) {
     this.stage = stage;
     this.model = model;
@@ -44,18 +51,29 @@ export class DiagramLayerRenderer {
     this.colors = colors;
     this.callbacks = callbacks;
     this.prevPaths = prevPaths;
+    this.zoom = zoom;
 
-    this.hiddenSet = new Set(viewState.hiddenPaths);
-    this.dimmedSet = new Set(viewState.dimmedPaths);
-    this.foldedSet = new Set(viewState.foldedPaths);
+    const { pixelSizes, zoomHidden, zoomDimmed } = computeElementSizes(
+      model,
+      zoom,
+    );
+    this.pixelSizes = pixelSizes;
+
+    this.hiddenSet = new Set([...viewState.hiddenPaths, ...zoomHidden]);
+    this.dimmedSet = new Set([...viewState.dimmedPaths, ...zoomDimmed]);
 
     console.log("[DiagramLayerRenderer] Filter sets:", {
       hidden: this.hiddenSet.size,
       dimmed: this.dimmedSet.size,
-      folded: this.foldedSet.size,
+      folded: viewState.foldedPaths.length,
     });
 
-    this.relationshipRenderer = new RelationshipRenderer(viewState, colors);
+    this.relationshipRenderer = new RelationshipRenderer(
+      viewState,
+      colors,
+      this.hiddenSet,
+      this.dimmedSet,
+    );
   }
 
   render(relationshipLayer: Konva.Layer, elementLayer: Konva.Layer): void {
@@ -108,7 +126,8 @@ export class DiagramLayerRenderer {
         scaleY: 1,
       }).play();
     }
-    if (this.foldedSet.has(path)) {
+
+    if (this.viewState.foldedPaths.includes(path)) {
       console.log(
         "[DiagramLayerRenderer] Element folded, skipping children:",
         path,
@@ -132,6 +151,11 @@ export class DiagramLayerRenderer {
     });
   }
 
+  private getSize(path: string): number {
+    const layoutSize = this.viewState.positions[path]?.size ?? 0;
+    return layoutSize > 0 ? layoutSize : (this.pixelSizes.get(path) ?? 30);
+  }
+
   private renderElement(
     element: Element,
     path: string,
@@ -139,6 +163,7 @@ export class DiagramLayerRenderer {
     isDimmed = false,
   ): Konva.Group | undefined {
     const isNew = !this.prevPaths.has(path);
+    const size = this.getSize(path);
 
     const elementRenderer = new SvgPathElementRenderer(
       element,
@@ -149,6 +174,8 @@ export class DiagramLayerRenderer {
       this.colors,
       isNew,
       isDimmed,
+      size,
+      this.zoom,
     );
 
     const renderResult = elementRenderer.render(parentPos);
@@ -160,7 +187,7 @@ export class DiagramLayerRenderer {
     this.hoverOut.set(path, onHoverOut);
 
     const eventHandler = new ElementEventHandler(
-      { id: element.id, path: path },
+      { id: element.id, path },
       path,
       this.stage,
       {
@@ -169,7 +196,7 @@ export class DiagramLayerRenderer {
         onReparent: this.callbacks.onReparent,
         setHovered: (p) => this.setHovered(p),
         findHoveredPath: (id, pos) => this.findHoveredPath(id, pos),
-        findNewParentPath: (path, pos) => this.findNewParentPath(path, pos),
+        findNewParentPath: (p, pos) => this.findNewParentPath(p, pos),
         updateRelationshipLines: (p) => this.updateRelationshipLines(p),
         updateChildRelationshipLines: (p) =>
           this.updateChildRelationshipLines(p),
@@ -179,7 +206,6 @@ export class DiagramLayerRenderer {
     );
 
     const handlers = eventHandler.createHandlers();
-
     group.on("click", handlers.onClick);
     group.on("mouseenter", handlers.onMouseEnter);
     group.on("mouseleave", handlers.onMouseLeave);
@@ -209,9 +235,7 @@ export class DiagramLayerRenderer {
 
   private updateChildRelationshipLines(parentPath: string): void {
     Object.keys(this.viewState.positions).forEach((p) => {
-      if (p.startsWith(parentPath + ".")) {
-        this.updateRelationshipLines(p);
-      }
+      if (p.startsWith(parentPath + ".")) this.updateRelationshipLines(p);
     });
   }
 
@@ -230,9 +254,7 @@ export class DiagramLayerRenderer {
 
   private getLiveWorldPos(path: string): { x: number; y: number } | null {
     const group = this.groupMap.get(path);
-    if (group) {
-      return screenToWorld(group.getAbsolutePosition(), this.stage);
-    }
+    if (group) return screenToWorld(group.getAbsolutePosition(), this.stage);
     return this.viewState.positions[path]?.position ?? null;
   }
 
@@ -243,18 +265,19 @@ export class DiagramLayerRenderer {
     let bestPath: string | null = null;
     let bestSize = Infinity;
 
-    Object.entries(this.viewState.positions).forEach(([path, pos]) => {
-      if (path.startsWith(draggedElementId)) return;
+    for (const [path, pos] of Object.entries(this.viewState.positions)) {
+      if (path.startsWith(draggedElementId)) continue;
+      if (this.hiddenSet.has(path)) continue;
 
-      const dx = worldCenter.x - pos.position.x,
-        dy = worldCenter.y - pos.position.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+      const size = this.getSize(path);
+      const dx = worldCenter.x - pos.position.x;
+      const dy = worldCenter.y - pos.position.y;
 
-      if (distance <= pos.size / 2 && pos.size < bestSize) {
-        bestSize = pos.size;
+      if (Math.hypot(dx, dy) <= size / 2 && size < bestSize) {
+        bestSize = size;
         bestPath = path;
       }
-    });
+    }
 
     return bestPath;
   }
@@ -266,18 +289,19 @@ export class DiagramLayerRenderer {
     let bestPath: string | null = null;
     let bestSize = Infinity;
 
-    Object.entries(this.viewState.positions).forEach(([path, pos]) => {
-      if (path.startsWith(draggedElementPath)) return;
+    for (const [path, pos] of Object.entries(this.viewState.positions)) {
+      if (path.startsWith(draggedElementPath)) continue;
+      if (this.hiddenSet.has(path)) continue;
 
-      const dx = worldCenter.x - pos.position.x,
-        dy = worldCenter.y - pos.position.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+      const size = this.getSize(path);
+      const dx = worldCenter.x - pos.position.x;
+      const dy = worldCenter.y - pos.position.y;
 
-      if (distance <= pos.size / 2 && pos.size < bestSize) {
-        bestSize = pos.size;
+      if (Math.hypot(dx, dy) <= size / 2 && size < bestSize) {
+        bestSize = size;
         bestPath = path;
       }
-    });
+    }
 
     return bestPath ?? this.model.root.id;
   }
