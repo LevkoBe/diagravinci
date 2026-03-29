@@ -51,114 +51,103 @@ export function decorationInset(kind: EndKind): number {
   return insets[kind] ?? 0;
 }
 
-type DecorationDrawer = (
-  layer: Konva.Layer,
-  filled: boolean,
-  px: number,
-  py: number,
-  nx: number,
-  ny: number,
-  tx: number,
-  ty: number,
-  stroke: string,
-) => void;
-
-const decorationDrawers: Partial<Record<EndKind, DecorationDrawer>> = {
-  arrow: (layer, _filled, px, py, nx, ny, tx, ty, stroke) => {
+const decorationDrawers: Partial<
+  Record<
+    EndKind,
+    (
+      px: number,
+      py: number,
+      nx: number,
+      ny: number,
+      tx: number,
+      ty: number,
+      stroke: string,
+      filled: boolean,
+    ) => Konva.Shape | null
+  >
+> = {
+  arrow: (px, py, nx, ny, tx, ty, stroke) => {
     const s = 8;
-    layer.add(
-      new Konva.Line({
-        points: [
-          px - nx * s + tx * (s * 0.45),
-          py - ny * s + ty * (s * 0.45),
-          px,
-          py,
-          px - nx * s - tx * (s * 0.45),
-          py - ny * s - ty * (s * 0.45),
-        ],
-        stroke,
-        strokeWidth: 1.5,
-        lineCap: "round",
-        lineJoin: "round",
-        opacity: 0.7,
-      }),
-    );
+    return new Konva.Line({
+      points: [
+        px - nx * s + tx * (s * 0.45),
+        py - ny * s + ty * (s * 0.45),
+        px,
+        py,
+        px - nx * s - tx * (s * 0.45),
+        py - ny * s - ty * (s * 0.45),
+      ],
+      stroke,
+      strokeWidth: 1.5,
+      lineCap: "round",
+      lineJoin: "round",
+    });
   },
 
-  triangle: (layer, filled, px, py, nx, ny, tx, ty, stroke) => {
+  triangle: (px, py, nx, ny, tx, ty, stroke, filled) => {
     const h = 12,
       w = 7;
     const bx = px - nx * h,
       by = py - ny * h;
-    layer.add(
-      new Konva.Line({
-        points: [
-          px,
-          py,
-          bx + tx * w,
-          by + ty * w,
-          bx - tx * w,
-          by - ty * w,
-          px,
-          py,
-        ],
-        closed: true,
-        stroke,
-        strokeWidth: 1.5,
-        fill: filled ? stroke : "transparent",
-        opacity: 0.7,
-      }),
-    );
+    return new Konva.Line({
+      points: [
+        px,
+        py,
+        bx + tx * w,
+        by + ty * w,
+        bx - tx * w,
+        by - ty * w,
+        px,
+        py,
+      ],
+      closed: true,
+      stroke,
+      strokeWidth: 1.5,
+      fill: filled ? stroke : "transparent",
+    });
   },
 
-  diamond: (layer, filled, px, py, nx, ny, tx, ty, stroke) => {
+  diamond: (px, py, nx, ny, tx, ty, stroke, filled) => {
     const h = 10,
       w = 5;
     const mx = px - nx * h,
       my = py - ny * h;
     const bx = px - nx * h * 2,
       by = py - ny * h * 2;
-    layer.add(
-      new Konva.Line({
-        points: [
-          px,
-          py,
-          mx + tx * w,
-          my + ty * w,
-          bx,
-          by,
-          mx - tx * w,
-          my - ty * w,
-          px,
-          py,
-        ],
-        closed: true,
-        stroke,
-        strokeWidth: 1.5,
-        fill: filled ? stroke : "transparent",
-        opacity: 0.7,
-      }),
-    );
+    return new Konva.Line({
+      points: [
+        px,
+        py,
+        mx + tx * w,
+        my + ty * w,
+        bx,
+        by,
+        mx - tx * w,
+        my - ty * w,
+        px,
+        py,
+      ],
+      closed: true,
+      stroke,
+      strokeWidth: 1.5,
+      fill: filled ? stroke : "transparent",
+    });
   },
 
-  circle: (layer, _filled, px, py, nx, ny, _tx, _ty, stroke) => {
+  circle: (px, py, nx, ny, _tx, _ty, stroke) => {
     const r = 5;
-    layer.add(
-      new Konva.Circle({
-        x: px - nx * r,
-        y: py - ny * r,
-        radius: r,
-        stroke,
-        strokeWidth: 1.5,
-        fill: "transparent",
-        opacity: 0.7,
-      }),
-    );
+    return new Konva.Circle({
+      x: px - nx * r,
+      y: py - ny * r,
+      radius: r,
+      stroke,
+      strokeWidth: 1.5,
+      fill: "transparent",
+    });
   },
 };
 
-export function addDecoration(
-  layer: Konva.Layer,
+export function createDecoration(
   kind: EndKind,
   filled: boolean,
   px: number,
@@ -166,6 +155,8 @@ export function addDecoration(
   nx: number,
   ny: number,
   stroke: string,
-): void {
-  decorationDrawers[kind]?.(layer, filled, px, py, nx, ny, -ny, nx, stroke);
+): Konva.Shape | null {
+  const drawer = decorationDrawers[kind];
+  if (!drawer) return null;
+  return drawer(px, py, nx, ny, -ny, nx, stroke, filled);
 }
