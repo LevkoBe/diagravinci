@@ -7,6 +7,9 @@ import type { Colors, RenderCallbacks } from "./rendering/types";
 import { ElementEventHandler } from "./rendering/elements/ElementEventHandler";
 import { RelationshipRenderer } from "./rendering/relationships/RelationshipRenderer";
 import { SvgPathElementRenderer } from "./rendering/elements/SvgPathElementRenderer";
+import { SimpleRectElementRenderer } from "./rendering/elements/SimpleRectElementRenderer";
+import { PolygonElementRenderer } from "./rendering/elements/PolygonElementRenderer";
+import type { RenderStyle } from "../../application/store/uiSlice";
 
 import { computeElementSizes } from "./rendering/elementSizing";
 
@@ -31,6 +34,7 @@ export class DiagramLayerRenderer {
   private readonly pixelSizes: Map<string, number>;
 
   private readonly zoom: number;
+  private readonly renderStyle: RenderStyle;
 
   constructor(
     stage: Konva.Stage,
@@ -42,6 +46,7 @@ export class DiagramLayerRenderer {
     callbacks: RenderCallbacks,
     prevPaths: Set<string>,
     zoom: number,
+    renderStyle: RenderStyle = "polygon",
   ) {
     this.stage = stage;
     this.model = model;
@@ -52,6 +57,7 @@ export class DiagramLayerRenderer {
     this.callbacks = callbacks;
     this.prevPaths = prevPaths;
     this.zoom = zoom;
+    this.renderStyle = renderStyle;
 
     const { pixelSizes, zoomHidden, zoomDimmed } = computeElementSizes(
       model,
@@ -165,7 +171,7 @@ export class DiagramLayerRenderer {
     const isNew = !this.prevPaths.has(path);
     const size = this.getSize(path);
 
-    const elementRenderer = new SvgPathElementRenderer(
+    const args = [
       element,
       path,
       this.viewState,
@@ -176,7 +182,14 @@ export class DiagramLayerRenderer {
       isDimmed,
       size,
       this.zoom,
-    );
+    ] as const;
+
+    const elementRenderer =
+      this.renderStyle === "rect"
+        ? new SimpleRectElementRenderer(...args)
+        : this.renderStyle === "polygon"
+          ? new PolygonElementRenderer(...args)
+          : new SvgPathElementRenderer(...args);
 
     const renderResult = elementRenderer.render(parentPos);
     if (!renderResult) return;

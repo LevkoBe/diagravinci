@@ -40,6 +40,7 @@ export function VisualCanvas() {
     activeRelationshipType,
     connectingFromId,
     selectedElementId,
+    renderStyle,
   } = useAppSelector((s) => s.ui);
 
   const modeRef = useRef(interactionMode);
@@ -351,6 +352,7 @@ export function VisualCanvas() {
       },
       prevPathsRef.current,
       zoom,
+      renderStyle,
     );
 
     renderer.render(relationshipLayerRef.current, elementLayerRef.current);
@@ -362,6 +364,7 @@ export function VisualCanvas() {
     connectingFromId,
     isDark,
     zoom,
+    renderStyle,
     dispatch,
   ]);
 

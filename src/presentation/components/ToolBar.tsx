@@ -23,6 +23,9 @@ import {
   TreePine,
   ArrowRightLeft,
   Workflow,
+  Spline,
+  Square,
+  Hexagon,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { toggleTheme } from "../../application/store/themeSlice";
@@ -31,6 +34,8 @@ import {
   setActiveElementType,
   setActiveRelationshipType,
   sendZoomCommand,
+  setRenderStyle,
+  type RenderStyle,
 } from "../../application/store/uiSlice";
 import {
   setModel,
@@ -46,7 +51,6 @@ import {
 import { FilterModal } from "./FilterModal";
 import { ELEMENT_SVGS } from "../ElementConfigs";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
-import { FOLD_PRESET_ID } from "../../domain/models/Selector";
 
 const ELEMENT_TYPES = [
   { type: "object" },
@@ -154,9 +158,10 @@ export function ToolBar() {
   const isDark = useAppSelector((s) => s.theme.isDark);
   const { model, viewState, code } = useAppSelector((s) => s.diagram);
   const viewMode = viewState.viewMode;
-  const { interactionMode, activeElementType, activeRelationshipType } =
+  const { interactionMode, activeElementType, activeRelationshipType, renderStyle } =
     useAppSelector((s) => s.ui);
-  const { presets, isModalOpen, foldLevel } = useAppSelector((s) => s.filter);
+  const { presets, isModalOpen, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
+    useAppSelector((s) => s.filter);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
 
@@ -166,16 +171,13 @@ export function ToolBar() {
 
   const is = (m: string) => interactionMode === m;
 
-  const foldPreset = presets.find((p) => p.id === FOLD_PRESET_ID);
-  const foldMode: FoldMode = !foldPreset?.isActive
+  const foldMode: FoldMode = !foldActive
     ? "expanded"
-    : foldPreset.selector.atoms.length > 1
+    : manuallyFolded.length > 0 || manuallyUnfolded.length > 0
       ? "edited"
       : "collapsed";
 
-  const activePresetCount = presets.filter(
-    (p) => p.isActive && p.id !== FOLD_PRESET_ID,
-  ).length;
+  const activePresetCount = presets.filter((p) => p.isActive).length;
 
   const handleSaveDiagram = () => {
     trigger(
@@ -413,6 +415,25 @@ export function ToolBar() {
           >
             <Workflow size={15} />
           </Btn>
+        </Pill>
+        <Divider />
+        <Pill label="Style">
+          {(
+            [
+              { value: "svg", title: "SVG paths", icon: <Spline size={15} /> },
+              { value: "rect", title: "Rectangles", icon: <Square size={15} /> },
+              { value: "polygon", title: "Polygons", icon: <Hexagon size={15} /> },
+            ] as { value: RenderStyle; title: string; icon: React.ReactNode }[]
+          ).map(({ value, title, icon }) => (
+            <Btn
+              key={value}
+              title={title}
+              active={renderStyle === value}
+              onClick={() => dispatch(setRenderStyle(value))}
+            >
+              {icon}
+            </Btn>
+          ))}
         </Pill>
         <Divider />
         <Pill label="View">
