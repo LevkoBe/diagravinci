@@ -4,6 +4,7 @@ import { VisualCanvas } from "./presentation/components/VisualCanvas";
 import { PropertiesPanel } from "./presentation/components/PropertiesPanel";
 import { ToolBar } from "./presentation/components/ToolBar";
 import AIPanel from "./presentation/components/AIPanel";
+import { TemplatePanel } from "./presentation/components/TemplatePanel";
 
 export default function App() {
   const [leftWidth, setLeftWidth] = useState(340);
@@ -28,10 +29,7 @@ export default function App() {
 
     const min = 260;
     const max = bounds.width - 400;
-
-    if (newWidth > min && newWidth < max) {
-      setLeftWidth(newWidth);
-    }
+    if (newWidth > min && newWidth < max) setLeftWidth(newWidth);
   };
 
   return (
@@ -56,7 +54,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Drag Divider */}
+        {/* Drag divider */}
         <div
           onMouseDown={startDrag}
           className="w-1.5 cursor-col-resize bg-fg-ternary/40 hover:bg-accent/60 transition-colors rounded"
@@ -66,8 +64,14 @@ export default function App() {
           <VisualCanvas />
         </div>
 
-        <div className="w-72 shrink-0 rounded-lg overflow-hidden border border-fg-ternary/50 shadow-parchment bg-bg-secondary">
-          <PropertiesPanel />
+        {/* Right panel: Properties + Templates */}
+        <div className="w-72 shrink-0 flex flex-col gap-2">
+          <div className="rounded-lg overflow-hidden border border-fg-ternary/50 shadow-parchment bg-bg-secondary flex-1 min-h-0">
+            <PropertiesPanel />
+          </div>
+          <div className="rounded-lg overflow-hidden border border-fg-ternary/50 shadow-parchment bg-bg-secondary flex-1 min-h-0">
+            <TemplatePanel />
+          </div>
         </div>
       </div>
     </div>
