@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Send, Sparkles, Trash2 } from "lucide-react";
+import { Bug, Lightbulb, Send, Sparkles, Trash2 } from "lucide-react";
 import { aiOrchestrator } from "../../application/AIOrchestrator";
 
 interface Message {
@@ -59,51 +59,65 @@ function Btn({
   );
 }
 
+const INITIAL_MSG: Message = {
+  role: "assistant",
+  content: "Describe a system and I'll generate the diagram.",
+};
+
 export default function AIPanel() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: "Describe a system and I’ll generate the diagram.",
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([INITIAL_MSG]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [useContext, setUseContext] = useState(false);
 
-  const send = async () => {
-    if (!input.trim() || loading) return;
+  const pushAssistant = (content: string) =>
+    setMessages((prev) => [...prev, { role: "assistant", content }]);
 
-    const userMsg = input.trim();
-    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
-    setInput("");
+  const runAction = async (action: () => Promise<string | void>) => {
+    if (loading) return;
     setLoading(true);
-
     try {
-      await aiOrchestrator.generateFromNaturalLanguage(userMsg);
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Diagram generated and synced." },
-      ]);
+      const result = await action();
+      if (result) pushAssistant(result);
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: err instanceof Error ? err.message : "Something went wrong.",
-        },
-      ]);
+      pushAssistant(
+        err instanceof Error ? err.message : "Something went wrong.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const clearChat = () => {
-    setMessages([
-      {
-        role: "assistant",
-        content: "Describe a system and I’ll generate the diagram.",
-      },
-    ]);
+  const send = () => {
+    if (!input.trim() || loading) return;
+    const userMsg = input.trim();
+    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
+    setInput("");
+    runAction(async () => {
+      await aiOrchestrator.generateFromNaturalLanguage(userMsg, useContext);
+      return useContext
+        ? "Diagram updated with your changes."
+        : "Diagram generated and synced.";
+    });
   };
+
+  const fixBugs = () => {
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: "Analyse for bugs & issues…" },
+    ]);
+    runAction(() => aiOrchestrator.analyzeBugs());
+  };
+
+  const getSuggestions = () => {
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: "Suggest architectural improvements…" },
+    ]);
+    runAction(() => aiOrchestrator.getSuggestions());
+  };
+
+  const clearChat = () => setMessages([INITIAL_MSG]);
 
   return (
     <div className="w-full h-full flex flex-col border-l-2 border-fg-ternary/60 bg-bg-primary">
@@ -111,6 +125,37 @@ export default function AIPanel() {
         <Pill label="AI">
           <Sparkles size={14} />
         </Pill>
+
+        <div className="w-px h-4 bg-fg-ternary/40 mx-1" />
+
+        <Btn title="Analyse for bugs & issues" onClick={fixBugs} disabled={loading}>
+          <Bug size={14} />
+        </Btn>
+
+        <Btn
+          title="Suggest architectural improvements"
+          onClick={getSuggestions}
+          disabled={loading}
+        >
+          <Lightbulb size={14} />
+        </Btn>
+
+        <div className="w-px h-4 bg-fg-ternary/40 mx-1" />
+
+        <label
+          className="flex items-center gap-1.5 cursor-pointer select-none"
+          title="Use current diagram as context instead of generating a new one"
+        >
+          <input
+            type="checkbox"
+            checked={useContext}
+            onChange={(e) => setUseContext(e.target.checked)}
+            className="accent-accent w-3 h-3"
+          />
+          <span className="text-[10px] font-medium text-fg-secondary uppercase tracking-wide">
+            Use context
+          </span>
+        </label>
 
         <div className="flex-1" />
 
@@ -128,7 +173,7 @@ export default function AIPanel() {
             }`}
           >
             <div
-              className={`max-w-[85%] px-3 py-2 rounded-lg border ${
+              className={`max-w-[85%] px-3 py-2 rounded-lg border whitespace-pre-wrap ${
                 m.role === "user"
                   ? "bg-accent/10 border-accent/40 text-fg-primary"
                   : "bg-bg-secondary border-fg-ternary/40 text-fg-secondary"
@@ -140,7 +185,9 @@ export default function AIPanel() {
         ))}
 
         {loading && (
-          <div className="text-xs text-fg-ternary animate-pulse">Thinking…</div>
+          <div className="text-xs text-fg-ternary animate-pulse">
+            Thinking…
+          </div>
         )}
       </div>
 
@@ -152,13 +199,17 @@ export default function AIPanel() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && send()}
-            placeholder="Describe your diagram..."
+            placeholder={
+              useContext
+                ? "Describe changes to the diagram…"
+                : "Describe your diagram…"
+            }
             disabled={loading}
             className="flex-1 bg-bg-secondary border border-fg-ternary/40 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-accent/60"
           />
 
           <Btn
-            title="Generate diagram"
+            title={useContext ? "Update diagram" : "Generate diagram"}
             onClick={send}
             disabled={loading || !input.trim()}
           >

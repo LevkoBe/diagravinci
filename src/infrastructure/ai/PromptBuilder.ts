@@ -96,3 +96,82 @@ User description: "${naturalLanguage}"
 Output ONLY the code:
 `.trim();
 }
+
+export function buildContextAwareDiagramPrompt(
+  naturalLanguage: string,
+  currentCode: string,
+): string {
+  return `
+You are an expert diagram code generator for Diagravinci. The user has an existing diagram and wants to modify or extend it. Generate the updated diagram code in our DSL format. Do not include any explanations, markdown, or extra text—output only the raw code.
+
+DSL Syntax Reference:
+
+Core Syntax:
+- Format: name-wrapper-contents (e.g., player{username password})
+- Wrapper: {}: Object, []: State, (): Function, >> or ><: Flow, <>: Choice/Branch
+- Relationships: -->, --|>, ..|>, *--, o-- (with optional --label--)
+- Nesting: system{module{component{}}}
+- Comments: # for inline or single-line
+
+Current diagram code:
+\`\`\`
+${currentCode}
+\`\`\`
+
+User request: "${naturalLanguage}"
+
+Modify or extend the existing diagram to satisfy the request. Preserve elements that are not affected by the request. Output ONLY the complete updated code:
+`.trim();
+}
+
+export function buildBugAnalysisPrompt(code: string): string {
+  return `
+You are an expert in Diagravinci's diagram DSL. Analyze the following diagram code and identify all lexical and logical issues.
+
+DSL Syntax Reference:
+- Wrappers: {} Object, [] State, () Function, >>/><  Flow, <> Choice
+- Relationships: --> ..> --|> ..|> *-- o-- with optional --label--
+- Nesting: name{child1{} child2{}}
+- Same name = same element (cross-references)
+- Comments: #
+
+Check for:
+- Orphaned elements (defined but never connected, or referenced in relationships but never defined)
+- Circular dependencies (A --> B --> A)
+- Inconsistencies (same name used with different wrapper types)
+- Unclosed or mismatched brackets/wrappers
+- Invalid relationship syntax
+- Dead-end flows or disconnected subgraphs
+- Any other lexical or logical issues
+
+Diagram code:
+\`\`\`
+${code}
+\`\`\`
+
+Return a concise structured list. Use these prefixes: [ORPHANED], [CIRCULAR], [INCONSISTENCY], [SYNTAX], [DEAD-END], [OTHER].
+If no issues are found, respond with exactly: ✓ No issues found.
+`.trim();
+}
+
+export function buildArchitectureSuggestionsPrompt(code: string): string {
+  return `
+You are a senior software architect reviewing a Diagravinci diagram.
+
+DSL Syntax Reference:
+- Wrappers: {} Object, [] State, () Function, >>/><  Flow, <> Choice
+- Relationships: --> ..> --|> ..|> *-- o-- with optional --label--
+
+Diagram code:
+\`\`\`
+${code}
+\`\`\`
+
+Provide a concise architectural review:
+1. **Patterns identified** — name the architectural patterns you see (e.g., layered, MVC, event-driven, microservices, CQRS)
+2. **Issues / anti-patterns** — coupling concerns, missing abstractions, god objects, etc.
+3. **Suggestions** — specific, actionable improvements or alternative patterns better suited to the domain
+
+Be direct and prioritise the most impactful observations.
+`.trim();
+}

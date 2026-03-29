@@ -1,5 +1,9 @@
 import type { AIService } from "./AIService";
-import { buildDiagramPrompt } from "./PromptBuilder";
+import {
+  buildDiagramPrompt,
+  buildBugAnalysisPrompt,
+  buildArchitectureSuggestionsPrompt,
+} from "./PromptBuilder";
 
 const MODEL =
   (import.meta.env.VITE_GEMINI_MODEL as string) || "gemini-2.5-flash-lite";
@@ -18,6 +22,7 @@ export class GeminiService implements AIService {
 
   async generateDiagram(
     naturalLanguage: string,
+    prebuiltPrompt = false,
   ): Promise<{ diagramSyntax: string; explanation: string }> {
     const now = Date.now();
     this.lastCalls = this.lastCalls.filter((t) => now - t < 60000);
@@ -28,7 +33,9 @@ export class GeminiService implements AIService {
     }
     this.lastCalls.push(now);
 
-    const prompt = buildDiagramPrompt(naturalLanguage);
+    const prompt = prebuiltPrompt
+      ? naturalLanguage
+      : buildDiagramPrompt(naturalLanguage);
 
     const payload = {
       systemInstruction: {
@@ -80,5 +87,60 @@ export class GeminiService implements AIService {
       diagramSyntax: diagram,
       explanation: "AI-generated diagram (prompt requested raw DSL only)",
     };
+  }
+
+  async analyzeCode(
+    code: string,
+    mode: "bugs" | "suggestions",
+  ): Promise<{ analysis: string }> {
+    const now = Date.now();
+    this.lastCalls = this.lastCalls.filter((t) => now - t < 60000);
+    if (this.lastCalls.length >= 5) {
+      throw new Error(
+        "Rate limit reached (5 requests/min). Please wait 60 seconds.",
+      );
+    }
+    this.lastCalls.push(now);
+
+    const prompt =
+      mode === "bugs"
+        ? buildBugAnalysisPrompt(code)
+        : buildArchitectureSuggestionsPrompt(code);
+
+    const payload = {
+      systemInstruction: {
+        parts: [
+          {
+            text: "You are Diagravinci's AI diagram expert. Answer as requested.",
+          },
+        ],
+      },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "text/plain",
+        temperature: 0.1,
+        maxOutputTokens: 1024,
+      },
+    };
+
+    const resp = await fetch(`${API_URL}?key=${this.apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!resp.ok) {
+      if (resp.status === 429)
+        throw new Error("Gemini rate limit (429). Wait a minute.");
+      throw new Error(`Gemini HTTP ${resp.status}: ${await resp.text()}`);
+    }
+
+    const data = await resp.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text || typeof text !== "string") {
+      throw new Error("Empty response from Gemini");
+    }
+
+    return { analysis: text.trim() };
   }
 }
