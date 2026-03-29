@@ -1,10 +1,56 @@
 import type { Element } from "../models/Element";
 import type { DiagramModel } from "../models/DiagramModel";
-import type { ViewState } from "../models/ViewState";
+import type {
+  PositionedElement,
+  PositionedRelationship,
+  ViewState,
+} from "../models/ViewState";
 import type { LayoutAlgorithm } from "./LayoutAlgorithm";
-import { AncestryTracker, resolveRelationships } from "./CircularLayout";
 
-const CHILD_FILL = 0.85;
+export const CHILD_FILL = 0.85;
+export const ELEMENT_FILL = 0.7;
+export const RADIO = 3.3;
+
+export class AncestryTracker {
+  private readonly _set: Set<string>;
+  constructor(_set: Set<string> = new Set()) {
+    this._set = _set;
+  }
+  tryAdd(id: string): AncestryTracker | null {
+    if (this._set.has(id)) return null;
+    const newSet = new Set(this._set);
+    newSet.add(id);
+    return new AncestryTracker(newSet);
+  }
+}
+
+export function calculateSize(value: number): number {
+  return Math.pow(value, 0.9) * 30;
+}
+
+export function resolveRelationships(
+  model: DiagramModel,
+  positions: Record<string, PositionedElement>,
+): PositionedRelationship[] {
+  const shallowPath = (elementId: string): string | null => {
+    let best: string | null = null;
+    for (const path of Object.keys(positions)) {
+      if (path.split(".").at(-1) !== elementId) continue;
+      if (best === null || path.split(".").length < best.split(".").length) {
+        best = path;
+      }
+    }
+    return best;
+  };
+  return Object.values(model.relationships).flatMap((rel) => {
+    const sourcePath = shallowPath(rel.source);
+    const targetPath = shallowPath(rel.target);
+    if (!sourcePath || !targetPath) return [];
+    return [
+      { id: rel.id, sourcePath, targetPath, type: rel.type, label: rel.label },
+    ];
+  });
+}
 
 export abstract class BaseLayout implements LayoutAlgorithm {
   abstract name: string;
@@ -16,6 +62,11 @@ export abstract class BaseLayout implements LayoutAlgorithm {
     containerWidth: number,
     containerHeight: number,
   ): { x: number; y: number; size: number }[];
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  protected computeValue(_element: Element, _model: DiagramModel): number {
+    return 0;
+  }
 
   private positionRecursive(
     element: Element,
@@ -31,7 +82,7 @@ export abstract class BaseLayout implements LayoutAlgorithm {
       id: element.id,
       position: { x: cx, y: cy },
       size: allocatedSize,
-      value: 0,
+      value: this.computeValue(element, model),
     };
 
     const tracker = ancestry.tryAdd(element.id);

@@ -1,8 +1,6 @@
 import type { Element } from "../models/Element";
 import type { DiagramModel } from "../models/DiagramModel";
-import { BaseLayout } from "./BaseLayout";
-
-const ELEMENT_FILL = 0.7;
+import { BaseLayout, ELEMENT_FILL } from "./BaseLayout";
 
 export class PipelineLayout extends BaseLayout {
   name = "pipeline";
