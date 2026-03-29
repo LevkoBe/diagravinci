@@ -68,6 +68,10 @@ export abstract class BaseLayout implements LayoutAlgorithm {
     return 0;
   }
 
+  protected recursiveElementSize(_allocatedSize: number): number {
+    return _allocatedSize;
+  }
+
   private positionRecursive(
     element: Element,
     path: string,
@@ -88,6 +92,7 @@ export abstract class BaseLayout implements LayoutAlgorithm {
     const tracker = ancestry.tryAdd(element.id);
     if (!tracker) {
       positions[path].isRecursive = true;
+      positions[path].size = this.recursiveElementSize(allocatedSize);
       return;
     }
 
