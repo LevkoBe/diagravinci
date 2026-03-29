@@ -77,23 +77,23 @@ describe("HierarchicalLayout", () => {
   it("places elements at depth 0 on the same y row", () => {
     const model = makeLinearModel();
     const vs = layout.apply(model, CANVAS);
-    expect(vs.positions["A"].position.y).toBeCloseTo(
-      vs.positions["B"].position.y,
+    expect(vs.positions["A"].position.x).toBeCloseTo(
+      vs.positions["B"].position.x,
     );
-    expect(vs.positions["B"].position.y).toBeCloseTo(
-      vs.positions["C"].position.y,
+    expect(vs.positions["B"].position.x).toBeCloseTo(
+      vs.positions["C"].position.x,
     );
   });
 
   it("places child elements below parents", () => {
     const model = makeHierarchyModel();
     const vs = layout.apply(model, CANVAS);
-    const parentY = vs.positions["Parent"].position.y;
+    const parentX = vs.positions["Parent"].position.x;
 
-    const childAY = vs.positions["Parent.ChildA"].position.y;
-    const childBY = vs.positions["Parent.ChildB"].position.y;
-    expect(childAY).toBeGreaterThan(parentY);
-    expect(childBY).toBeGreaterThan(parentY);
+    const childAX = vs.positions["Parent.ChildA"].position.x;
+    const childBX = vs.positions["Parent.ChildB"].position.x;
+    expect(parentX).toBeGreaterThan(childAX);
+    expect(childBX).toBeGreaterThan(parentX);
   });
 
   it("resolves relationships into positions", () => {
