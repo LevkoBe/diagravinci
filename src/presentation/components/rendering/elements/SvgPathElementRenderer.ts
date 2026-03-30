@@ -70,6 +70,16 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
     return { group, onHoverIn, onHoverOut };
   }
 
+  protected override addContainerBackground(group: Konva.Group): void {
+    group.add(
+      new Konva.Circle({
+        radius: (this.size * 4) / 9,
+        fill: "rgba(0,0,0,0.001)",
+        listening: true,
+      }),
+    );
+  }
+
   private addElementShape(group: Konva.Group): Konva.Path {
     const { size } = this;
     const config = this.elementSvgs[this.element.type];
