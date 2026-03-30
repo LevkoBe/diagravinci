@@ -253,15 +253,37 @@ export class DiagramLayerRenderer {
   }
 
   private updateChildPositions(parentPath: string): void {
+    const parentGroup = this.groupMap.get(parentPath);
+    const oldParentPos = this.viewState.positions[parentPath]?.position;
+    let delta: { x: number; y: number } | null = null;
+    if (parentGroup && oldParentPos) {
+      const newParentPos = screenToWorld(
+        parentGroup.getAbsolutePosition(),
+        this.stage,
+      );
+      delta = {
+        x: newParentPos.x - oldParentPos.x,
+        y: newParentPos.y - oldParentPos.y,
+      };
+    }
+
     Object.keys(this.viewState.positions).forEach((p) => {
       if (!p.startsWith(parentPath + ".")) return;
       const childGroup = this.groupMap.get(p);
-      this.callbacks.onPositionChange(
-        p,
-        childGroup
-          ? screenToWorld(childGroup.getAbsolutePosition(), this.stage)
-          : null,
-      );
+      if (childGroup) {
+        this.callbacks.onPositionChange(
+          p,
+          screenToWorld(childGroup.getAbsolutePosition(), this.stage),
+        );
+      } else if (delta) {
+        const oldPos = this.viewState.positions[p]?.position;
+        if (oldPos) {
+          this.callbacks.onPositionChange(p, {
+            x: oldPos.x + delta.x,
+            y: oldPos.y + delta.y,
+          });
+        }
+      }
     });
   }
 
