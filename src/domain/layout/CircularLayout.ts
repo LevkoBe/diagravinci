@@ -1,6 +1,12 @@
 import type { Element } from "../models/Element";
 import type { DiagramModel } from "../models/DiagramModel";
-import { BaseLayout, RADIO, CHILD_FILL, ELEMENT_FILL, calculateSize } from "./BaseLayout";
+import {
+  BaseLayout,
+  RADIO,
+  CHILD_FILL,
+  ELEMENT_FILL,
+  calculateSize,
+} from "./BaseLayout";
 import { layoutWeight } from "./LayoutUtils";
 
 export default class CircularLayout extends BaseLayout {
@@ -32,13 +38,16 @@ export default class CircularLayout extends BaseLayout {
       return [{ x: 0, y: 0, size }];
     }
 
+    const n = children.length;
     const radius = containerSize / (RADIO * CHILD_FILL);
-    const angleStep = (2 * Math.PI) / children.length;
+    const maxSizeFromSpacing = 2 * radius * Math.sin(Math.PI / n) * CHILD_FILL;
+    const sizeConstrained = Math.min(size, maxSizeFromSpacing);
+    const angleStep = (2 * Math.PI) / n;
 
     return children.map((_, i) => ({
       x: radius * Math.cos(i * angleStep),
       y: radius * Math.sin(i * angleStep),
-      size,
+      size: sizeConstrained,
     }));
   }
 }
