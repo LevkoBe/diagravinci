@@ -123,9 +123,11 @@ const PillOpenContext = createContext(false);
 function Pill({
   label,
   children,
+  activeSlot,
 }: {
   label: string;
   children: React.ReactNode;
+  activeSlot?: React.ReactNode;
 }) {
   const forceOpen = useContext(PillOpenContext);
   const [open, setOpen] = useState(false);
@@ -143,16 +145,23 @@ function Pill({
       onMouseEnter={() => !forceOpen && setOpen(true)}
       onMouseLeave={() => !forceOpen && setOpen(false)}
     >
-      {/* Label — slides away as buttons appear */}
+      {/* Label + active indicators — slide away as buttons appear */}
       <div
         className={`${slide} ${isOpen ? "grid-cols-[0fr]" : "grid-cols-[1fr]"}`}
       >
-        <button
-          className="overflow-hidden min-w-0 text-[9px] font-bold text-accent/70 tracking-widest uppercase select-none whitespace-nowrap focus:outline-none"
-          onClick={() => !forceOpen && setOpen((v) => !v)}
-        >
-          {label}
-        </button>
+        <div className="overflow-hidden min-w-0 flex items-center gap-1">
+          <button
+            className="overflow-hidden min-w-0 mr-2 text-[9px] font-bold text-accent/70 tracking-widest uppercase select-none whitespace-nowrap focus:outline-none"
+            onClick={() => !forceOpen && setOpen((v) => !v)}
+          >
+            {label}
+          </button>
+          {activeSlot && (
+            <div className="flex items-center gap-0.5 shrink-0">
+              {activeSlot}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Buttons — slide in as label disappears */}
@@ -164,6 +173,33 @@ function Pill({
         </div>
       </div>
     </div>
+  );
+}
+
+function ActiveIndicator({
+  children,
+  danger,
+  title,
+  style,
+}: {
+  children: React.ReactNode;
+  danger?: boolean;
+  title?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <span
+      className={[
+        "btn-icon active pointer-events-none select-none shrink-0",
+        danger ? "danger" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={style}
+      title={title}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -749,21 +785,137 @@ export function ToolBar() {
 
         {/* Desktop toolbar — hidden on small screens */}
         <div className="hidden w-full sm:flex items-center justify-around gap-2 px-4 py-2.5 flex-wrap">
-          <Pill label="Create">{createBtns}</Pill>
+          <Pill
+            label="Create"
+            activeSlot={
+              is("create") ? (
+                <ActiveIndicator title={`New ${activeElementType}`}>
+                  <ElementIcon type={activeElementType} />
+                </ActiveIndicator>
+              ) : undefined
+            }
+          >
+            {createBtns}
+          </Pill>
           <Divider />
-          <Pill label="Mode">{modeBtns}</Pill>
+          <Pill
+            label="Mode"
+            activeSlot={
+              <ActiveIndicator
+                title={interactionMode}
+                danger={is("delete") || is("disconnect")}
+              >
+                {
+                  {
+                    select: <MousePointer2 size={15} />,
+                    create: <Pencil size={15} />,
+                    connect: <Link2 size={15} />,
+                    delete: <Trash2 size={15} />,
+                    disconnect: <Unlink size={15} />,
+                    readonly: <Lock size={15} />,
+                  }[interactionMode]
+                }
+              </ActiveIndicator>
+            }
+          >
+            {modeBtns}
+          </Pill>
           <Divider />
-          <Pill label="Rel">{relBtns}</Pill>
+          <Pill
+            label="Rel"
+            activeSlot={
+              is("connect") ? (
+                <ActiveIndicator
+                  title={
+                    REL_TYPES.find((r) => r.type === activeRelationshipType)
+                      ?.label
+                  }
+                >
+                  <span className="text-[12px] font-bold font-mono leading-none select-none">
+                    {
+                      REL_TYPES.find((r) => r.type === activeRelationshipType)
+                        ?.glyph
+                    }
+                  </span>
+                </ActiveIndicator>
+              ) : undefined
+            }
+          >
+            {relBtns}
+          </Pill>
           <Divider />
-          <Pill label="Select">{selectBtns}</Pill>
+          <Pill
+            label="Select"
+            activeSlot={
+              visiblePresets.filter((p) => p.isActive).length > 0 ? (
+                <>
+                  {visiblePresets
+                    .filter((p) => p.isActive)
+                    .map((preset) => (
+                      <span
+                        key={preset.id}
+                        className="btn-icon active pointer-events-none select-none shrink-0 relative overflow-hidden"
+                        style={{
+                          color: preset.color,
+                          borderColor: preset.color,
+                        }}
+                        title={`${preset.label} — ${preset.mode}`}
+                      >
+                        <span
+                          className="absolute inset-0 rounded-[inherit] opacity-15"
+                          style={{ background: preset.color }}
+                        />
+                        <span className="relative text-[9px] font-bold leading-none select-none truncate max-w-[5ch]">
+                          {preset.label.slice(0, 4)}
+                        </span>
+                      </span>
+                    ))}
+                </>
+              ) : undefined
+            }
+          >
+            {selectBtns}
+          </Pill>
           <Divider />
           <Pill label="Project">{projectBtns}</Pill>
           <Divider />
           <Pill label="Code">{codeBtns}</Pill>
           <Divider />
-          <Pill label="Layout">{layoutBtns}</Pill>
+          <Pill
+            label="Layout"
+            activeSlot={
+              <ActiveIndicator title={viewMode}>
+                {
+                  {
+                    circular: <Circle size={15} />,
+                    basic: <Circle size={15} />,
+                    hierarchical: <TreePine size={15} />,
+                    timeline: <ArrowRightLeft size={15} />,
+                    pipeline: <Workflow size={15} />,
+                  }[viewMode]
+                }
+              </ActiveIndicator>
+            }
+          >
+            {layoutBtns}
+          </Pill>
           <Divider />
-          <Pill label="Style">{styleBtns}</Pill>
+          <Pill
+            label="Style"
+            activeSlot={
+              <ActiveIndicator title={renderStyle}>
+                {
+                  {
+                    svg: <Spline size={15} />,
+                    rect: <Square size={15} />,
+                    polygon: <Hexagon size={15} />,
+                  }[renderStyle]
+                }
+              </ActiveIndicator>
+            }
+          >
+            {styleBtns}
+          </Pill>
           <Divider />
           <Pill label="View">{viewBtns}</Pill>
         </div>
