@@ -5,7 +5,11 @@ import {
 } from "../../domain/models/DiagramModel";
 import type { Element, Position } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
-import type { ViewState } from "../../domain/models/ViewState";
+import type {
+  ViewState,
+  PositionedElement,
+  PositionedRelationship,
+} from "../../domain/models/ViewState";
 import { createEmptyViewState } from "../../domain/models/ViewState";
 
 interface DiagramState {
@@ -65,6 +69,27 @@ const diagramSlice = createSlice({
     setViewMode: (state, action: PayloadAction<ViewState["viewMode"]>) => {
       state.viewState.viewMode = action.payload;
     },
+    restoreHistory: (
+      state,
+      action: PayloadAction<{
+        code: string;
+        model: DiagramModel;
+        positions: Record<string, PositionedElement>;
+        relationships: PositionedRelationship[];
+        viewMode: ViewState["viewMode"];
+      }>,
+    ) => {
+      const { code, model, positions, relationships, viewMode } =
+        action.payload;
+      state.code = code;
+      state.model = model;
+      state.viewState = {
+        ...state.viewState,
+        positions,
+        relationships,
+        viewMode,
+      };
+    },
   },
 });
 
@@ -79,6 +104,7 @@ export const {
   upsertRelationship,
   removeRelationship,
   setViewMode,
+  restoreHistory,
 } = diagramSlice.actions;
 
 export default diagramSlice.reducer;

@@ -3,6 +3,7 @@ import diagramReducer from "./diagramSlice";
 import themeReducer from "./themeSlice";
 import uiReducer from "./uiSlice";
 import filterReducer from "./filterSlice";
+import historyReducer from "./historySlice";
 import { SyncManager } from "../SyncManager";
 import { loadState, saveState } from "./persistence";
 
@@ -14,6 +15,7 @@ export const store = configureStore({
     diagram: diagramReducer,
     theme: themeReducer,
     ui: uiReducer,
+    history: historyReducer,
   },
   preloadedState,
 });

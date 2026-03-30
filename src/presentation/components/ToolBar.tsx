@@ -29,6 +29,8 @@ import {
   Menu,
   Lock,
   Scissors,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { toggleTheme } from "../../application/store/themeSlice";
@@ -56,6 +58,7 @@ import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 import { FilterModal } from "./FilterModal";
 import { ELEMENT_SVGS } from "../ElementConfigs";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
+import { useUndoRedo } from "../hooks/useUndoRedo";
 
 const ELEMENT_TYPES = [
   { type: "object" },
@@ -154,12 +157,14 @@ function Btn({
   children,
   active,
   danger,
+  disabled,
   title,
   onClick,
 }: {
   children: React.ReactNode;
   active?: boolean;
   danger?: boolean;
+  disabled?: boolean;
   title?: string;
   onClick?: () => void;
 }) {
@@ -167,6 +172,7 @@ function Btn({
     <button
       title={title}
       onClick={onClick}
+      disabled={disabled}
       className={["btn-icon", active ? "active" : "", danger ? "danger" : ""]
         .filter(Boolean)
         .join(" ")}
@@ -193,6 +199,7 @@ type FoldMode = "expanded" | "collapsed" | "edited";
 export function ToolBar() {
   const dispatch = useAppDispatch();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { canUndo, canRedo, undo, redo } = useUndoRedo();
 
   const isDark = useAppSelector((s) => s.theme.isDark);
   const { model, viewState, code } = useAppSelector((s) => s.diagram);
@@ -541,6 +548,12 @@ export function ToolBar() {
 
   const viewBtns = (
     <>
+      <Btn title="Undo (Ctrl+Z)" onClick={undo} disabled={!canUndo}>
+        <Undo2 size={15} />
+      </Btn>
+      <Btn title="Redo (Ctrl+Shift+Z)" onClick={redo} disabled={!canRedo}>
+        <Redo2 size={15} />
+      </Btn>
       <Btn title="Zoom in" onClick={() => dispatch(sendZoomCommand("in"))}>
         <ZoomIn size={15} />
       </Btn>
