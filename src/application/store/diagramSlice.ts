@@ -82,3 +82,4 @@ export const {
 } = diagramSlice.actions;
 
 export default diagramSlice.reducer;
+export type { DiagramState };

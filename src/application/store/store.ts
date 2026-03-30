@@ -4,6 +4,9 @@ import themeReducer from "./themeSlice";
 import uiReducer from "./uiSlice";
 import filterReducer from "./filterSlice";
 import { SyncManager } from "../SyncManager";
+import { loadState, saveState } from "./persistence";
+
+const preloadedState = loadState();
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +15,16 @@ export const store = configureStore({
     theme: themeReducer,
     ui: uiReducer,
   },
+  preloadedState,
+});
+
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+store.subscribe(() => {
+  if (saveTimer !== null) return;
+  saveTimer = setTimeout(() => {
+    saveState(store.getState());
+    saveTimer = null;
+  }, 1000);
 });
 
 export const syncManager = new SyncManager(store);
