@@ -6,6 +6,7 @@ import filterReducer from "./filterSlice";
 import historyReducer from "./historySlice";
 import diffReducer from "./diffSlice";
 import { SyncManager } from "../SyncManager";
+import { TabSyncManager } from "../TabSyncManager";
 import { loadState, saveState } from "./persistence";
 
 const preloadedState = loadState();
@@ -32,6 +33,7 @@ store.subscribe(() => {
 });
 
 export const syncManager = new SyncManager(store);
+export const tabSyncManager = new TabSyncManager(store);
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppStore = typeof store;

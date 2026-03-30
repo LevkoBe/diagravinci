@@ -165,6 +165,17 @@ const filterSlice = createSlice({
       }
       state._rev++;
     },
+    syncPresetsFromTab(
+      state,
+      { payload }: PayloadAction<Array<Omit<FilterPreset, "isActive">>>,
+    ) {
+      const localActives = new Map(state.presets.map((p) => [p.id, p.isActive]));
+      state.presets = payload.map((p) => ({
+        ...p,
+        isActive: localActives.get(p.id) ?? false,
+      }));
+      state._rev++;
+    },
   },
 });
 
@@ -186,6 +197,7 @@ export const {
   movePresetUp,
   movePresetDown,
   cyclePreset,
+  syncPresetsFromTab,
 } = filterSlice.actions;
 
 export default filterSlice.reducer;
