@@ -8,6 +8,7 @@ import reducer, {
   removePreset,
   togglePresetActive,
   setPresetMode,
+  setPresetColor,
   setFoldLevel,
   setFoldActive,
   toggleFoldActive,
@@ -22,6 +23,7 @@ function makePreset(id: string, active = false): FilterPreset {
     label: `Preset ${id}`,
     mode: "hide",
     isActive: active,
+    color: "#e05c5c",
     selector: { atoms: [], combiner: "" },
   };
 }
@@ -111,6 +113,12 @@ describe("filterSlice", () => {
       const s1 = reducer(undefined, addPreset(makePreset("p1")));
       const s2 = reducer(s1, setPresetMode({ id: "p1", mode: "dim" }));
       expect(s2.presets[0].mode).toBe("dim");
+    });
+
+    it("setPresetColor changes color", () => {
+      const s1 = reducer(undefined, addPreset(makePreset("p1")));
+      const s2 = reducer(s1, setPresetColor({ id: "p1", color: "#00ff00" }));
+      expect(s2.presets[0].color).toBe("#00ff00");
     });
   });
 

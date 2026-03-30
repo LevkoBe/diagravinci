@@ -334,7 +334,7 @@ export function ToolBar() {
     <>
       <div className="relative">
         <Btn
-          title="Filter presets"
+          title="Selector presets"
           active={isModalOpen || activePresetCount > 0}
           onClick={() => dispatch(openFilterModal())}
         >

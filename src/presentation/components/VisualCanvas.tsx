@@ -77,6 +77,7 @@ export function VisualCanvas() {
       hiddenPaths: viewState.hiddenPaths,
       dimmedPaths: viewState.dimmedPaths,
       foldedPaths: viewState.foldedPaths,
+      coloredPaths: viewState.coloredPaths ?? {},
     });
 
     if (!unchanged) {

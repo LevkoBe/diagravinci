@@ -28,6 +28,8 @@ export abstract class BaseElementRenderer implements IElementRenderer {
 
   protected readonly zoom: number;
 
+  protected readonly colorOverride: string | null;
+
   constructor(
     element: Element,
     path: string,
@@ -39,6 +41,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     isDimmed: boolean,
     size: number,
     zoom: number,
+    colorOverride: string | null = null,
   ) {
     this.element = element;
     this.path = path;
@@ -50,12 +53,20 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     this.isDimmed = isDimmed;
     this.size = size;
     this.zoom = zoom;
+    this.colorOverride = colorOverride;
   }
 
   abstract render(parentPos?: {
     x: number;
     y: number;
   }): ElementRenderResult | undefined;
+
+  protected resolveStroke(): string {
+    if (this.colorOverride) return this.colorOverride;
+    return this.selectedElementId === this.element.id
+      ? this.colors.selected
+      : this.colors.accent;
+  }
 
   protected createElementGroup(parentPos?: {
     x: number;

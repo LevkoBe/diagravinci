@@ -29,15 +29,28 @@ type AppState = {
   diagram: { code: string; model: DiagramModel; viewState: ViewState; canvasSize: { width: number; height: number } };
 };
 
+const FALLBACK_COLORS = [
+  "#e05c5c", "#e07a2f", "#d4a017", "#5cb85c",
+  "#2f9ee0", "#7b5ce0", "#d45cb8", "#5ce0c8",
+];
+
 export function loadState(): HydratedState | undefined {
   try {
     const raw = localStorage.getItem(STATE_KEY);
     if (!raw) return undefined;
     const parsed = JSON.parse(raw) as PersistedState;
+    const presets = (parsed.filter.presets ?? []).map((p, i) => ({
+      ...p,
+      color: (p as { color?: string }).color ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length],
+    }));
+    const viewState = {
+      ...parsed.diagram.viewState,
+      coloredPaths: (parsed.diagram.viewState as { coloredPaths?: Record<string, string> }).coloredPaths ?? {},
+    };
     return {
       ...parsed,
-      filter: { ...parsed.filter, isModalOpen: false, activeModalPresetId: null, _rev: 0 },
-      diagram: { ...parsed.diagram, canvasSize: { width: 800, height: 600 } },
+      filter: { ...parsed.filter, presets, isModalOpen: false, activeModalPresetId: null, _rev: 0 },
+      diagram: { ...parsed.diagram, viewState, canvasSize: { width: 800, height: 600 } },
       ui: { ...parsed.ui, connectingFromId: null, selectedElementId: null, zoomCommand: null },
     };
   } catch {

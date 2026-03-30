@@ -118,7 +118,9 @@ export class DiagramLayerRenderer {
       console.log("[DiagramLayerRenderer] Rendering dimmed element:", path);
     }
 
-    const elementGroup = this.renderElement(element, path, parentPos, isDimmed);
+    const colorOverride = this.viewState.coloredPaths?.[path] ?? null;
+
+    const elementGroup = this.renderElement(element, path, parentPos, isDimmed, colorOverride);
     if (!elementGroup) return;
 
     parentGroup.add(elementGroup);
@@ -167,6 +169,7 @@ export class DiagramLayerRenderer {
     path: string,
     parentPos?: { x: number; y: number },
     isDimmed = false,
+    colorOverride: string | null = null,
   ): Konva.Group | undefined {
     const isNew = !this.prevPaths.has(path);
     const size = this.getSize(path);
@@ -182,6 +185,7 @@ export class DiagramLayerRenderer {
       isDimmed,
       size,
       this.zoom,
+      colorOverride,
     ] as const;
 
     const elementRenderer =

@@ -20,6 +20,7 @@ export class SimpleRectElementRenderer extends BaseElementRenderer {
     isDimmed: boolean,
     size: number,
     zoom: number,
+    colorOverride: string | null = null,
   ) {
     super(
       element,
@@ -32,6 +33,7 @@ export class SimpleRectElementRenderer extends BaseElementRenderer {
       isDimmed,
       size,
       zoom,
+      colorOverride,
     );
   }
 
@@ -85,10 +87,7 @@ export class SimpleRectElementRenderer extends BaseElementRenderer {
     const rectNode = new Konva.Rect({
       width: size,
       height: size,
-      stroke:
-        this.selectedElementId === this.element.id
-          ? this.colors.selected
-          : this.colors.accent,
+      stroke: this.resolveStroke(),
       strokeWidth,
       dash,
       cornerRadius: 5,

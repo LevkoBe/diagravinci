@@ -8,21 +8,40 @@ import {
   removePreset,
   togglePresetActive,
   setPresetMode,
+  setPresetColor,
 } from "../../application/store/filterSlice";
 import {
   emptySelector,
   FOLD_PRESET_ID,
+  type FilterMode,
   type FilterPreset,
 } from "../../domain/models/Selector";
 import { SelectorEditor } from "./SelectorEditor";
+
+const MODE_CYCLE: FilterMode[] = ["color", "dim", "hide"];
+const MODE_LABELS: Record<FilterMode, string> = {
+  color: "color",
+  dim: "dim",
+  hide: "hide",
+};
+
+const PALETTE = [
+  "#e05c5c", "#e07a2f", "#d4a017", "#5cb85c",
+  "#2f9ee0", "#7b5ce0", "#d45cb8", "#5ce0c8",
+];
+
+function randomColor(): string {
+  return PALETTE[Math.floor(Math.random() * PALETTE.length)];
+}
 
 function freshDraft(): FilterPreset {
   return {
     id: crypto.randomUUID(),
     label: "New preset",
     selector: emptySelector(),
-    mode: "hide",
+    mode: "color",
     isActive: false,
+    color: randomColor(),
   };
 }
 
@@ -36,6 +55,9 @@ function PresetRow({
   onEdit: () => void;
 }) {
   const dispatch = useAppDispatch();
+  const nextMode = (m: FilterMode): FilterMode =>
+    MODE_CYCLE[(MODE_CYCLE.indexOf(m) + 1) % MODE_CYCLE.length];
+
   return (
     <div
       onClick={onEdit}
@@ -65,6 +87,12 @@ function PresetRow({
         )}
       </button>
 
+      <div
+        className="shrink-0 w-3.5 h-3.5 rounded-full border border-black/20"
+        style={{ background: preset.color }}
+        title="Selector color"
+      />
+
       <span className="flex-1 text-sm font-medium text-fg-primary truncate">
         {preset.label}
       </span>
@@ -72,22 +100,24 @@ function PresetRow({
       <button
         onClick={(e) => {
           e.stopPropagation();
-          dispatch(
-            setPresetMode({
-              id: preset.id,
-              mode: preset.mode === "hide" ? "dim" : "hide",
-            }),
-          );
+          dispatch(setPresetMode({ id: preset.id, mode: nextMode(preset.mode) }));
         }}
         className={[
           "rounded-md px-2.5 py-1 text-xs font-semibold border transition-colors shrink-0",
           preset.mode === "hide"
             ? "border-fg-ternary/50 text-fg-secondary bg-transparent hover:border-fg-secondary"
-            : "border-accent/50 text-accent bg-accent/10 hover:border-accent",
+            : preset.mode === "dim"
+              ? "border-accent/50 text-accent bg-accent/10 hover:border-accent"
+              : "border-black/20 text-bg-primary hover:opacity-80",
         ].join(" ")}
-        title={`Mode: ${preset.mode} — click to toggle`}
+        style={
+          preset.mode === "color"
+            ? { background: preset.color, borderColor: preset.color }
+            : {}
+        }
+        title={`Mode: ${preset.mode} — click to cycle`}
       >
-        {preset.mode}
+        {MODE_LABELS[preset.mode]}
       </button>
 
       <button
@@ -148,7 +178,7 @@ export function FilterModal() {
       <div className="bg-bg-primary border border-fg-ternary/40 rounded-xl shadow-2xl w-165 max-h-[88vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-fg-ternary/30 shrink-0">
           <span className="font-semibold text-lg text-fg-primary">
-            Filter Presets
+            Selector Presets
           </span>
           <button
             onClick={() => dispatch(closeFilterModal())}
@@ -185,6 +215,22 @@ export function FilterModal() {
                 placeholder="Preset name"
               />
               <div className="flex items-center gap-2 shrink-0">
+                <div className="relative">
+                  <input
+                    type="color"
+                    value={draft.color}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, color: e.target.value }))
+                    }
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    title="Pick color"
+                  />
+                  <div
+                    className="w-6 h-6 rounded-full border-2 border-fg-ternary/40 cursor-pointer shrink-0"
+                    style={{ background: draft.color }}
+                    title="Pick color"
+                  />
+                </div>
                 <button
                   onClick={handleSave}
                   className="rounded-lg px-4 py-1.5 text-sm font-semibold bg-accent text-bg-primary hover:bg-accent/85 transition-colors flex items-center gap-1.5"
