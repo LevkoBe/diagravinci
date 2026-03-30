@@ -5,6 +5,7 @@ import {
   setCanvasSize,
   setViewState,
   updateElementPositionInView,
+  pruneElements,
 } from "../../application/store/diagramSlice";
 import {
   setConnectingFromId,
@@ -12,7 +13,8 @@ import {
   setSelectedElement,
 } from "../../application/store/uiSlice";
 import { toggleElementFold } from "../../application/store/filterSlice";
-import { syncManager } from "../../application/store/store";
+import { acceptDiffId } from "../../application/store/diffSlice";
+import { syncManager, store } from "../../application/store/store";
 import { getCSSVariable } from "../../shared/utils";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
 import { FilterResolver } from "../../domain/sync/FilterResolver";
@@ -33,6 +35,7 @@ export function VisualCanvas() {
   const model = useAppSelector((s) => s.diagram.model);
   const viewState = useAppSelector((s) => s.diagram.viewState);
   const filterState = useAppSelector((s) => s.filter);
+  const diffState = useAppSelector((s) => s.diff);
   const isDark = useAppSelector((s) => s.theme.isDark);
   const {
     interactionMode,
@@ -65,12 +68,28 @@ export function VisualCanvas() {
     modelRef.current = model;
   }, [model]);
 
+  const DIFF_ADDED_COLOR = "#4caf50";
+  const DIFF_REMOVED_COLOR = "#ef5350";
+
   useEffect(() => {
     const newLists = FilterResolver.resolve(
       filterState,
       viewState.positions,
       model,
     );
+
+    if (diffState.active) {
+      const addedSet = new Set(diffState.addedIds);
+      const removedSet = new Set(diffState.removedIds);
+      for (const path of Object.keys(viewState.positions)) {
+        const elementId = path.split(".").at(-1)!;
+        if (addedSet.has(elementId)) {
+          newLists.coloredPaths[path] = DIFF_ADDED_COLOR;
+        } else if (removedSet.has(elementId)) {
+          newLists.coloredPaths[path] = DIFF_REMOVED_COLOR;
+        }
+      }
+    }
 
     const unchanged = FilterResolver.equal(newLists, {
       hiddenPaths: viewState.hiddenPaths,
@@ -87,7 +106,7 @@ export function VisualCanvas() {
       dispatch(setViewState({ ...viewState, ...newLists }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterState, viewState.positions, model]);
+  }, [filterState, viewState.positions, model, diffState]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -339,6 +358,16 @@ export function VisualCanvas() {
           }
         },
         onContextMenu: (elementId, path) => {
+          const { diff } = store.getState();
+          if (diff.active) {
+            if (diff.removedIds.includes(elementId)) {
+              dispatch(acceptDiffId(elementId));
+              dispatch(pruneElements([elementId]));
+            } else if (diff.addedIds.includes(elementId)) {
+              dispatch(acceptDiffId(elementId));
+            }
+            return;
+          }
           const currentlyFolded = viewState.foldedPaths.includes(path);
           console.log(
             "[VisualCanvas] RMC on element:",

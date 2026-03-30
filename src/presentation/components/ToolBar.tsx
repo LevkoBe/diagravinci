@@ -31,6 +31,8 @@ import {
   Scissors,
   Undo2,
   Redo2,
+  GitCompare,
+  CheckCheck,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { toggleTheme } from "../../application/store/themeSlice";
@@ -47,6 +49,7 @@ import {
   setViewState,
   setCode,
   setViewMode,
+  pruneElements,
 } from "../../application/store/diagramSlice";
 import {
   openFilterModal,
@@ -54,11 +57,22 @@ import {
   toggleFoldActive,
   cyclePreset,
 } from "../../application/store/filterSlice";
+import {
+  setDiff,
+  clearAllAdded,
+  clearAllRemoved,
+  clearDiff,
+} from "../../application/store/diffSlice";
 import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
+import { Lexer } from "../../infrastructure/parser/Lexer";
+import { Parser } from "../../infrastructure/parser/Parser";
+import { ViewStateMerger } from "../../domain/sync/ViewStateMerger";
 import { FilterModal } from "./FilterModal";
 import { ELEMENT_SVGS } from "../ElementConfigs";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
+import type { Element } from "../../domain/models/Element";
 import { useUndoRedo } from "../hooks/useUndoRedo";
+import { store } from "../../application/store/store";
 
 const ELEMENT_TYPES = [
   { type: "object" },
@@ -218,8 +232,10 @@ export function ToolBar() {
     manuallyFolded,
     manuallyUnfolded,
   } = useAppSelector((s) => s.filter);
+  const diffState = useAppSelector((s) => s.diff);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
+  const updateCodeInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -273,6 +289,78 @@ export function ToolBar() {
     import("../../application/store/store").then(({ syncManager }) =>
       syncManager.syncFromCode(""),
     );
+  };
+
+  const handleUpdateCode = () => updateCodeInputRef.current?.click();
+
+  const handleUpdateCodeFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    readFile(e, (text) => {
+      try {
+        const tokens = new Lexer(text).tokenize();
+        const newModel = new Parser(tokens).parse();
+        const {
+          model: oldModel,
+          viewState: currentViewState,
+          canvasSize,
+        } = store.getState().diagram;
+
+        const oldIds = new Set(Object.keys(oldModel.elements));
+        const newIds = new Set(Object.keys(newModel.elements));
+
+        const addedIds = [...newIds].filter((id) => !oldIds.has(id));
+        const removedIds = [...oldIds].filter(
+          (id) => !newIds.has(id) && id !== oldModel.root.id,
+        );
+
+        const removedElements: Record<string, Element> = {};
+        for (const id of removedIds) {
+          if (oldModel.elements[id])
+            removedElements[id] = oldModel.elements[id];
+        }
+
+        const mergedModel = {
+          ...newModel,
+          elements: { ...newModel.elements, ...removedElements },
+          root: {
+            ...newModel.root,
+            childIds: [
+              ...newModel.root.childIds,
+              ...removedIds.filter(
+                (id) => !newModel.root.childIds.includes(id),
+              ),
+            ],
+          },
+        };
+
+        const mergedViewState = ViewStateMerger.merge(
+          currentViewState,
+          mergedModel,
+          canvasSize,
+        );
+
+        // Preserve old positions for removed elements (root-level path = element id)
+        const positions = { ...mergedViewState.positions };
+        for (const id of removedIds) {
+          if (currentViewState.positions[id]) {
+            positions[id] = currentViewState.positions[id];
+          }
+        }
+
+        dispatch(setModel(mergedModel));
+        dispatch(setViewState({ ...mergedViewState, positions }));
+        dispatch(setCode(text));
+        dispatch(setDiff({ addedIds, removedIds }));
+      } catch (err) {
+        console.error("[ToolBar] handleUpdateCodeFile error:", err);
+      }
+    });
+    e.target.value = "";
+  };
+
+  const handleAcceptAllAdded = () => dispatch(clearAllAdded());
+  const handleAcceptAllRemoved = () => {
+    dispatch(pruneElements(diffState.removedIds));
+    dispatch(clearAllRemoved());
   };
 
   const handleExportSubset = () => {
@@ -473,6 +561,13 @@ export function ToolBar() {
       <Btn title="Load code (.dg)" onClick={handleLoadCode}>
         <FileInput size={15} />
       </Btn>
+      <Btn
+        title="Update code — diff & merge with current diagram"
+        active={diffState.active}
+        onClick={handleUpdateCode}
+      >
+        <GitCompare size={15} />
+      </Btn>
     </>
   );
 
@@ -588,9 +683,59 @@ export function ToolBar() {
         className="hidden"
         onChange={handleCodeFile}
       />
+      <input
+        ref={updateCodeInputRef}
+        type="file"
+        accept=".dg,.txt"
+        className="hidden"
+        onChange={handleUpdateCodeFile}
+      />
       {isModalOpen && <FilterModal />}
 
       <div className="border-b-2 border-fg-ternary/60">
+        {diffState.active && (
+          <div className="flex items-center gap-3 px-4 py-1.5 bg-bg-secondary/60 border-b border-fg-ternary/20 text-xs">
+            <span className="font-semibold text-fg-secondary">Diff view</span>
+            <span style={{ color: "#4caf50" }} className="font-medium">
+              +{diffState.addedIds.length} added
+            </span>
+            <span style={{ color: "#ef5350" }} className="font-medium">
+              -{diffState.removedIds.length} removed
+            </span>
+            <span className="text-fg-ternary/60">
+              Right-click an element to accept individually
+            </span>
+            <div className="flex items-center gap-1.5 ml-auto">
+              <button
+                onClick={handleAcceptAllAdded}
+                disabled={diffState.addedIds.length === 0}
+                className="flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium transition-colors disabled:opacity-30"
+                style={{ borderColor: "#4caf50", color: "#4caf50" }}
+                title="Accept all added (remove green highlights)"
+              >
+                <CheckCheck size={11} />
+                Accept added
+              </button>
+              <button
+                onClick={handleAcceptAllRemoved}
+                disabled={diffState.removedIds.length === 0}
+                className="flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium transition-colors disabled:opacity-30"
+                style={{ borderColor: "#ef5350", color: "#ef5350" }}
+                title="Accept all removed (delete from diagram)"
+              >
+                <CheckCheck size={11} />
+                Accept removed
+              </button>
+              <button
+                onClick={() => dispatch(clearDiff())}
+                className="flex items-center gap-1 px-2 py-0.5 rounded border border-fg-ternary/40 text-fg-secondary text-xs font-medium hover:bg-fg-ternary/10 transition-colors"
+                title="Clear diff — exit diff view without accepting"
+              >
+                Clear diff
+              </button>
+            </div>
+          </div>
+        )}
         {/* Mobile header — visible only on small screens */}
         <div className="flex sm:hidden items-center px-4 py-2">
           <Btn

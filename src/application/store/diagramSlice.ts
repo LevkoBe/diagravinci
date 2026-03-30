@@ -69,6 +69,14 @@ const diagramSlice = createSlice({
     setViewMode: (state, action: PayloadAction<ViewState["viewMode"]>) => {
       state.viewState.viewMode = action.payload;
     },
+    pruneElements: (state, { payload: ids }: PayloadAction<string[]>) => {
+      for (const id of ids) {
+        delete state.model.elements[id];
+      }
+      state.model.root.childIds = state.model.root.childIds.filter(
+        (id) => !ids.includes(id),
+      );
+    },
     restoreHistory: (
       state,
       action: PayloadAction<{
@@ -104,6 +112,7 @@ export const {
   upsertRelationship,
   removeRelationship,
   setViewMode,
+  pruneElements,
   restoreHistory,
 } = diagramSlice.actions;
 
