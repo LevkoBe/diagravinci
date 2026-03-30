@@ -61,6 +61,30 @@ function makePreset(
   };
 }
 
+function makePresetWithCombiner(
+  id: string,
+  mode: "hide" | "dim",
+  atoms: { path: string }[],
+  combiner: string,
+  isActive = true,
+): FilterPreset {
+  return {
+    id,
+    label: id,
+    mode,
+    isActive,
+    selector: {
+      atoms: atoms.map((a, i) => ({
+        id: String(i),
+        types: [],
+        path: a.path,
+        meta: { kind: "raw" as const },
+      })),
+      combiner,
+    },
+  };
+}
+
 describe("FilterResolver.resolve", () => {
   it("returns empty lists when no presets and no fold", () => {
     const result = FilterResolver.resolve(
@@ -94,6 +118,61 @@ describe("FilterResolver.resolve", () => {
     const result = FilterResolver.resolve(filterState, positions, model);
     expect(result.dimmedPaths).toContain("b");
     expect(result.dimmedPaths).not.toContain("a");
+  });
+
+  describe("combiner logic", () => {
+    it("not 1: hides paths that MATCH atom 1 (inverted)", () => {
+      const filterState = makeFilterState({
+        presets: [
+          makePresetWithCombiner("p1", "hide", [{ path: "^a$" }], "not 1"),
+        ],
+      });
+      const positions = makePositions(["a", "b", "c"]);
+      const model = makeModel(["a", "b", "c"]);
+      const result = FilterResolver.resolve(filterState, positions, model);
+      expect(result.hiddenPaths).toContain("a");
+      expect(result.hiddenPaths).not.toContain("b");
+      expect(result.hiddenPaths).not.toContain("c");
+    });
+
+    it("1 and 2: hides paths matching neither atom", () => {
+      const filterState = makeFilterState({
+        presets: [
+          makePresetWithCombiner(
+            "p1",
+            "hide",
+            [{ path: "svc" }, { path: "auth" }],
+            "1 and 2",
+          ),
+        ],
+      });
+
+      const positions = makePositions(["svc.auth", "svc.other", "other"]);
+      const model = makeModel(["auth", "other", "other"]);
+      const result = FilterResolver.resolve(filterState, positions, model);
+      expect(result.hiddenPaths).not.toContain("svc.auth");
+      expect(result.hiddenPaths).toContain("svc.other");
+      expect(result.hiddenPaths).toContain("other");
+    });
+
+    it("1 or 2: hides paths matching neither atom", () => {
+      const filterState = makeFilterState({
+        presets: [
+          makePresetWithCombiner(
+            "p1",
+            "hide",
+            [{ path: "^a$" }, { path: "^b$" }],
+            "1 or 2",
+          ),
+        ],
+      });
+      const positions = makePositions(["a", "b", "c"]);
+      const model = makeModel(["a", "b", "c"]);
+      const result = FilterResolver.resolve(filterState, positions, model);
+      expect(result.hiddenPaths).not.toContain("a");
+      expect(result.hiddenPaths).not.toContain("b");
+      expect(result.hiddenPaths).toContain("c");
+    });
   });
 
   it("ignores inactive presets", () => {

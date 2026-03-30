@@ -75,7 +75,8 @@ class CombinerParser {
     let v = this.parseNot();
     while (this.peek()?.k === "and") {
       this.advance();
-      v = v && this.parseNot();
+      const right = this.parseNot();
+      v = v && right;
     }
     return v;
   }

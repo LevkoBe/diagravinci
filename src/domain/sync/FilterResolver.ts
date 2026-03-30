@@ -2,6 +2,7 @@ import type { FilterPreset } from "../../domain/models/Selector";
 import type { PositionedElement } from "../../domain/models/ViewState";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { FilterState } from "../../application/store/filterSlice";
+import { evaluateSelector } from "../selector/SelectorEvaluator";
 
 export interface FilterLists {
   hiddenPaths: string[];
@@ -20,25 +21,11 @@ function matchesPreset(
 ): boolean {
   if (preset.selector.atoms.length === 0) return false;
 
-  return preset.selector.atoms.some((atom) => {
-    if (atom.path) {
-      try {
-        if (!new RegExp(atom.path).test(path)) return false;
-      } catch (err) {
-        console.warn("[FilterResolver] Invalid regex in atom:", atom.path, err);
-        return false;
-      }
-    }
+  const elementId = path.split(".").at(-1)!;
+  const element = model.elements[elementId];
+  const type = element?.type ?? "";
 
-    if (atom.types.length > 0) {
-      const elementId = path.split(".").at(-1)!;
-      const element = model.elements[elementId];
-      if (!element) return false;
-      if (!atom.types.includes(element.type as never)) return false;
-    }
-
-    return true;
-  });
+  return evaluateSelector(preset.selector, path, type);
 }
 
 function arraysEqual(a: string[], b: string[]): boolean {
