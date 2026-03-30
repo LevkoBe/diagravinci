@@ -77,9 +77,7 @@ const filterSlice = createSlice({
     },
     setPresetColor(
       state,
-      {
-        payload: { id, color },
-      }: PayloadAction<{ id: string; color: string }>,
+      { payload: { id, color } }: PayloadAction<{ id: string; color: string }>,
     ) {
       const preset = state.presets.find((p) => p.id === id);
       if (preset) {
@@ -135,6 +133,38 @@ const filterSlice = createSlice({
       console.log("[filterSlice] clearFoldOverrides");
       state._rev++;
     },
+
+    movePresetUp(state, { payload: id }: PayloadAction<string>) {
+      const idx = state.presets.findIndex((p) => p.id === id);
+      if (idx <= 0) return;
+      const tmp = state.presets[idx - 1];
+      state.presets[idx - 1] = state.presets[idx];
+      state.presets[idx] = tmp;
+      state._rev++;
+    },
+    movePresetDown(state, { payload: id }: PayloadAction<string>) {
+      const idx = state.presets.findIndex((p) => p.id === id);
+      if (idx < 0 || idx >= state.presets.length - 1) return;
+      const tmp = state.presets[idx + 1];
+      state.presets[idx + 1] = state.presets[idx];
+      state.presets[idx] = tmp;
+      state._rev++;
+    },
+    cyclePreset(state, { payload: id }: PayloadAction<string>) {
+      const preset = state.presets.find((p) => p.id === id);
+      if (!preset) return;
+      if (!preset.isActive) {
+        preset.isActive = true;
+        preset.mode = "color";
+      } else if (preset.mode === "color") {
+        preset.mode = "dim";
+      } else if (preset.mode === "dim") {
+        preset.mode = "hide";
+      } else {
+        preset.isActive = false;
+      }
+      state._rev++;
+    },
   },
 });
 
@@ -153,6 +183,9 @@ export const {
   toggleFoldActive,
   toggleElementFold,
   clearFoldOverrides,
+  movePresetUp,
+  movePresetDown,
+  cyclePreset,
 } = filterSlice.actions;
 
 export default filterSlice.reducer;

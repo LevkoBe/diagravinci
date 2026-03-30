@@ -65,7 +65,6 @@ export function VisualCanvas() {
     modelRef.current = model;
   }, [model]);
 
-  // Filter list recomputation
   useEffect(() => {
     const newLists = FilterResolver.resolve(
       filterState,
@@ -90,7 +89,6 @@ export function VisualCanvas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterState, viewState.positions, model]);
 
-  // Stage setup: runs once
   useEffect(() => {
     if (!containerRef.current) return;
     const stage = new Konva.Stage({
@@ -140,6 +138,7 @@ export function VisualCanvas() {
 
     stage.on("click", (e) => {
       if (e.target !== stage) return;
+      if (modeRef.current === "readonly") return;
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
       const scale = stage.scaleX();
@@ -210,10 +209,11 @@ export function VisualCanvas() {
   useEffect(() => {
     if (!stageRef.current) return;
     stageRef.current.container().style.cursor =
-      interactionMode === "select" ? "default" : "crosshair";
+      interactionMode === "select" || interactionMode === "readonly"
+        ? "default"
+        : "crosshair";
   }, [interactionMode]);
 
-  // Re-render layers
   useEffect(() => {
     if (
       !relationshipLayerRef.current ||
@@ -354,6 +354,7 @@ export function VisualCanvas() {
       prevPathsRef.current,
       zoom,
       renderStyle,
+      interactionMode === "readonly",
     );
 
     renderer.render(relationshipLayerRef.current, elementLayerRef.current);
@@ -366,6 +367,7 @@ export function VisualCanvas() {
     isDark,
     zoom,
     renderStyle,
+    interactionMode,
     dispatch,
   ]);
 

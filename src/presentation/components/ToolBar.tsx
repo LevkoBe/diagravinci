@@ -27,6 +27,8 @@ import {
   Square,
   Hexagon,
   Menu,
+  Lock,
+  Scissors,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { toggleTheme } from "../../application/store/themeSlice";
@@ -48,7 +50,9 @@ import {
   openFilterModal,
   setFoldLevel,
   toggleFoldActive,
+  cyclePreset,
 } from "../../application/store/filterSlice";
+import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 import { FilterModal } from "./FilterModal";
 import { ELEMENT_SVGS } from "../ElementConfigs";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
@@ -264,6 +268,45 @@ export function ToolBar() {
     );
   };
 
+  const handleExportSubset = () => {
+    const hiddenSet = new Set(viewState.hiddenPaths);
+    const visibleIds = new Set(
+      Object.keys(viewState.positions)
+        .filter((p) => !hiddenSet.has(p))
+        .map((p) => p.split(".").at(-1)!),
+    );
+    const filteredElements: typeof model.elements = {};
+    for (const id of Object.keys(model.elements)) {
+      if (visibleIds.has(id))
+        filteredElements[id] = {
+          ...model.elements[id],
+          childIds: model.elements[id].childIds.filter((c) =>
+            visibleIds.has(c),
+          ),
+        };
+    }
+    const filteredRoot = {
+      ...model.root,
+      childIds: model.root.childIds.filter((c) => visibleIds.has(c)),
+    };
+    const filteredRelationships: typeof model.relationships = {};
+    for (const [id, r] of Object.entries(model.relationships)) {
+      if (visibleIds.has(r.source) && visibleIds.has(r.target))
+        filteredRelationships[id] = r;
+    }
+    const subsetModel = {
+      ...model,
+      root: filteredRoot,
+      elements: filteredElements,
+      relationships: filteredRelationships,
+    };
+    const subsetCode = new CodeGenerator(subsetModel).generate();
+    trigger(
+      new Blob([subsetCode], { type: "text/plain" }),
+      `subset_${today()}.dg`,
+    );
+  };
+
   const createBtns = ELEMENT_TYPES.map(({ type }) => (
     <Btn
       key={type}
@@ -314,6 +357,15 @@ export function ToolBar() {
       >
         <Unlink size={15} />
       </Btn>
+      <Btn
+        title="Read-only / pan only"
+        active={is("readonly")}
+        onClick={() =>
+          dispatch(setInteractionMode(is("readonly") ? "select" : "readonly"))
+        }
+      >
+        <Lock size={15} />
+      </Btn>
     </>
   );
 
@@ -329,6 +381,8 @@ export function ToolBar() {
       </span>
     </Btn>
   ));
+
+  const visiblePresets = presets.filter((p) => p.id !== "__fold__");
 
   const selectBtns = (
     <>
@@ -346,6 +400,27 @@ export function ToolBar() {
           </span>
         )}
       </div>
+      {visiblePresets.map((preset) => (
+        <button
+          key={preset.id}
+          title={`${preset.label} — ${preset.isActive ? preset.mode : "off"} (click to cycle)`}
+          onClick={() => dispatch(cyclePreset(preset.id))}
+          className="btn-icon relative overflow-hidden"
+          style={
+            preset.isActive
+              ? { color: preset.color, borderColor: preset.color }
+              : {}
+          }
+        >
+          <span
+            className="absolute inset-0 rounded-[inherit] opacity-15 transition-opacity"
+            style={preset.isActive ? { background: preset.color } : {}}
+          />
+          <span className="relative text-[9px] font-bold leading-none select-none truncate max-w-[5ch]">
+            {preset.label.slice(0, 4)}
+          </span>
+        </button>
+      ))}
       <input
         type="number"
         min={1}
@@ -373,6 +448,9 @@ export function ToolBar() {
       </Btn>
       <Btn title="Load diagram (.json)" onClick={handleLoadDiagram}>
         <Upload size={15} />
+      </Btn>
+      <Btn title="Export visible subset (.dg)" onClick={handleExportSubset}>
+        <Scissors size={15} />
       </Btn>
       <Btn title="New diagram" onClick={handleNew}>
         <FilePlus size={15} />
