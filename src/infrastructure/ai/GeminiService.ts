@@ -16,10 +16,10 @@ export class GeminiService implements AIService {
   private apiKey: string;
   private lastCalls: number[] = [];
 
-  constructor() {
-    this.apiKey = (import.meta.env.VITE_GEMINI_API_KEY as string)?.trim();
+  constructor(apiKey: string) {
+    this.apiKey = apiKey.trim();
     if (!this.apiKey) {
-      throw new Error("VITE_GEMINI_API_KEY is missing in .env.local");
+      throw new Error("Gemini API key is required");
     }
   }
 

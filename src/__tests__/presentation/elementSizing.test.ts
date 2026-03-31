@@ -8,6 +8,7 @@ import {
 import { createElement } from "../../domain/models/Element";
 import { createEmptyDiagram } from "../../domain/models/DiagramModel";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
+import type { ViewState } from "../../domain/models/ViewState";
 
 function buildModel(setup: (m: DiagramModel) => void): DiagramModel {
   const model = createEmptyDiagram();
@@ -15,10 +16,25 @@ function buildModel(setup: (m: DiagramModel) => void): DiagramModel {
   return model;
 }
 
+export function createEmptyViewState(): ViewState {
+  return {
+    positions: {},
+    relationships: [],
+    viewMode: "basic",
+    zoom: 1,
+    pan: { x: 0, y: 0 },
+    hiddenPaths: [],
+    dimmedPaths: [],
+    foldedPaths: [],
+    coloredPaths: {},
+  };
+}
+
 describe("computeElementSizes", () => {
   it("returns empty maps for model with no root children", () => {
     const model = createEmptyDiagram();
-    const result = computeElementSizes(model, 1);
+    const viewState = createEmptyViewState();
+    const result = computeElementSizes(model, viewState, 1);
     expect(result.pixelSizes.size).toBe(0);
     expect(result.zoomHidden.size).toBe(0);
     expect(result.zoomDimmed.size).toBe(0);
@@ -29,7 +45,8 @@ describe("computeElementSizes", () => {
       m.elements["a"] = createElement("a", "object");
       m.root.childIds.push("a");
     });
-    const result = computeElementSizes(model, 1);
+    const viewState = createEmptyViewState();
+    const result = computeElementSizes(model, viewState, 1);
     expect(result.pixelSizes.get("a")).toBe(BASE_PX);
   });
 
@@ -43,7 +60,8 @@ describe("computeElementSizes", () => {
       m.elements["c"] = createElement("c", "object");
       m.root.childIds.push("a");
     });
-    const result = computeElementSizes(model, 1);
+    const viewState = createEmptyViewState();
+    const result = computeElementSizes(model, viewState, 1);
     const parentSize = result.pixelSizes.get("a")!;
     const childSize = result.pixelSizes.get("a.b")!;
     expect(childSize).toBeLessThan(parentSize);
@@ -56,7 +74,8 @@ describe("computeElementSizes", () => {
     });
 
     const tinyZoom = MIN_SCREEN_PX / BASE_PX / 2;
-    const result = computeElementSizes(model, tinyZoom);
+    const viewState = createEmptyViewState();
+    const result = computeElementSizes(model, viewState, tinyZoom);
     expect(result.zoomHidden.has("a")).toBe(true);
   });
 
@@ -67,7 +86,8 @@ describe("computeElementSizes", () => {
     });
 
     const largeZoom = (MAX_SCREEN_PX / BASE_PX) * 2;
-    const result = computeElementSizes(model, largeZoom);
+    const viewState = createEmptyViewState();
+    const result = computeElementSizes(model, viewState, largeZoom);
     expect(result.zoomDimmed.has("a")).toBe(true);
   });
 
@@ -77,7 +97,8 @@ describe("computeElementSizes", () => {
       m.root.childIds.push("a");
     });
     const tinyZoom = MIN_SCREEN_PX / BASE_PX / 2;
-    const result = computeElementSizes(model, tinyZoom);
+    const viewState = createEmptyViewState();
+    const result = computeElementSizes(model, viewState, tinyZoom);
     expect(result.zoomDimmed.has("a")).toBe(false);
   });
 
@@ -88,7 +109,8 @@ describe("computeElementSizes", () => {
       m.root.childIds.push("a");
     });
     const tinyZoom = MIN_SCREEN_PX / BASE_PX / 2;
-    const result = computeElementSizes(model, tinyZoom);
+    const viewState = createEmptyViewState();
+    const result = computeElementSizes(model, viewState, tinyZoom);
 
     expect(result.pixelSizes.has("a.b")).toBe(false);
   });
@@ -99,8 +121,9 @@ describe("computeElementSizes", () => {
       m.elements["b"] = { ...createElement("b", "object"), childIds: ["a"] };
       m.root.childIds.push("a");
     });
+    const viewState = createEmptyViewState();
 
-    expect(() => computeElementSizes(model, 1)).not.toThrow();
+    expect(() => computeElementSizes(model, viewState, 1)).not.toThrow();
   });
 
   it("multiple root children each get BASE_PX", () => {
@@ -109,7 +132,8 @@ describe("computeElementSizes", () => {
       m.elements["b"] = createElement("b", "object");
       m.root.childIds.push("a", "b");
     });
-    const result = computeElementSizes(model, 1);
+    const viewState = createEmptyViewState();
+    const result = computeElementSizes(model, viewState, 1);
     expect(result.pixelSizes.get("a")).toBe(BASE_PX);
     expect(result.pixelSizes.get("b")).toBe(BASE_PX);
   });

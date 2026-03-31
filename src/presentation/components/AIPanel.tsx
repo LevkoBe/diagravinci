@@ -1,6 +1,11 @@
-import { useState } from "react";
-import { Bug, Lightbulb, Send, Sparkles, Trash2 } from "lucide-react";
-import { aiOrchestrator } from "../../application/AIOrchestrator";
+import { useMemo, useState } from "react";
+import { Bug, KeyRound, Lightbulb, Send, Sparkles, Trash2 } from "lucide-react";
+import { AIOrchestrator } from "../../application/AIOrchestrator";
+import {
+  clearApiKey,
+  getApiKey,
+} from "../../infrastructure/ai/apiKeyStorage";
+import ApiKeySetup from "./ApiKeySetup";
 
 interface Message {
   role: "user" | "assistant";
@@ -65,10 +70,20 @@ const INITIAL_MSG: Message = {
 };
 
 export default function AIPanel() {
+  const [apiKey, setApiKey] = useState<string | null>(() => getApiKey());
   const [messages, setMessages] = useState<Message[]>([INITIAL_MSG]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [useContext, setUseContext] = useState(false);
+
+  const orchestrator = useMemo(
+    () => (apiKey ? new AIOrchestrator(apiKey) : null),
+    [apiKey],
+  );
+
+  if (!apiKey || !orchestrator) {
+    return <ApiKeySetup onKeySet={setApiKey} />;
+  }
 
   const pushAssistant = (content: string) =>
     setMessages((prev) => [...prev, { role: "assistant", content }]);
@@ -94,7 +109,7 @@ export default function AIPanel() {
     setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
     setInput("");
     runAction(async () => {
-      await aiOrchestrator.generateFromNaturalLanguage(userMsg, useContext);
+      await orchestrator.generateFromNaturalLanguage(userMsg, useContext);
       return useContext
         ? "Diagram updated with your changes."
         : "Diagram generated and synced.";
@@ -106,7 +121,7 @@ export default function AIPanel() {
       ...prev,
       { role: "user", content: "Analyse for bugs & issues…" },
     ]);
-    runAction(() => aiOrchestrator.analyzeBugs());
+    runAction(() => orchestrator.analyzeBugs());
   };
 
   const getSuggestions = () => {
@@ -114,10 +129,16 @@ export default function AIPanel() {
       ...prev,
       { role: "user", content: "Suggest architectural improvements…" },
     ]);
-    runAction(() => aiOrchestrator.getSuggestions());
+    runAction(() => orchestrator.getSuggestions());
   };
 
   const clearChat = () => setMessages([INITIAL_MSG]);
+
+  const handleClearKey = () => {
+    clearApiKey();
+    setApiKey(null);
+    setMessages([INITIAL_MSG]);
+  };
 
   return (
     <div className="w-full h-full flex flex-col border-l-2 border-fg-ternary/60 bg-bg-primary">
@@ -158,6 +179,10 @@ export default function AIPanel() {
         </label>
 
         <div className="flex-1" />
+
+        <Btn title="Change API key" onClick={handleClearKey} disabled={loading}>
+          <KeyRound size={14} />
+        </Btn>
 
         <Btn title="Clear conversation" danger onClick={clearChat}>
           <Trash2 size={14} />

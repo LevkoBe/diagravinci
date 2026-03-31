@@ -7,8 +7,8 @@ import { store, syncManager } from "./store/store";
 export class AIOrchestrator {
   private service: AIService;
 
-  constructor() {
-    this.service = new GeminiService();
+  constructor(apiKey: string) {
+    this.service = new GeminiService(apiKey);
   }
 
   async generateFromNaturalLanguage(
@@ -69,4 +69,3 @@ export class AIOrchestrator {
   }
 }
 
-export const aiOrchestrator = new AIOrchestrator();
