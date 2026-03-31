@@ -1,6 +1,7 @@
 import Editor from "@monaco-editor/react";
 import { useAppSelector } from "../../application/store/hooks";
 import { syncManager } from "../../application/store/store";
+import { AppConfig } from "../../config/appConfig";
 
 export function CodeEditor() {
   const code = useAppSelector((state) => state.diagram.code);
@@ -25,11 +26,11 @@ export function CodeEditor() {
           theme="vs-dark"
           options={{
             minimap: { enabled: false },
-            fontSize: 14,
+            fontSize: AppConfig.editor.FONT_SIZE,
             lineNumbers: "on",
             scrollBeyondLastLine: false,
             automaticLayout: true,
-            tabSize: 2,
+            tabSize: AppConfig.editor.TAB_SIZE,
           }}
         />
       </div>

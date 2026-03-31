@@ -1,5 +1,6 @@
 import type { DiagramModel } from "../../../domain/models/DiagramModel";
 import type { Element } from "../../../domain/models/Element";
+import type { ViewState } from "../../../domain/models/ViewState";
 import { VConfig } from "../visualConfig";
 
 const { BASE_PX, MIN_SCREEN_PX, MAX_SCREEN_PX, WORLD_SIBLING_EXP } =
@@ -17,6 +18,7 @@ export interface ElementSizes {
 
 export function computeElementSizes(
   model: DiagramModel,
+  viewState: ViewState,
   zoom: number,
 ): ElementSizes {
   const pixelSizes = new Map<string, number>();
@@ -26,14 +28,17 @@ export function computeElementSizes(
   function walk(
     element: Element,
     path: string,
-    worldSize: number,
+    syntheticWorldSize: number,
     visited: Set<string>,
   ): void {
     if (visited.has(element.id)) return;
 
-    pixelSizes.set(path, worldSize);
+    pixelSizes.set(path, syntheticWorldSize);
 
-    const screenSize = worldSize * zoom;
+    const actualVisibleSize =
+      viewState.positions[path]?.size ?? syntheticWorldSize;
+    const screenSize = actualVisibleSize * zoom;
+
     if (screenSize < MIN_SCREEN_PX) {
       zoomHidden.add(path);
       return;
@@ -45,14 +50,16 @@ export function computeElementSizes(
     const children = element.childIds
       .map((id) => model.elements[id])
       .filter((c): c is Element => !!c);
+
     if (!children.length) return;
 
     const n = children.length;
-    const childWorld = worldSize / Math.pow(n, WORLD_SIBLING_EXP);
-
+    const childSyntheticWorldSize =
+      syntheticWorldSize / Math.pow(n, WORLD_SIBLING_EXP);
     const next = new Set([...visited, element.id]);
+
     for (const child of children) {
-      walk(child, `${path}.${child.id}`, childWorld, next);
+      walk(child, `${path}.${child.id}`, childSyntheticWorldSize, next);
     }
   }
 

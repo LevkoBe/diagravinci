@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import Konva from "konva";
+import type { Node } from "konva/lib/Node";
+import type { Shape } from "konva/lib/Shape";
+import type { Stage } from "konva/lib/Stage";
 
 import { KonvaTestHelper } from "../utils";
 import {
@@ -60,8 +63,8 @@ describe("ElementEventHandler", () => {
       const clickEvent: Konva.KonvaEventObject<MouseEvent> = {
         type: "click",
         evt: new MouseEvent("click"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Shape | Stage,
+        currentTarget: null as unknown as Node,
         cancelBubble: false,
         pointerId: 0,
       };
@@ -85,14 +88,14 @@ describe("ElementEventHandler", () => {
       const clickEvent: Konva.KonvaEventObject<MouseEvent> = {
         type: "click",
         evt: new MouseEvent("click"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Shape | Stage,
+        currentTarget: null as unknown as Node,
         cancelBubble: false,
         pointerId: 0,
       };
 
       handlers.onClick(clickEvent);
-      expect(onClick).toHaveBeenCalledWith("a");
+      expect(onClick).toHaveBeenCalledWith("a", false, false);
     });
   });
 
@@ -112,8 +115,8 @@ describe("ElementEventHandler", () => {
       const mouseEnterEvent: Konva.KonvaEventObject<MouseEvent> = {
         type: "mouseenter",
         evt: new MouseEvent("mouseenter"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Shape | Stage,
+        currentTarget: null as unknown as Node,
         cancelBubble: false,
         pointerId: 0,
       };
@@ -137,8 +140,8 @@ describe("ElementEventHandler", () => {
       const mouseLeaveEvent: Konva.KonvaEventObject<MouseEvent> = {
         type: "mouseleave",
         evt: new MouseEvent("mouseleave"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Shape | Stage,
+        currentTarget: null as unknown as Node,
         cancelBubble: false,
         pointerId: 0,
       };
@@ -154,7 +157,7 @@ describe("ElementEventHandler", () => {
       const callbacks: Partial<ElementEventCallbacks> = { setHovered };
 
       const handler = new ElementEventHandler(
-        { id: "nested" },
+        { id: "nested", path: "root.nested.a" },
         "root.nested.a",
         helper.getStage(),
         callbacks as ElementEventCallbacks,
@@ -164,8 +167,8 @@ describe("ElementEventHandler", () => {
       const mouseEnterEvent: Konva.KonvaEventObject<MouseEvent> = {
         type: "mouseenter",
         evt: new MouseEvent("mouseenter"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Shape | Stage,
+        currentTarget: null as unknown as Node,
         cancelBubble: false,
         pointerId: 0,
       };

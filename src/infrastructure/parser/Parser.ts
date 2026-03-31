@@ -7,6 +7,7 @@ import {
   type Token,
   type TokenType,
 } from "./Token";
+import { AppConfig } from "../../config/appConfig";
 import {
   type DiagramModel,
   createEmptyDiagram,
@@ -52,7 +53,7 @@ export class Parser {
     wrapper: OpeningWrapper = "{",
     depth = 0,
   ) {
-    if (depth > 1000) {
+    if (depth > AppConfig.parser.MAX_NESTING_DEPTH) {
       throw new Error("Maximum parser nesting depth exceeded");
     }
 

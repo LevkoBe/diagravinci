@@ -62,6 +62,7 @@ export class DiagramLayerRenderer {
 
     const { pixelSizes, zoomHidden, zoomDimmed } = computeElementSizes(
       model,
+      this.viewState,
       zoom,
     );
     this.pixelSizes = pixelSizes;

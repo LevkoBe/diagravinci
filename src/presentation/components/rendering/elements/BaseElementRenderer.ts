@@ -4,11 +4,12 @@ import type { ViewState } from "../../../../domain/models/ViewState";
 import type { Element } from "../../../../domain/models/Element";
 import { VConfig } from "../../visualConfig";
 import { getLucideIcon, renderLucideIconOnGroup } from "./lucideIconMap";
+import { AppConfig } from "../../../../config/appConfig";
 
 const ec = VConfig.elements;
 const dc = VConfig.decorations;
 
-const ANONYMOUS_PREFIX = "anon_";
+const ANONYMOUS_PREFIX = AppConfig.parser.ANONYMOUS_ID_PREFIX + "_";
 
 export interface IElementRenderer {
   render(parentPos?: { x: number; y: number }): ElementRenderResult | undefined;

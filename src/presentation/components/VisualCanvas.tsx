@@ -25,6 +25,7 @@ import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { Element, ElementType } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
 import type { Position } from "../../domain/models/Element";
+import { AppConfig } from "../../config/appConfig";
 
 function hexToRgba(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -110,8 +111,8 @@ export function VisualCanvas() {
     dispatch(setSelectionPreset({ ids: selectedElementIds, color }));
   }, [selectedElementIds, isDark, dispatch]);
 
-  const DIFF_ADDED_COLOR = "#4caf50";
-  const DIFF_REMOVED_COLOR = "#ef5350";
+  const DIFF_ADDED_COLOR = AppConfig.canvas.DIFF_ADDED_COLOR;
+  const DIFF_REMOVED_COLOR = AppConfig.canvas.DIFF_REMOVED_COLOR;
 
   useEffect(() => {
     const newLists = FilterResolver.resolve(
@@ -185,9 +186,10 @@ export function VisualCanvas() {
           y: (pointer.y - stage.y()) / oldScale,
         };
         const direction = e.evt.deltaY > 0 ? -1 : 1;
+        const { ZOOM_MIN, ZOOM_MAX, ZOOM_STEP_FACTOR } = AppConfig.canvas;
         const newScale = Math.max(
-          0.1,
-          Math.min(5, oldScale * (direction > 0 ? 1.05 : 1 / 1.05)),
+          ZOOM_MIN,
+          Math.min(ZOOM_MAX, oldScale * (direction > 0 ? ZOOM_STEP_FACTOR : 1 / ZOOM_STEP_FACTOR)),
         );
         stage.scale({ x: newScale, y: newScale });
         stage.position({
@@ -268,7 +270,7 @@ export function VisualCanvas() {
       const dx = pointer.x - startScreen.x;
       const dy = pointer.y - startScreen.y;
 
-      if (!dragSelectRef.current.active && Math.hypot(dx, dy) > 6) {
+      if (!dragSelectRef.current.active && Math.hypot(dx, dy) > AppConfig.canvas.DRAG_SELECT_THRESHOLD_PX) {
         dragSelectRef.current.active = true;
         const ws = toWorld(startScreen.x, startScreen.y);
         const wc = toWorld(pointer.x, pointer.y);
@@ -280,8 +282,8 @@ export function VisualCanvas() {
           height: Math.abs(wc.y - ws.y),
           stroke: selColor,
           strokeWidth: 1 / stageScale,
-          dash: [5 / stageScale, 3 / stageScale],
-          fill: hexToRgba(selColor, 0.1),
+          dash: AppConfig.canvas.SELECTION_RECT_DASH.map((v) => v / stageScale),
+          fill: hexToRgba(selColor, AppConfig.canvas.SELECTION_RECT_FILL_OPACITY),
           listening: false,
         });
         selectionLayer.add(rect);

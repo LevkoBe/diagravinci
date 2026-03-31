@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { ElementType } from "../../domain/models/Element";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
+import { AppConfig } from "../../config/appConfig";
 
 export type InteractionMode =
   | "select"
@@ -22,14 +23,16 @@ export interface UIState {
   renderStyle: RenderStyle;
 }
 
+const { ui } = AppConfig;
+
 const initialState: UIState = {
-  interactionMode: "select",
-  activeElementType: "object",
-  activeRelationshipType: "-->",
+  interactionMode: ui.DEFAULT_INTERACTION_MODE,
+  activeElementType: ui.DEFAULT_ELEMENT_TYPE,
+  activeRelationshipType: ui.DEFAULT_RELATIONSHIP_TYPE,
   connectingFromId: null,
   selectedElementIds: [],
   zoomCommand: null,
-  renderStyle: "svg",
+  renderStyle: ui.DEFAULT_RENDER_STYLE,
 };
 
 const uiSlice = createSlice({

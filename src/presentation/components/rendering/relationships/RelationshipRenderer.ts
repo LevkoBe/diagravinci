@@ -8,6 +8,9 @@ import {
   decorationInset,
 } from "./arrowUtils";
 import type { Colors } from "../types";
+import { VConfig } from "../../visualConfig";
+
+const RC = VConfig.rendering;
 
 export class RelationshipRenderer {
   private readonly viewState: ViewState;
@@ -41,7 +44,7 @@ export class RelationshipRenderer {
 
       const isDimmed =
         this.dimmedSet.has(sourcePath) || this.dimmedSet.has(targetPath);
-      const opacity = isDimmed ? 0.1 : 0.75;
+      const opacity = isDimmed ? RC.REL_DIM_OPACITY : RC.REL_NORMAL_OPACITY;
 
       const sourcePos = this.viewState.positions[sourcePath];
       const targetPos = this.viewState.positions[targetPath];
@@ -69,9 +72,9 @@ export class RelationshipRenderer {
       const line = new Konva.Line({
         points,
         stroke,
-        strokeWidth: 1.5,
+        strokeWidth: RC.REL_STROKE_WIDTH,
         lineCap: "round",
-        dash: isDashed(rel.type) ? [8, 6] : undefined,
+        dash: isDashed(rel.type) ? RC.REL_DASH as number[] : undefined,
       });
       group.add(line);
 
@@ -104,10 +107,10 @@ export class RelationshipRenderer {
         const midX = (points[0] + points[2]) / 2;
         const midY = (points[1] + points[3]) / 2;
         const label = new Konva.Text({
-          x: midX - ny * 12,
-          y: midY + nx * 12,
+          x: midX - ny * RC.REL_LABEL_OFFSET,
+          y: midY + nx * RC.REL_LABEL_OFFSET,
           text: rel.label,
-          fontSize: 10,
+          fontSize: RC.REL_LABEL_FONT_SIZE,
           fill: stroke,
           opacity: opacity,
           offsetY: 6,
@@ -157,9 +160,9 @@ export class RelationshipRenderer {
       const line = new Konva.Line({
         points: result.points,
         stroke,
-        strokeWidth: 1.5,
+        strokeWidth: RC.REL_STROKE_WIDTH,
         lineCap: "round",
-        dash: isDashed(rel.type) ? [8, 6] : undefined,
+        dash: isDashed(rel.type) ? RC.REL_DASH as number[] : undefined,
       });
       group.add(line);
 
@@ -192,10 +195,10 @@ export class RelationshipRenderer {
         const midX = (result.points[0] + result.points[2]) / 2;
         const midY = (result.points[1] + result.points[3]) / 2;
         const label = new Konva.Text({
-          x: midX - result.ny * 12,
-          y: midY + result.nx * 12,
+          x: midX - result.ny * RC.REL_LABEL_OFFSET,
+          y: midY + result.nx * RC.REL_LABEL_OFFSET,
           text: rel.label,
-          fontSize: 10,
+          fontSize: RC.REL_LABEL_FONT_SIZE,
           fill: stroke,
           opacity: 0.9,
           offsetY: 6,

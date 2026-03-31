@@ -407,7 +407,6 @@ export function ToolBar() {
           canvasSize,
         );
 
-        // Preserve old positions for removed elements (root-level path = element id)
         const positions = { ...mergedViewState.positions };
         for (const id of removedIds) {
           if (currentViewState.positions[id]) {

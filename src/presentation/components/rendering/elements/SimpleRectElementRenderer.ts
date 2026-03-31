@@ -7,6 +7,7 @@ import { BaseElementRenderer } from "./BaseElementRenderer";
 import { VConfig } from "../../visualConfig";
 
 const { DIM_OPACITY } = VConfig.elements;
+const es = VConfig.elementShapes;
 
 export class SimpleRectElementRenderer extends BaseElementRenderer {
   constructor(
@@ -67,16 +68,16 @@ export class SimpleRectElementRenderer extends BaseElementRenderer {
         dash = undefined;
         break;
       case "state":
-        dash = [5, 5];
+        dash = es.DASH_STATE as number[];
         break;
       case "function":
-        dash = [2, 2];
+        dash = es.DASH_FUNCTION as number[];
         break;
       case "flow":
-        dash = [10, 5];
+        dash = es.DASH_FLOW as number[];
         break;
       case "choice":
-        dash = [2, 5, 10, 5];
+        dash = es.DASH_CHOICE as number[];
         break;
       default:
         dash = undefined;
@@ -88,7 +89,7 @@ export class SimpleRectElementRenderer extends BaseElementRenderer {
       stroke: this.resolveStroke(),
       strokeWidth,
       dash,
-      cornerRadius: 5,
+      cornerRadius: es.CORNER_RADIUS,
       x: -size / 2,
       y: -size / 2,
       opacity: this.isDimmed ? DIM_OPACITY : 1,

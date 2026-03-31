@@ -4,6 +4,9 @@ import {
   buildBugAnalysisPrompt,
   buildArchitectureSuggestionsPrompt,
 } from "./PromptBuilder";
+import { AppConfig } from "../../config/appConfig";
+
+const AI = AppConfig.ai;
 
 const MODEL =
   (import.meta.env.VITE_GEMINI_MODEL as string) || "gemini-2.5-flash-lite";
@@ -25,10 +28,10 @@ export class GeminiService implements AIService {
     prebuiltPrompt = false,
   ): Promise<{ diagramSyntax: string; explanation: string }> {
     const now = Date.now();
-    this.lastCalls = this.lastCalls.filter((t) => now - t < 60000);
-    if (this.lastCalls.length >= 5) {
+    this.lastCalls = this.lastCalls.filter((t) => now - t < AI.RATE_LIMIT_WINDOW_MS);
+    if (this.lastCalls.length >= AI.RATE_LIMIT_MAX_REQUESTS) {
       throw new Error(
-        "Rate limit reached (5 requests/min). Please wait 60 seconds.",
+        `Rate limit reached (${AI.RATE_LIMIT_MAX_REQUESTS} requests/min). Please wait ${AI.RATE_LIMIT_WINDOW_MS / 1000} seconds.`,
       );
     }
     this.lastCalls.push(now);
@@ -53,8 +56,8 @@ export class GeminiService implements AIService {
       ],
       generationConfig: {
         responseMimeType: "text/plain",
-        temperature: 0.2,
-        maxOutputTokens: 2048,
+        temperature: AI.DIAGRAM_TEMPERATURE,
+        maxOutputTokens: AI.DIAGRAM_MAX_TOKENS,
       },
     };
 
@@ -118,8 +121,8 @@ export class GeminiService implements AIService {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         responseMimeType: "text/plain",
-        temperature: 0.1,
-        maxOutputTokens: 1024,
+        temperature: AI.ANALYSIS_TEMPERATURE,
+        maxOutputTokens: AI.ANALYSIS_MAX_TOKENS,
       },
     };
 

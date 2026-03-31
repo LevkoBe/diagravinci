@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { AppConfig } from "../../config/appConfig";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import {
   pushHistory,
@@ -48,7 +49,7 @@ export function useUndoRedo() {
       debounceRef.current = null;
       if (isApplyingRef.current) return;
       dispatch(pushHistory(latestRef.current));
-    }, 500);
+    }, AppConfig.history.DEBOUNCE_MS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, viewState.viewMode, viewState.positions, viewState.relationships]);
 
@@ -83,7 +84,6 @@ export function useUndoRedo() {
     const { history } = store.getState();
     if (history.past.length === 0) return;
 
-    // Flush any pending push first so current state is committed
     if (debounceRef.current !== null) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
@@ -134,7 +134,6 @@ export function useUndoRedo() {
       }),
     );
 
-    // Sync code editor + canvas after state is applied
     syncManager.syncFromCode(entry.code);
 
     requestAnimationFrame(() => {

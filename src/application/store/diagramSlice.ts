@@ -1,4 +1,5 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { AppConfig } from "../../config/appConfig";
 import {
   type DiagramModel,
   createEmptyDiagram,
@@ -23,7 +24,7 @@ const initialState: DiagramState = {
   model: createEmptyDiagram(),
   viewState: createEmptyViewState(),
   code: "",
-  canvasSize: { width: 800, height: 600 },
+  canvasSize: { width: AppConfig.canvas.DEFAULT_WIDTH, height: AppConfig.canvas.DEFAULT_HEIGHT },
 };
 
 const diagramSlice = createSlice({
