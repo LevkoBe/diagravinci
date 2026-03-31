@@ -288,21 +288,55 @@ export function ToolBar() {
   const activePresetCount = presets.filter((p) => p.isActive).length;
 
   const handleSaveDiagram = () => {
+    const lines: string[] = [
+      JSON.stringify({ type: "meta", version: 1 }),
+      JSON.stringify({ type: "code", value: code }),
+      JSON.stringify({ type: "root", data: model.root }),
+      ...Object.entries(model.elements).map(([id, el]) =>
+        JSON.stringify({ type: "element", id, data: el }),
+      ),
+      ...Object.entries(model.relationships).map(([id, rel]) =>
+        JSON.stringify({ type: "relationship", id, data: rel }),
+      ),
+      JSON.stringify({ type: "viewState", data: viewState }),
+    ];
     trigger(
-      new Blob([JSON.stringify({ model, viewState, code }, null, 2)], {
-        type: "application/json",
-      }),
-      `diagram_${today()}.json`,
+      new Blob([lines.join("\n")], { type: "application/x-ndjson" }),
+      `diagram_${today()}.jsonl`,
     );
   };
   const handleLoadDiagram = () => fileInputRef.current?.click();
   const handleDiagramFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     readFile(e, (text) => {
       try {
-        const p = JSON.parse(text);
-        if (p.model) dispatch(setModel(p.model));
-        if (p.viewState) dispatch(setViewState(p.viewState));
-        if (p.code) dispatch(setCode(p.code));
+        const elements: Record<string, Element> = {};
+        const relationships: Record<string, unknown> = {};
+        let root: unknown = null;
+        let parsedCode: string | null = null;
+        let parsedViewState: unknown = null;
+        for (const line of text.split("\n")) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          const obj = JSON.parse(trimmed);
+          if (obj.type === "element") elements[obj.id] = obj.data;
+          else if (obj.type === "relationship") relationships[obj.id] = obj.data;
+          else if (obj.type === "root") root = obj.data;
+          else if (obj.type === "code") parsedCode = obj.value;
+          else if (obj.type === "viewState") parsedViewState = obj.data;
+        }
+        if (root)
+          dispatch(
+            setModel({ elements, relationships, root } as Parameters<
+              typeof setModel
+            >[0]),
+          );
+        if (parsedViewState)
+          dispatch(
+            setViewState(
+              parsedViewState as Parameters<typeof setViewState>[0],
+            ),
+          );
+        if (parsedCode !== null) dispatch(setCode(parsedCode));
       } catch {
         console.error("Invalid diagram file");
       }
@@ -708,7 +742,7 @@ export function ToolBar() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json"
+        accept=".jsonl"
         className="hidden"
         onChange={handleDiagramFile}
       />

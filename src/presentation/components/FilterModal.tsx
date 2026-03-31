@@ -224,11 +224,10 @@ export function FilterModal() {
   };
 
   const handleExportPresets = () => {
+    const lines = visiblePresets.map((p) => JSON.stringify(p));
     trigger(
-      new Blob([JSON.stringify(visiblePresets, null, 2)], {
-        type: "application/json",
-      }),
-      "selector_presets.json",
+      new Blob([lines.join("\n")], { type: "application/x-ndjson" }),
+      "selector_presets.jsonl",
     );
   };
 
@@ -238,9 +237,11 @@ export function FilterModal() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const parsed = JSON.parse(ev.target?.result as string);
-        if (!Array.isArray(parsed)) return;
-        for (const p of parsed) {
+        const text = ev.target?.result as string;
+        for (const line of text.split("\n")) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          const p = JSON.parse(trimmed);
           if (typeof p.label === "string" && p.selector) {
             dispatch(addPreset({ ...p, id: crypto.randomUUID() }));
           }
@@ -283,7 +284,7 @@ export function FilterModal() {
             <input
               ref={importRef}
               type="file"
-              accept=".json"
+              accept=".jsonl"
               className="hidden"
               onChange={handleImportPresets}
             />

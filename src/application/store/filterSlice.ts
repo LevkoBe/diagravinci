@@ -176,6 +176,25 @@ const filterSlice = createSlice({
       }));
       state._rev++;
     },
+    restoreFilterState(
+      state,
+      {
+        payload,
+      }: PayloadAction<{
+        presets: FilterPreset[];
+        foldLevel: number;
+        foldActive: boolean;
+        manuallyFolded: string[];
+        manuallyUnfolded: string[];
+      }>,
+    ) {
+      state.presets = payload.presets;
+      state.foldLevel = payload.foldLevel;
+      state.foldActive = payload.foldActive;
+      state.manuallyFolded = payload.manuallyFolded;
+      state.manuallyUnfolded = payload.manuallyUnfolded;
+      state._rev++;
+    },
   },
 });
 
@@ -198,6 +217,7 @@ export const {
   movePresetDown,
   cyclePreset,
   syncPresetsFromTab,
+  restoreFilterState,
 } = filterSlice.actions;
 
 export default filterSlice.reducer;

@@ -7,7 +7,16 @@ import historyReducer from "./historySlice";
 import diffReducer from "./diffSlice";
 import { SyncManager } from "../SyncManager";
 import { TabSyncManager } from "../TabSyncManager";
-import { loadState, saveState } from "./persistence";
+import { loadState, loadStateAsync, saveState } from "./persistence";
+import { setTheme } from "./themeSlice";
+import {
+  setRenderStyle,
+  setInteractionMode,
+  setActiveElementType,
+  setActiveRelationshipType,
+} from "./uiSlice";
+import { restoreFilterState } from "./filterSlice";
+import { setModel, setViewState, setCode } from "./diagramSlice";
 
 const preloadedState = loadState();
 
@@ -22,6 +31,23 @@ export const store = configureStore({
   },
   preloadedState,
 });
+
+if (!preloadedState) {
+  loadStateAsync().then((idbState) => {
+    if (!idbState) return;
+    store.dispatch(setTheme(idbState.theme.isDark));
+    store.dispatch(setRenderStyle(idbState.ui.renderStyle));
+    store.dispatch(setActiveElementType(idbState.ui.activeElementType));
+    store.dispatch(
+      setActiveRelationshipType(idbState.ui.activeRelationshipType),
+    );
+    store.dispatch(setInteractionMode(idbState.ui.interactionMode));
+    store.dispatch(restoreFilterState(idbState.filter));
+    store.dispatch(setModel(idbState.diagram.model));
+    store.dispatch(setViewState(idbState.diagram.viewState));
+    store.dispatch(setCode(idbState.diagram.code));
+  });
+}
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 store.subscribe(() => {
