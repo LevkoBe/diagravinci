@@ -18,7 +18,7 @@ export type RenderCallbacks = {
     oldParentId: string,
     newParentId: string,
   ) => void;
-  onClick: (elementId: string) => void;
+  onClick: (elementId: string, shiftKey: boolean, ctrlKey: boolean) => void;
   onContextMenu?: (elementId: string, path: string) => void;
 };
 

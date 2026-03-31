@@ -57,8 +57,6 @@ const FALLBACK_COLORS = [
   "#5ce0c8",
 ];
 
-// ─── IndexedDB helpers ────────────────────────────────────────────────────────
-
 let _db: IDBDatabase | null = null;
 
 function openDB(): Promise<IDBDatabase> {
@@ -137,7 +135,7 @@ function hydratePersistedState(parsed: PersistedState): HydratedState {
     ui: {
       ...parsed.ui,
       connectingFromId: null,
-      selectedElementId: null,
+      selectedElementIds: [],
       zoomCommand: null,
     },
   };

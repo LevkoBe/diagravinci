@@ -18,7 +18,6 @@ export abstract class BaseElementRenderer implements IElementRenderer {
   protected readonly element: Element;
   protected readonly path: string;
   protected readonly viewState: ViewState;
-  protected readonly selectedElementId: string | null;
   protected readonly connectingFromId: string | null;
   protected readonly colors: Colors;
   protected readonly isNew: boolean;
@@ -34,7 +33,6 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     element: Element,
     path: string,
     viewState: ViewState,
-    selectedElementId: string | null,
     connectingFromId: string | null,
     colors: Colors,
     isNew: boolean,
@@ -46,7 +44,6 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     this.element = element;
     this.path = path;
     this.viewState = viewState;
-    this.selectedElementId = selectedElementId;
     this.connectingFromId = connectingFromId;
     this.colors = colors;
     this.isNew = isNew;
@@ -62,10 +59,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
   }): ElementRenderResult | undefined;
 
   protected resolveStroke(): string {
-    if (this.colorOverride) return this.colorOverride;
-    return this.selectedElementId === this.element.id
-      ? this.colors.selected
-      : this.colors.accent;
+    return this.colorOverride || this.colors.accent;
   }
 
   protected createElementGroup(parentPos?: {

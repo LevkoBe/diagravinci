@@ -17,7 +17,6 @@ export class DiagramLayerRenderer {
   private readonly stage: Konva.Stage;
   private readonly model: DiagramModel;
   private readonly viewState: ViewState;
-  private readonly selectedElementId: string | null;
   private readonly connectingFromId: string | null;
   private readonly colors: Colors;
   private readonly callbacks: RenderCallbacks;
@@ -42,7 +41,6 @@ export class DiagramLayerRenderer {
     stage: Konva.Stage,
     model: DiagramModel,
     viewState: ViewState,
-    selectedElementId: string | null,
     connectingFromId: string | null,
     colors: Colors,
     callbacks: RenderCallbacks,
@@ -54,7 +52,6 @@ export class DiagramLayerRenderer {
     this.stage = stage;
     this.model = model;
     this.viewState = viewState;
-    this.selectedElementId = selectedElementId;
     this.connectingFromId = connectingFromId;
     this.colors = colors;
     this.callbacks = callbacks;
@@ -188,7 +185,6 @@ export class DiagramLayerRenderer {
       element,
       path,
       this.viewState,
-      this.selectedElementId,
       this.connectingFromId,
       this.colors,
       isNew,

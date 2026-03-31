@@ -17,7 +17,7 @@ export interface UIState {
   activeElementType: ElementType;
   activeRelationshipType: RelationshipType;
   connectingFromId: string | null;
-  selectedElementId: string | null;
+  selectedElementIds: string[];
   zoomCommand: ZoomCommand | null;
   renderStyle: RenderStyle;
 }
@@ -27,7 +27,7 @@ const initialState: UIState = {
   activeElementType: "object",
   activeRelationshipType: "-->",
   connectingFromId: null,
-  selectedElementId: null,
+  selectedElementIds: [],
   zoomCommand: null,
   renderStyle: "svg",
 };
@@ -52,8 +52,28 @@ const uiSlice = createSlice({
     setConnectingFromId(state, action: PayloadAction<string | null>) {
       state.connectingFromId = action.payload;
     },
+
     setSelectedElement(state, action: PayloadAction<string | null>) {
-      state.selectedElementId = action.payload;
+      state.selectedElementIds = action.payload ? [action.payload] : [];
+    },
+
+    setSelectedElements(state, action: PayloadAction<string[]>) {
+      state.selectedElementIds = action.payload;
+    },
+
+    toggleSelectedElement(state, action: PayloadAction<string>) {
+      const id = action.payload;
+      const idx = state.selectedElementIds.indexOf(id);
+      if (idx === -1) {
+        state.selectedElementIds = [...state.selectedElementIds, id];
+      } else {
+        state.selectedElementIds = state.selectedElementIds.filter(
+          (x) => x !== id,
+        );
+      }
+    },
+    clearSelection(state) {
+      state.selectedElementIds = [];
     },
     sendZoomCommand(state, action: PayloadAction<"in" | "out" | "reset">) {
       state.zoomCommand = { type: action.payload, ts: Date.now() };
@@ -70,6 +90,9 @@ export const {
   setActiveRelationshipType,
   setConnectingFromId,
   setSelectedElement,
+  setSelectedElements,
+  toggleSelectedElement,
+  clearSelection,
   sendZoomCommand,
   setRenderStyle,
 } = uiSlice.actions;

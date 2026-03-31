@@ -319,7 +319,8 @@ export function ToolBar() {
           if (!trimmed) continue;
           const obj = JSON.parse(trimmed);
           if (obj.type === "element") elements[obj.id] = obj.data;
-          else if (obj.type === "relationship") relationships[obj.id] = obj.data;
+          else if (obj.type === "relationship")
+            relationships[obj.id] = obj.data;
           else if (obj.type === "root") root = obj.data;
           else if (obj.type === "code") parsedCode = obj.value;
           else if (obj.type === "viewState") parsedViewState = obj.data;
@@ -332,9 +333,7 @@ export function ToolBar() {
           );
         if (parsedViewState)
           dispatch(
-            setViewState(
-              parsedViewState as Parameters<typeof setViewState>[0],
-            ),
+            setViewState(parsedViewState as Parameters<typeof setViewState>[0]),
           );
         if (parsedCode !== null) dispatch(setCode(parsedCode));
       } catch {
@@ -888,7 +887,7 @@ export function ToolBar() {
                     .map((preset) => (
                       <span
                         key={preset.id}
-                        className="btn-icon active pointer-events-none select-none shrink-0 relative overflow-hidden"
+                        className="btn-icon active pointer-events-none select-none bg-bg-primary shrink-0 relative overflow-hidden"
                         style={{
                           color: preset.color,
                           borderColor: preset.color,
@@ -900,7 +899,7 @@ export function ToolBar() {
                           style={{ background: preset.color }}
                         />
                         <span className="relative text-[9px] font-bold leading-none select-none truncate max-w-[5ch]">
-                          {preset.label.slice(0, 4)}
+                          {preset.label.slice(0, 6)}
                         </span>
                       </span>
                     ))}

@@ -1,5 +1,36 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { FilterMode, FilterPreset } from "../../domain/models/Selector";
+import type {
+  FilterMode,
+  FilterPreset,
+  SelectorAtom,
+} from "../../domain/models/Selector";
+import { SELECTION_PRESET_ID } from "../../domain/models/Selector";
+
+function escapeForRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildSelectionPreset(ids: string[], color: string): FilterPreset {
+  const escaped = ids.map(escapeForRegex);
+  const pattern =
+    ids.length === 1
+      ? `(^|\\.)${escaped[0]}$`
+      : `(^|\\.)(${escaped.join("|")})$`;
+  const atom: SelectorAtom = {
+    id: "sel_atom",
+    types: [],
+    path: pattern,
+    meta: { kind: "raw" },
+  };
+  return {
+    id: SELECTION_PRESET_ID,
+    label: "Selection",
+    selector: { atoms: [atom], combiner: "1" },
+    mode: "color",
+    isActive: true,
+    color,
+  };
+}
 
 interface FilterState {
   presets: FilterPreset[];
@@ -169,13 +200,28 @@ const filterSlice = createSlice({
       state,
       { payload }: PayloadAction<Array<Omit<FilterPreset, "isActive">>>,
     ) {
-      const localActives = new Map(state.presets.map((p) => [p.id, p.isActive]));
+      const localActives = new Map(
+        state.presets.map((p) => [p.id, p.isActive]),
+      );
       state.presets = payload.map((p) => ({
         ...p,
         isActive: localActives.get(p.id) ?? false,
       }));
       state._rev++;
     },
+    setSelectionPreset(
+      state,
+      {
+        payload: { ids, color },
+      }: PayloadAction<{ ids: string[]; color: string }>,
+    ) {
+      state.presets = state.presets.filter((p) => p.id !== SELECTION_PRESET_ID);
+      if (ids.length > 0) {
+        state.presets.push(buildSelectionPreset(ids, color));
+      }
+      state._rev++;
+    },
+
     restoreFilterState(
       state,
       {
@@ -218,6 +264,7 @@ export const {
   cyclePreset,
   syncPresetsFromTab,
   restoreFilterState,
+  setSelectionPreset,
 } = filterSlice.actions;
 
 export default filterSlice.reducer;

@@ -52,3 +52,4 @@ export interface FilterPreset {
 }
 
 export const FOLD_PRESET_ID = "__fold__";
+export const SELECTION_PRESET_ID = "_selection";
