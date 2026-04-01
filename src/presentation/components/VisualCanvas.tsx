@@ -274,7 +274,7 @@ export function VisualCanvas() {
         dragSelectRef.current.active = true;
         const ws = toWorld(startScreen.x, startScreen.y);
         const wc = toWorld(pointer.x, pointer.y);
-        const selColor = getCSSVariable("--color-state-selection");
+        const selColor = getCSSVariable("--color-state-selected");
         const rect = new Konva.Rect({
           x: Math.min(ws.x, wc.x),
           y: Math.min(ws.y, wc.y),
