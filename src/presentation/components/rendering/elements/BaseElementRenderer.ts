@@ -109,12 +109,12 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       ? iconMatch[1]
       : (rawId ?? this.element.type.toUpperCase());
     const maxWidth = this.size * ec.LABEL_WIDTH_RATIO;
-
-    const targetScreenFont = Math.max(
-      ec.LABEL_MIN_FONT,
-      Math.min(ec.LABEL_MAX_FONT, this.size * ec.LABEL_SIZE_RATIO),
-    );
-    const fontSize = targetScreenFont / Math.max(this.zoom, 0.01);
+    const zoomFactor = Math.max(this.zoom, 0.01);
+    const heuristicFont = (maxWidth * 0.8) / (labelText.length * 0.6);
+    const minFont = ec.LABEL_MIN_FONT / zoomFactor;
+    const maxFont = ec.LABEL_MAX_FONT_THRESHOLD / zoomFactor;
+    const fontSize = Math.max(minFont, Math.min(maxFont, heuristicFont));
+    const useEllipsis = heuristicFont < minFont;
 
     const hasVisibleChildren = Object.keys(this.viewState.positions).some(
       (p) =>
@@ -134,7 +134,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       width: maxWidth,
       x: -maxWidth / 2,
       y: labelY,
-      ellipsis: true,
+      ellipsis: useEllipsis,
       wrap: "none",
       padding: 2,
       opacity: this.isDimmed ? ec.DIM_OPACITY : 1,

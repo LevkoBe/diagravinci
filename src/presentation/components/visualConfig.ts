@@ -27,6 +27,7 @@ export const VConfig = {
     LABEL_SIZE_RATIO: 0.24,
     LABEL_MIN_FONT: 10,
     LABEL_MAX_FONT: 18,
+    LABEL_MAX_FONT_THRESHOLD: 20,
 
     LABEL_WIDTH_RATIO: 1.6,
 
@@ -66,6 +67,8 @@ export const VConfig = {
     REL_STROKE_WIDTH: 1.5,
     REL_DASH: [8, 6] as number[],
     REL_LABEL_FONT_SIZE: 10,
+    REL_LABEL_MIN_FONT: 8,
+    REL_LABEL_MAX_FONT_THRESHOLD: 14,
     REL_LABEL_OFFSET: 12,
 
     DECORATION_STROKE_WIDTH: 1.5,
