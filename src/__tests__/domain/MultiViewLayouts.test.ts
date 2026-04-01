@@ -112,6 +112,7 @@ describe("HierarchicalLayout", () => {
       hiddenPaths: [],
       dimmedPaths: [],
       foldedPaths: [],
+      coloredPaths: {},
     };
     const vs = layout.apply(makeLinearModel(), CANVAS, prev);
     expect(vs.zoom).toBe(2);
@@ -185,6 +186,7 @@ describe("TimelineLayout", () => {
       hiddenPaths: [],
       dimmedPaths: [],
       foldedPaths: [],
+      coloredPaths: {},
     };
     const vs = layout.apply(makeLinearModel(), CANVAS, prev);
     expect(vs.zoom).toBe(1.5);
@@ -253,6 +255,7 @@ describe("PipelineLayout", () => {
       hiddenPaths: [],
       dimmedPaths: [],
       foldedPaths: [],
+      coloredPaths: {},
     };
     const vs = layout.apply(makeLinearModel(), CANVAS, prev);
     expect(vs.zoom).toBe(0.8);

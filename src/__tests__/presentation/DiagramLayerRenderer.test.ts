@@ -52,7 +52,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -60,6 +59,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -89,7 +89,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -97,6 +96,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -131,7 +131,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -139,6 +138,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -175,7 +175,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -183,6 +182,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -207,7 +207,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -215,6 +214,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -249,7 +249,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -257,6 +256,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -278,7 +278,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -286,6 +285,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -311,7 +311,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -319,6 +318,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -357,7 +357,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -365,6 +364,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();

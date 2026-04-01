@@ -8,20 +8,22 @@ export interface ValidationError {
   elementId?: string;
 }
 
-export function validateDiagram(model: DiagramModel): ValidationError[] {
+export function validateDiagram(_model: DiagramModel): ValidationError[] {
   const errors: ValidationError[] = [];
   // TODO: implement all error validations
   return errors;
 }
 
-export function detectOrphanedElements(model: DiagramModel): ValidationError[] {
+export function detectOrphanedElements(
+  _model: DiagramModel,
+): ValidationError[] {
   const errors: ValidationError[] = [];
   // TODO: implement detection
   return errors;
 }
 
 export function detectCircularDependencies(
-  model: DiagramModel,
+  _model: DiagramModel,
 ): ValidationError[] {
   const errors: ValidationError[] = [];
   // TODO: implement detection
