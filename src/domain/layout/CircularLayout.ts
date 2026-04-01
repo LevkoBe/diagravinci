@@ -35,13 +35,14 @@ export default class CircularLayout extends BaseLayout {
     );
 
     if (children.length === 1) {
-      return [{ x: 0, y: 0, size }];
+      return [{ x: 0, y: 0, size: Math.max(size, containerSize * ELEMENT_FILL) }];
     }
 
     const n = children.length;
     const radius = containerSize / (RADIO * CHILD_FILL);
     const maxSizeFromSpacing = 2 * radius * Math.sin(Math.PI / n) * CHILD_FILL;
-    const sizeConstrained = Math.min(size, maxSizeFromSpacing);
+    const sizeFloor = containerSize / n;
+    const sizeConstrained = Math.max(Math.min(size, maxSizeFromSpacing), sizeFloor);
     const angleStep = (2 * Math.PI) / n;
 
     return children.map((_, i) => ({
