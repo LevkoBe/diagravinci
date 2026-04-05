@@ -8,8 +8,22 @@ export default defineConfig({
     globals: true,
     coverage: {
       provider: "v8",
-      reporter: ["text", "json", "html"],
-      exclude: ["node_modules/", "vitest.setup.ts"],
+      reporter: ["text", "json", "html", "lcov"],
+      exclude: [
+        "node_modules/",
+        "vitest.setup.ts",
+        "src/__tests__/**",
+        "src/main.tsx",
+        "vite.config.ts",
+        "vitest.config.ts",
+        "eslint.config.js",
+      ],
+      thresholds: {
+        lines: 70,
+        functions: 70,
+        branches: 70,
+        statements: 70,
+      },
     },
   },
 });

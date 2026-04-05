@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: TypeScript strict check
+        run: npx tsc -b
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: ESLint (0 errors required)
+        run: npm run lint
+
+  test:
+    name: Test & Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run tests with coverage
+        run: npm run test:coverage
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/coverage-final.json
+          fail_ci_if_error: true
+
+  build-and-size:
+    name: Build & Bundle Size
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Check bundle size
+        run: |
+          TOTAL_KB=$(du -sk dist/ | cut -f1)
+          JS_KB=$(du -sk dist/assets/*.js 2>/dev/null | awk '{sum+=$1} END {print sum+0}')
+          echo "Total dist size: ${TOTAL_KB}KB"
+          echo "Total JS size: ${JS_KB}KB"
+          if [ "$TOTAL_KB" -gt 3072 ]; then
+            echo "ERROR: Bundle size ${TOTAL_KB}KB exceeds hard limit of 3072KB (3MB)"
+            exit 1
+          elif [ "$TOTAL_KB" -gt 2048 ]; then
+            echo "WARNING: Bundle size ${TOTAL_KB}KB exceeds 2048KB warning threshold"
+          else
+            echo "OK: Bundle size ${TOTAL_KB}KB is within limits"
+          fi
