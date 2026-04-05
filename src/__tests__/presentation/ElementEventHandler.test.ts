@@ -185,7 +185,7 @@ describe("ElementEventHandler", () => {
         type: "dragend",
         currentTarget: group,
         pointerId: 0,
-      } as Konva.KonvaEventObject<DragEvent>);
+      } as unknown as Konva.KonvaEventObject<DragEvent>);
 
       expect(onReparent).toHaveBeenCalledWith("child", "old-parent", "new-parent");
     });
@@ -221,7 +221,7 @@ describe("ElementEventHandler", () => {
         type: "dragend",
         currentTarget: group,
         pointerId: 0,
-      } as Konva.KonvaEventObject<DragEvent>);
+      } as unknown as Konva.KonvaEventObject<DragEvent>);
 
       expect(onReparent).not.toHaveBeenCalled();
     });
