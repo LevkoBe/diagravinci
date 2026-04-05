@@ -66,7 +66,6 @@ export abstract class BaseLayout implements LayoutAlgorithm {
     containerHeight: number,
   ): { x: number; y: number; size: number }[];
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected computeValue(_element: Element, _model: DiagramModel): number {
     return 0;
   }

@@ -188,10 +188,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  protected addContainerBackground(_group: Konva.Group): void {
-    // Non-SVG renderers omit the container background circle entirely
-  }
+  protected addContainerBackground(_group: Konva.Group): void {}
 
   protected createHoverCallbacks(
     group: Konva.Group,

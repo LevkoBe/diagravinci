@@ -70,27 +70,21 @@ const filterSlice = createSlice({
 
     addPreset(state, { payload }: PayloadAction<FilterPreset>) {
       state.presets.push(payload);
-      console.log("[filterSlice] addPreset:", payload.id, payload.mode);
       state._rev++;
     },
     updatePreset(state, { payload }: PayloadAction<FilterPreset>) {
       const idx = state.presets.findIndex((p) => p.id === payload.id);
       if (idx !== -1) state.presets[idx] = payload;
-      console.log("[filterSlice] updatePreset:", payload.id);
       state._rev++;
     },
     removePreset(state, { payload: id }: PayloadAction<string>) {
       state.presets = state.presets.filter((p) => p.id !== id);
       if (state.activeModalPresetId === id) state.activeModalPresetId = null;
-      console.log("[filterSlice] removePreset:", id);
       state._rev++;
     },
     togglePresetActive(state, { payload: id }: PayloadAction<string>) {
       const preset = state.presets.find((p) => p.id === id);
-      if (preset) {
-        preset.isActive = !preset.isActive;
-        console.log(`[filterSlice] togglePreset: ${id} -> ${preset.isActive}`);
-      }
+      if (preset) preset.isActive = !preset.isActive;
       state._rev++;
     },
     setPresetMode(
@@ -100,10 +94,7 @@ const filterSlice = createSlice({
       }: PayloadAction<{ id: string; mode: FilterMode }>,
     ) {
       const preset = state.presets.find((p) => p.id === id);
-      if (preset) {
-        preset.mode = mode;
-        console.log("[filterSlice] setPresetMode:", id, "->", mode);
-      }
+      if (preset) preset.mode = mode;
       state._rev++;
     },
     setPresetColor(
@@ -111,27 +102,22 @@ const filterSlice = createSlice({
       { payload: { id, color } }: PayloadAction<{ id: string; color: string }>,
     ) {
       const preset = state.presets.find((p) => p.id === id);
-      if (preset) {
-        preset.color = color;
-      }
+      if (preset) preset.color = color;
       state._rev++;
     },
 
     setFoldLevel(state, { payload: level }: PayloadAction<number>) {
       state.foldLevel = Math.max(1, level);
-      console.log("[filterSlice] setFoldLevel:", state.foldLevel);
       state._rev++;
     },
     setFoldActive(state, { payload: active }: PayloadAction<boolean>) {
       state.foldActive = active;
-      console.log("[filterSlice] setFoldActive:", active);
       state._rev++;
     },
     toggleFoldActive(state) {
       state.foldActive = !state.foldActive;
       state.manuallyFolded = [];
       state.manuallyUnfolded = [];
-      console.log("[filterSlice] toggleFoldActive ->", state.foldActive);
       state._rev++;
     },
     toggleElementFold(
@@ -145,7 +131,6 @@ const filterSlice = createSlice({
         if (!state.manuallyUnfolded.includes(path)) {
           state.manuallyUnfolded.push(path);
         }
-        console.log("[filterSlice] toggleElementFold: UNFOLDED", path);
       } else {
         if (!state.manuallyFolded.includes(path)) {
           state.manuallyFolded.push(path);
@@ -153,7 +138,6 @@ const filterSlice = createSlice({
         state.manuallyUnfolded = state.manuallyUnfolded.filter(
           (p) => p !== path,
         );
-        console.log("[filterSlice] toggleElementFold: FOLDED", path);
       }
       state._rev++;
     },
@@ -161,7 +145,6 @@ const filterSlice = createSlice({
     clearFoldOverrides(state) {
       state.manuallyFolded = [];
       state.manuallyUnfolded = [];
-      console.log("[filterSlice] clearFoldOverrides");
       state._rev++;
     },
 

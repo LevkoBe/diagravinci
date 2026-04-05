@@ -70,12 +70,6 @@ export class DiagramLayerRenderer {
     this.hiddenSet = new Set([...viewState.hiddenPaths, ...zoomHidden]);
     this.dimmedSet = new Set([...viewState.dimmedPaths, ...zoomDimmed]);
 
-    console.log("[DiagramLayerRenderer] Filter sets:", {
-      hidden: this.hiddenSet.size,
-      dimmed: this.dimmedSet.size,
-      folded: viewState.foldedPaths.length,
-    });
-
     this.relationshipRenderer = new RelationshipRenderer(
       viewState,
       colors,
@@ -110,15 +104,9 @@ export class DiagramLayerRenderer {
     path: string,
     parentPos?: { x: number; y: number },
   ): void {
-    if (this.hiddenSet.has(path)) {
-      console.log("[DiagramLayerRenderer] Skipping hidden element:", path);
-      return;
-    }
+    if (this.hiddenSet.has(path)) return;
 
     const isDimmed = this.dimmedSet.has(path);
-    if (isDimmed) {
-      console.log("[DiagramLayerRenderer] Rendering dimmed element:", path);
-    }
 
     const colorOverride = this.viewState.coloredPaths?.[path] ?? null;
 
@@ -143,13 +131,7 @@ export class DiagramLayerRenderer {
       }).play();
     }
 
-    if (this.viewState.foldedPaths.includes(path)) {
-      console.log(
-        "[DiagramLayerRenderer] Element folded, skipping children:",
-        path,
-      );
-      return;
-    }
+    if (this.viewState.foldedPaths.includes(path)) return;
 
     const pos = this.viewState.positions[path];
     if (!pos) return;
@@ -250,7 +232,6 @@ export class DiagramLayerRenderer {
     group.on("dragend", handlers.onDragEnd);
     group.on("contextmenu", (e: Konva.KonvaEventObject<MouseEvent>) => {
       e.evt.preventDefault();
-      console.log("[DiagramLayerRenderer] RMC contextmenu on path:", path);
       this.callbacks.onContextMenu?.(element.id, path);
     });
 

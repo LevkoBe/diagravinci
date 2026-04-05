@@ -63,13 +63,6 @@ export class FilterResolver {
         if (!matchesPreset(path, preset, model)) unmatched.push(path);
       }
 
-      if (unmatched.length > 0) {
-        console.log(
-          `[FilterResolver] Preset "${preset.label}" (${preset.mode}): unmatched ${unmatched.length} paths`,
-          unmatched,
-        );
-      }
-
       if (preset.mode === "hide") {
         unmatched.forEach((p) => hiddenSet.add(p));
       } else if (preset.mode === "dim") {
@@ -78,68 +71,32 @@ export class FilterResolver {
     }
 
     if (filterState.foldActive) {
-      console.log(
-        "[FilterResolver] Fold active at depth:",
-        filterState.foldLevel,
-        "| paths to check:",
-        allPaths.length,
-      );
       for (const path of allPaths) {
-        if (pathDepth(path) === filterState.foldLevel) {
-          if (!filterState.manuallyUnfolded.includes(path)) {
-            foldedSet.add(path);
-          } else {
-            console.log(
-              "[FilterResolver] Depth-fold skipped (manually unfolded):",
-              path,
-            );
-          }
+        if (
+          pathDepth(path) === filterState.foldLevel &&
+          !filterState.manuallyUnfolded.includes(path)
+        ) {
+          foldedSet.add(path);
         }
       }
     }
 
     for (const path of filterState.manuallyFolded) {
-      if (!positions[path]) {
-        console.log(
-          "[FilterResolver] manuallyFolded path not in positions (stale):",
-          path,
-        );
-        continue;
-      }
-      if (filterState.manuallyUnfolded.includes(path)) {
-        console.warn(
-          "[FilterResolver] Path in both manuallyFolded and manuallyUnfolded:",
-          path,
-        );
-        continue;
-      }
+      if (!positions[path]) continue;
+      if (filterState.manuallyUnfolded.includes(path)) continue;
       foldedSet.add(path);
-      console.log("[FilterResolver] Manually folded:", path);
     }
 
     for (const path of filterState.manuallyUnfolded) {
-      if (foldedSet.delete(path)) {
-        console.log(
-          "[FilterResolver] Manually unfolded (removed from foldedSet):",
-          path,
-        );
-      }
+      foldedSet.delete(path);
     }
 
-    const result: FilterLists = {
+    return {
       hiddenPaths: [...hiddenSet],
       dimmedPaths: [...dimmedSet],
       foldedPaths: [...foldedSet],
       coloredPaths: Object.fromEntries(coloredMap),
     };
-
-    console.log("[FilterResolver] Resolved:", {
-      hidden: result.hiddenPaths.length,
-      dimmed: result.dimmedPaths.length,
-      folded: result.foldedPaths.length,
-    });
-
-    return result;
   }
 
   static equal(a: FilterLists, b: FilterLists): boolean {
