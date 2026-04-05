@@ -7,6 +7,7 @@ import reducer, {
   setSelectedElement,
   setSelectedElements,
   toggleSelectedElement,
+  clearSelection,
   sendZoomCommand,
   setRenderStyle,
 } from "../../../application/store/uiSlice";
@@ -80,6 +81,14 @@ describe("uiSlice", () => {
     it("sets multiple selected element ids", () => {
       const state = reducer(undefined, setSelectedElements(["a", "b", "c"]));
       expect(state.selectedElementIds).toEqual(["a", "b", "c"]);
+    });
+  });
+
+  describe("clearSelection", () => {
+    it("clears all selected element ids", () => {
+      const s1 = reducer(undefined, setSelectedElements(["a", "b"]));
+      const s2 = reducer(s1, clearSelection());
+      expect(s2.selectedElementIds).toEqual([]);
     });
   });
 

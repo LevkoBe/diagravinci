@@ -1,0 +1,67 @@
+import { describe, it, expect } from "vitest";
+import {
+  createEmptyViewState,
+  updateElementPosition,
+} from "../../domain/models/ViewState";
+import { emptyAtom, emptySelector } from "../../domain/models/Selector";
+
+describe("createEmptyViewState", () => {
+  it("returns a valid empty view state", () => {
+    const vs = createEmptyViewState();
+    expect(vs.positions).toEqual({});
+    expect(vs.relationships).toEqual([]);
+    expect(vs.viewMode).toBe("basic");
+    expect(vs.zoom).toBe(1);
+    expect(vs.pan).toEqual({ x: 0, y: 0 });
+    expect(vs.hiddenPaths).toEqual([]);
+    expect(vs.dimmedPaths).toEqual([]);
+    expect(vs.foldedPaths).toEqual([]);
+    expect(vs.coloredPaths).toEqual({});
+  });
+});
+
+describe("updateElementPosition", () => {
+  it("adds a new position for an element not yet in viewState", () => {
+    const vs = createEmptyViewState();
+    const updated = updateElementPosition(vs, "a", { x: 100, y: 200 });
+    expect(updated.positions["a"].position).toEqual({ x: 100, y: 200 });
+    expect(updated.positions["a"].id).toBe("a");
+  });
+
+  it("updates an existing position", () => {
+    const vs = createEmptyViewState();
+    vs.positions["a"] = { id: "a", position: { x: 0, y: 0 }, size: 60, value: 1 };
+    const updated = updateElementPosition(vs, "a", { x: 50, y: 75 });
+    expect(updated.positions["a"].position).toEqual({ x: 50, y: 75 });
+    expect(updated.positions["a"].size).toBe(60);
+  });
+
+  it("does not mutate the original viewState", () => {
+    const vs = createEmptyViewState();
+    updateElementPosition(vs, "a", { x: 10, y: 20 });
+    expect(vs.positions["a"]).toBeUndefined();
+  });
+
+  it("preserves other positions when updating", () => {
+    const vs = createEmptyViewState();
+    vs.positions["b"] = { id: "b", position: { x: 500, y: 500 }, size: 40, value: 1 };
+    const updated = updateElementPosition(vs, "a", { x: 10, y: 20 });
+    expect(updated.positions["b"].position).toEqual({ x: 500, y: 500 });
+  });
+});
+
+describe("Selector factory functions", () => {
+  it("emptyAtom creates an atom with defaults", () => {
+    const atom = emptyAtom();
+    expect(atom.types).toEqual([]);
+    expect(atom.path).toBe("");
+    expect(atom.meta).toEqual({ kind: "raw" });
+    expect(typeof atom.id).toBe("string");
+  });
+
+  it("emptySelector creates a selector with no atoms", () => {
+    const sel = emptySelector();
+    expect(sel.atoms).toEqual([]);
+    expect(sel.combiner).toBe("");
+  });
+});

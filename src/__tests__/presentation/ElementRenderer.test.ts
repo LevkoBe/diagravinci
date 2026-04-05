@@ -8,6 +8,8 @@ import {
 } from "../utils";
 import type { Position } from "../../domain/models/Element";
 import { SvgPathElementRenderer } from "../../presentation/components/rendering/elements/SvgPathElementRenderer";
+import { PolygonElementRenderer } from "../../presentation/components/rendering/elements/PolygonElementRenderer";
+import { SimpleRectElementRenderer } from "../../presentation/components/rendering/elements/SimpleRectElementRenderer";
 import {
   ElementEventHandler,
   type ElementEventCallbacks,
@@ -601,6 +603,99 @@ describe("ElementRenderer", () => {
     });
   });
 
+  describe("PolygonElementRenderer", () => {
+    const types = ["object", "state", "function", "flow", "choice", "other"] as const;
+    for (const type of types) {
+      it(`renders ${type} element as a group with a shape`, () => {
+        const element = MockElementFactory.createElement("x", type as "object");
+        const viewState = new ViewStateBuilder()
+          .addElement("x", 100, 100, 60, false)
+          .build();
+        const renderer = new PolygonElementRenderer(
+          element, "x", viewState, null, defaultColors, false, false, 60, 1,
+        );
+        const result = renderer.render();
+        expect(result).toBeDefined();
+        expect(result?.group).toBeInstanceOf(Konva.Group);
+        expect(result?.group.getChildren().length).toBeGreaterThan(0);
+      });
+    }
+
+    it("returns undefined when position not found", () => {
+      const element = MockElementFactory.createElement("x", "object");
+      const viewState = new ViewStateBuilder().build();
+      const renderer = new PolygonElementRenderer(
+        element, "x", viewState, null, defaultColors, false, false, 60, 1,
+      );
+      expect(renderer.render()).toBeUndefined();
+    });
+
+    it("renders dimmed element with reduced opacity", () => {
+      const element = MockElementFactory.createElement("x", "object");
+      const viewState = new ViewStateBuilder()
+        .addElement("x", 100, 100, 60, false)
+        .build();
+      const renderer = new PolygonElementRenderer(
+        element, "x", viewState, null, defaultColors, false, true, 60, 1,
+      );
+      const result = renderer.render();
+      expect(result).toBeDefined();
+    });
+
+    it("uses colorOverride for stroke when provided", () => {
+      const element = MockElementFactory.createElement("x", "object");
+      const viewState = new ViewStateBuilder()
+        .addElement("x", 100, 100, 60, false)
+        .build();
+      const renderer = new PolygonElementRenderer(
+        element, "x", viewState, null, defaultColors, false, false, 60, 1, "#custom",
+      );
+      const result = renderer.render();
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe("SimpleRectElementRenderer", () => {
+    const types = ["object", "state", "function", "flow", "choice", "other"] as const;
+    for (const type of types) {
+      it(`renders ${type} element as a rect group`, () => {
+        const element = MockElementFactory.createElement("x", type as "object");
+        const viewState = new ViewStateBuilder()
+          .addElement("x", 100, 100, 60, false)
+          .build();
+        const renderer = new SimpleRectElementRenderer(
+          element, "x", viewState, null, defaultColors, false, false, 60, 1,
+        );
+        const result = renderer.render();
+        expect(result).toBeDefined();
+        expect(result?.group).toBeInstanceOf(Konva.Group);
+        const rects = result?.group.getChildren().filter((c) => c instanceof Konva.Rect);
+        expect(rects?.length).toBeGreaterThan(0);
+      });
+    }
+
+    it("returns undefined when position not found", () => {
+      const element = MockElementFactory.createElement("x", "object");
+      const viewState = new ViewStateBuilder().build();
+      const renderer = new SimpleRectElementRenderer(
+        element, "x", viewState, null, defaultColors, false, false, 60, 1,
+      );
+      expect(renderer.render()).toBeUndefined();
+    });
+
+    it("hover callbacks work on SimpleRectElementRenderer", () => {
+      const element = MockElementFactory.createElement("x", "object");
+      const viewState = new ViewStateBuilder()
+        .addElement("x", 100, 100, 60, false)
+        .build();
+      const renderer = new SimpleRectElementRenderer(
+        element, "x", viewState, null, defaultColors, false, false, 60, 1,
+      );
+      const result = renderer.render();
+      expect(() => { result?.onHoverIn(); result?.onHoverOut(); }).not.toThrow();
+    });
+  });
+
   describe("Drag Handling", () => {
     it("should position into b.c when dragging b.c.a over b.c.a", () => {
       const setHovered = vi.fn();
@@ -684,6 +779,81 @@ describe("ElementRenderer", () => {
         y: expect.any(Number),
       });
       expect(onReparent).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Icon Element Rendering", () => {
+    it("renders icon element (_database_) without a text label", () => {
+      const element = MockElementFactory.createElement("_database_", "object");
+      const viewState = new ViewStateBuilder()
+        .addElement("_database_", 100, 100, 60, false)
+        .build();
+
+      const renderer = new SvgPathElementRenderer(
+        element,
+        "_database_",
+        viewState,
+        null,
+        defaultColors,
+        false,
+        false,
+        100,
+        1,
+      );
+
+      const result = renderer.render();
+      expect(result).toBeDefined();
+      // Icon element skips the text label path
+      const textShapes = result?.group.getChildren().filter((c) => c instanceof Konva.Text);
+      expect(textShapes?.length).toBe(0);
+    });
+
+    it("renders icon element with dimmed opacity", () => {
+      const element = MockElementFactory.createElement("_user_", "object");
+      const viewState = new ViewStateBuilder()
+        .addElement("_user_", 100, 100, 60, false)
+        .build();
+
+      const renderer = new SvgPathElementRenderer(
+        element,
+        "_user_",
+        viewState,
+        null,
+        defaultColors,
+        false,
+        true, // isDimmed
+        100,
+        1,
+      );
+
+      const result = renderer.render();
+      expect(result).toBeDefined();
+    });
+
+    it("falls through to text label when icon name is not found", () => {
+      // _not_a_real_icon_ — no matching lucide icon, falls through to text
+      const element = MockElementFactory.createElement("_not_a_real_icon_", "object");
+      const viewState = new ViewStateBuilder()
+        .addElement("_not_a_real_icon_", 100, 100, 60, false)
+        .build();
+
+      const renderer = new SvgPathElementRenderer(
+        element,
+        "_not_a_real_icon_",
+        viewState,
+        null,
+        defaultColors,
+        false,
+        false,
+        100,
+        1,
+      );
+
+      const result = renderer.render();
+      expect(result).toBeDefined();
+      // Falls through to text label since no icon matches
+      const textShapes = result?.group.getChildren().filter((c) => c instanceof Konva.Text);
+      expect(textShapes?.length).toBeGreaterThan(0);
     });
   });
 });

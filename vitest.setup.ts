@@ -17,9 +17,12 @@ class MockCanvasRenderingContext2D {
   beginPath(): void {}
   moveTo(): void {}
   lineTo(): void {}
+  bezierCurveTo(): void {}
+  quadraticCurveTo(): void {}
   closePath(): void {}
   arc(): void {}
   arcTo(): void {}
+  ellipse(): void {}
   rect(): void {}
   fill(): void {}
   stroke(): void {}

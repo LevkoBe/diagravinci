@@ -151,6 +151,82 @@ describe("ElementEventHandler", () => {
     });
   });
 
+  describe("Drag End Handling", () => {
+    it("calls onReparent when element is dropped on a different parent", () => {
+      const onReparent = vi.fn();
+      const callbacks: ElementEventCallbacks = {
+        onClick: vi.fn(),
+        onPositionChange: vi.fn(),
+        onReparent,
+        setHovered: vi.fn(),
+        findHoveredPath: vi.fn().mockReturnValue(null),
+        findNewParentPath: vi.fn().mockReturnValue("new-parent"),
+        updateRelationshipLines: vi.fn(),
+        updateChildRelationshipLines: vi.fn(),
+        updateChildPositions: vi.fn(),
+        getRootId: vi.fn().mockReturnValue("root"),
+      };
+
+      // path = "old-parent.child" → oldParentPath = "old-parent"
+      // findNewParentPath returns "new-parent" → reparent is triggered
+      const handler = new ElementEventHandler(
+        { id: "child", path: "old-parent.child" },
+        "old-parent.child",
+        helper.getStage(),
+        callbacks,
+      );
+      const handlers = handler.createHandlers();
+
+      const group = new Konva.Group();
+      handlers.onDragEnd({
+        cancelBubble: false,
+        evt: {} as DragEvent,
+        target: group,
+        type: "dragend",
+        currentTarget: group,
+        pointerId: 0,
+      } as Konva.KonvaEventObject<DragEvent>);
+
+      expect(onReparent).toHaveBeenCalledWith("child", "old-parent", "new-parent");
+    });
+
+    it("does not call onReparent when parent is unchanged", () => {
+      const onReparent = vi.fn();
+      const callbacks: ElementEventCallbacks = {
+        onClick: vi.fn(),
+        onPositionChange: vi.fn(),
+        onReparent,
+        setHovered: vi.fn(),
+        findHoveredPath: vi.fn().mockReturnValue(null),
+        findNewParentPath: vi.fn().mockReturnValue("parent"),
+        updateRelationshipLines: vi.fn(),
+        updateChildRelationshipLines: vi.fn(),
+        updateChildPositions: vi.fn(),
+        getRootId: vi.fn().mockReturnValue("root"),
+      };
+
+      const handler = new ElementEventHandler(
+        { id: "child", path: "parent.child" },
+        "parent.child",
+        helper.getStage(),
+        callbacks,
+      );
+      const handlers = handler.createHandlers();
+
+      const group = new Konva.Group();
+      handlers.onDragEnd({
+        cancelBubble: false,
+        evt: {} as DragEvent,
+        target: group,
+        type: "dragend",
+        currentTarget: group,
+        pointerId: 0,
+      } as Konva.KonvaEventObject<DragEvent>);
+
+      expect(onReparent).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Nested Paths", () => {
     it("should correctly handle nested element paths", () => {
       const setHovered = vi.fn();

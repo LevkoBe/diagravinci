@@ -309,4 +309,16 @@ describe("FilterResolver.equal", () => {
     const b = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: {} };
     expect(FilterResolver.equal(a, b)).toBe(false);
   });
+
+  it("returns true for equal colored paths with multiple entries regardless of insertion order", () => {
+    const a = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: { "b": "#0000ff", "a": "#ff0000" } };
+    const b = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: { "a": "#ff0000", "b": "#0000ff" } };
+    expect(FilterResolver.equal(a, b)).toBe(true);
+  });
+
+  it("returns false when multiple colored paths differ in values", () => {
+    const a = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: { "a": "#ff0000", "b": "#00ff00" } };
+    const b = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: { "a": "#ff0000", "b": "#0000ff" } };
+    expect(FilterResolver.equal(a, b)).toBe(false);
+  });
 });

@@ -1,10 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import Konva from "konva";
 import {
   parseEndSpec,
   isDashed,
   decorationInset,
+  createDecoration,
+  screenToWorld,
 } from "../../presentation/components/rendering/relationships/arrowUtils";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
+import { KonvaTestHelper } from "../utils";
 
 describe("parseEndSpec", () => {
   it("parses --> as none->arrow", () => {
@@ -68,6 +72,79 @@ describe("isDashed", () => {
       expect(isDashed(t)).toBe(false);
     });
   }
+});
+
+describe("createDecoration", () => {
+  it("returns a Konva.Line for arrow", () => {
+    const shape = createDecoration("arrow", false, 100, 100, 1, 0, "#000");
+    expect(shape).toBeInstanceOf(Konva.Line);
+  });
+
+  it("returns a Konva.Line for triangle (unfilled)", () => {
+    const shape = createDecoration("triangle", false, 100, 100, 1, 0, "#000");
+    expect(shape).toBeInstanceOf(Konva.Line);
+  });
+
+  it("returns a filled Konva.Line for triangle (filled)", () => {
+    const shape = createDecoration("triangle", true, 100, 100, 1, 0, "#f00") as Konva.Line;
+    expect(shape).toBeInstanceOf(Konva.Line);
+    expect(shape.fill()).toBe("#f00");
+  });
+
+  it("returns a Konva.Line for diamond (unfilled)", () => {
+    const shape = createDecoration("diamond", false, 100, 100, 1, 0, "#000");
+    expect(shape).toBeInstanceOf(Konva.Line);
+  });
+
+  it("returns a filled Konva.Line for diamond (filled)", () => {
+    const shape = createDecoration("diamond", true, 100, 100, 1, 0, "#0f0") as Konva.Line;
+    expect(shape?.fill()).toBe("#0f0");
+  });
+
+  it("returns a Konva.Circle for circle", () => {
+    const shape = createDecoration("circle", false, 100, 100, 1, 0, "#000");
+    expect(shape).toBeInstanceOf(Konva.Circle);
+  });
+
+  it("returns null for none", () => {
+    expect(createDecoration("none", false, 0, 0, 1, 0, "#000")).toBeNull();
+  });
+});
+
+describe("screenToWorld", () => {
+  let helper: KonvaTestHelper;
+
+  beforeEach(() => {
+    helper = new KonvaTestHelper();
+    helper.createStage();
+  });
+
+  afterEach(() => {
+    helper.cleanup();
+  });
+
+  it("converts screen position to world position at default scale", () => {
+    const stage = helper.getStage();
+    const result = screenToWorld({ x: 100, y: 200 }, stage);
+    expect(result.x).toBeCloseTo(100);
+    expect(result.y).toBeCloseTo(200);
+  });
+
+  it("accounts for stage offset", () => {
+    const stage = helper.getStage();
+    stage.position({ x: 50, y: 50 });
+    const result = screenToWorld({ x: 150, y: 150 }, stage);
+    expect(result.x).toBeCloseTo(100);
+    expect(result.y).toBeCloseTo(100);
+  });
+
+  it("accounts for stage scale", () => {
+    const stage = helper.getStage();
+    stage.scale({ x: 2, y: 2 });
+    const result = screenToWorld({ x: 100, y: 100 }, stage);
+    expect(result.x).toBeCloseTo(50);
+    expect(result.y).toBeCloseTo(50);
+  });
 });
 
 describe("decorationInset", () => {
