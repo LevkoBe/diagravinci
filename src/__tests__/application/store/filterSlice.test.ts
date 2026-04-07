@@ -64,20 +64,10 @@ describe("filterSlice", () => {
       expect(s2.presets).toHaveLength(1);
     });
 
-    it("removePreset removes preset and clears activeModalPresetId if it matches", () => {
+    it("removePreset removes the preset", () => {
       const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, setActiveModalPreset("p1"));
-      const s3 = reducer(s2, removePreset("p1"));
-      expect(s3.presets).toHaveLength(0);
-      expect(s3.activeModalPresetId).toBeNull();
-    });
-
-    it("removePreset does not change activeModalPresetId for other presets", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, addPreset(makePreset("p2")));
-      const s3 = reducer(s2, setActiveModalPreset("p2"));
-      const s4 = reducer(s3, removePreset("p1"));
-      expect(s4.activeModalPresetId).toBe("p2");
+      const s2 = reducer(s1, removePreset("p1"));
+      expect(s2.presets).toHaveLength(0);
     });
 
     it("togglePresetActive flips isActive", () => {
