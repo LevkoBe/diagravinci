@@ -34,8 +34,20 @@ import {
   GitCompare,
   CheckCheck,
 } from "lucide-react";
+import {
+  Button,
+  SettingsModalButton,
+  useC7One,
+  detectIsDark,
+  useWindowContext,
+} from "@levkobe/c7one";
+import {
+  parchmentTheme,
+  diagraVinciDark,
+  lightStateTokens,
+  darkStateTokens,
+} from "../../themes";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
-import { toggleTheme } from "../../application/store/themeSlice";
 import {
   setInteractionMode,
   setActiveElementType,
@@ -52,7 +64,6 @@ import {
   pruneElements,
 } from "../../application/store/diagramSlice";
 import {
-  openFilterModal,
   setFoldLevel,
   toggleFoldActive,
   cyclePreset,
@@ -67,7 +78,7 @@ import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 import { Lexer } from "../../infrastructure/parser/Lexer";
 import { Parser } from "../../infrastructure/parser/Parser";
 import { ViewStateMerger } from "../../domain/sync/ViewStateMerger";
-import { FilterModal } from "./FilterModal";
+
 import { ELEMENT_SVGS } from "../ElementConfigs";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
 import type { Element } from "../../domain/models/Element";
@@ -115,7 +126,7 @@ function ElementIcon({ type }: { type: string }) {
 }
 
 function Divider() {
-  return <div className="w-px h-6 bg-fg-ternary/50 mx-1 shrink-0" />;
+  return <div className="w-px h-6 bg-border/50 mx-1 shrink-0" />;
 }
 
 const PillOpenContext = createContext(false);
@@ -124,24 +135,32 @@ function Pill({
   label,
   children,
   activeSlot,
+  compact,
 }: {
   label: string;
   children: React.ReactNode;
   activeSlot?: React.ReactNode;
+  compact?: boolean;
 }) {
   const forceOpen = useContext(PillOpenContext);
   const [open, setOpen] = useState(false);
   const isOpen = forceOpen || open;
+
+  // Compact mode: no label, no animation, buttons always visible.
+  if (compact) {
+    return (
+      <div className="flex items-center px-2 py-1 rounded-full border border-accent/50 bg-accent/6 gap-0.5 shrink-0">
+        {children}
+      </div>
+    );
+  }
 
   const slide =
     "grid overflow-hidden transition-[grid-template-columns] duration-500 ease-out";
 
   return (
     <div
-      className={[
-        "flex items-center px-2.5 py-1.5 rounded-full border border-accent/50 bg-accent/6 justify-center",
-        forceOpen ? "justify-center" : "min-w-32",
-      ].join(" ")}
+      className="flex items-center px-2.5 py-1.5 rounded-full border border-accent/50 bg-accent/6 justify-center min-w-28 shrink-0"
       onMouseEnter={() => !forceOpen && setOpen(true)}
       onMouseLeave={() => !forceOpen && setOpen(false)}
     >
@@ -151,7 +170,7 @@ function Pill({
       >
         <div className="overflow-hidden min-w-0 flex items-center gap-1">
           <button
-            className="overflow-hidden min-w-0 mr-2 text-[9px] font-bold text-accent/70 tracking-widest uppercase select-none whitespace-nowrap focus:outline-none"
+            className="overflow-hidden min-w-0 mr-2 text-[9px] font-bold text-accent/70 text-center tracking-widest uppercase select-none whitespace-nowrap focus:outline-none"
             onClick={() => !forceOpen && setOpen((v) => !v)}
           >
             {label}
@@ -168,7 +187,7 @@ function Pill({
       <div
         className={`${slide} ${isOpen ? "grid-cols-[1fr]" : "grid-cols-[0fr]"}`}
       >
-        <div className="overflow-hidden min-w-0 flex items-center gap-1 pl-1">
+        <div className="overflow-hidden min-w-0 flex items-center gap-1">
           {children}
         </div>
       </div>
@@ -219,16 +238,16 @@ function Btn({
   onClick?: () => void;
 }) {
   return (
-    <button
+    <Button
       title={title}
       onClick={onClick}
       disabled={disabled}
-      className={["btn-icon", active ? "active" : "", danger ? "danger" : ""]
-        .filter(Boolean)
-        .join(" ")}
+      variant={danger ? "destructive" : active ? "secondary" : "ghost"}
+      size="sm"
+      className="w-9 h-9 p-0 rounded-full shrink-0"
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -250,8 +269,92 @@ export function ToolBar() {
   const dispatch = useAppDispatch();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { canUndo, canRedo, undo, redo } = useUndoRedo();
+  const { colors, setColors, injectTokens } = useC7One();
+  const isDark = detectIsDark(colors["--color-bg-base"]);
+  const { tree, moveDivider } = useWindowContext();
 
-  const isDark = useAppSelector((s) => s.theme.isDark);
+  const toolbarInnerRef = useRef<HTMLDivElement>(null);
+  const [toolbarWidth, setToolbarWidth] = useState(9999);
+  const [toolbarHeight, setToolbarHeight] = useState(48);
+  // Track the last computed target height (px). The loop guard is: if the
+  // target hasn't changed, moveDivider already set it — skip. If zoom or
+  // content changes, the target changes and we fire exactly once more.
+  const lastNeededHRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (!toolbarInnerRef.current) return;
+    const ro = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      setToolbarWidth(width);
+      setToolbarHeight(height);
+    });
+    ro.observe(toolbarInnerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  // Snap toolbar window height to its content. Runs whenever the toolbar's
+  // measured size changes (mount, zoom, window resize, content change).
+  // Loop safety: moveDivider triggers a resize → toolbarHeight changes → this
+  // effect re-runs → computes the same neededWindowH → early return.
+  useEffect(() => {
+    // In panel / wrap mode the toolbar should fill available space — skip.
+    if (toolbarWidth / Math.max(toolbarHeight, 1) <= 2) return;
+
+    const contentArea = toolbarInnerRef.current;
+    if (!contentArea) return;
+
+    const contentAreaH = contentArea.getBoundingClientRect().height;
+    if (contentAreaH < 4) return; // not yet painted
+
+    // firstElementChild.offsetHeight = intrinsic content height, unclipped.
+    const firstChild = contentArea.firstElementChild as HTMLElement | null;
+    if (!firstChild) return;
+    const intrinsicH = firstChild.offsetHeight;
+    if (intrinsicH < 4) return;
+
+    // Walk up to find the ancestor that includes the window title bar.
+    let windowEl: HTMLElement | null = contentArea.parentElement;
+    while (windowEl) {
+      if (windowEl.getBoundingClientRect().height > contentAreaH + 4) break;
+      windowEl = windowEl.parentElement;
+    }
+    if (!windowEl) return;
+
+    const titleBarH = windowEl.getBoundingClientRect().height - contentAreaH;
+    const neededWindowH = Math.round(intrinsicH + titleBarH + 4);
+
+    // Same target as last call → moveDivider already positioned correctly.
+    if (Math.abs(neededWindowH - lastNeededHRef.current) < 2) return;
+    lastNeededHRef.current = neededWindowH;
+
+    const pct = (neededWindowH / window.innerHeight) * 100;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const findGroup = (node: any, wId: string): any => {
+      if (node.type !== "group") return null;
+      for (const child of node.children) {
+        if (child.type === "leaf" && child.windowId === wId) return node;
+        const found = findGroup(child, wId);
+        if (found) return found;
+      }
+      return null;
+    };
+
+    const parentGroup = findGroup(tree, "toolbar");
+    if (parentGroup) moveDivider(parentGroup.id, 0, pct);
+  }, [toolbarWidth, toolbarHeight, tree, moveDivider]);
+
+  // Layout modes based on aspect ratio:
+  //   aspect > 2  → wide bar: horizontal scrollable pill row
+  //   aspect ≤ 2  → panel: compact pills wrap to fill space
+  // Within wide-bar mode:
+  //   < 380px  → hamburger menu only
+  //   380–720px → compact pills, scrollable row
+  //   > 720px  → full animated pills, scrollable (no flex-wrap to prevent oscillation)
+  const isWideBar = toolbarWidth / Math.max(toolbarHeight, 1) > 2;
+  const isMobile = isWideBar && toolbarWidth < 380;
+  const isCompact = isWideBar && !isMobile && toolbarWidth < 720;
+
   const { model, viewState, code } = useAppSelector((s) => s.diagram);
   const viewMode = viewState.viewMode;
   const {
@@ -260,22 +363,22 @@ export function ToolBar() {
     activeRelationshipType,
     renderStyle,
   } = useAppSelector((s) => s.ui);
-  const {
-    presets,
-    isModalOpen,
-    foldLevel,
-    foldActive,
-    manuallyFolded,
-    manuallyUnfolded,
-  } = useAppSelector((s) => s.filter);
+  const { presets, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
+    useAppSelector((s) => s.filter);
   const diffState = useAppSelector((s) => s.diff);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
   const updateCodeInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDark);
-  }, [isDark]);
+  const toggleTheme = () => {
+    if (isDark) {
+      setColors(parchmentTheme);
+      injectTokens(lightStateTokens);
+    } else {
+      setColors(diagraVinciDark);
+      injectTokens(darkStateTokens);
+    }
+  };
 
   const is = (m: string) => interactionMode === m;
 
@@ -550,11 +653,7 @@ export function ToolBar() {
   const selectBtns = (
     <>
       <div className="relative">
-        <Btn
-          title="Selector presets"
-          active={isModalOpen || activePresetCount > 0}
-          onClick={() => dispatch(openFilterModal())}
-        >
+        <Btn title="Selector presets" active={activePresetCount > 0}>
           <ListFilter size={15} />
         </Btn>
         {activePresetCount > 0 && (
@@ -591,7 +690,7 @@ export function ToolBar() {
         value={foldLevel}
         onChange={(e) => dispatch(setFoldLevel(Number(e.target.value)))}
         title="Fold depth threshold"
-        className="w-9 text-center text-[11px] font-mono bg-bg-secondary/60 border border-fg-ternary/30 rounded px-1 py-0.5 focus:outline-none focus:border-accent/60 text-fg-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        className="w-9 text-center text-[11px] font-mono bg-bg-elevated/60 border border-border/30 rounded px-1 py-0.5 focus:outline-none focus:border-accent/60 text-fg-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
       <Btn
         title={FOLD_MODE_TITLES[foldMode]}
@@ -729,9 +828,21 @@ export function ToolBar() {
       >
         <Maximize2 size={15} />
       </Btn>
-      <Btn title="Toggle theme" onClick={() => dispatch(toggleTheme())}>
+      <Btn title="Toggle theme" onClick={toggleTheme}>
         {isDark ? <Sun size={15} /> : <Moon size={15} />}
       </Btn>
+      <SettingsModalButton
+        expose={[
+          "mode",
+          "colors",
+          "--radius",
+          "--border-width",
+          "--transition-speed",
+          "--shadow-intensity",
+        ]}
+        label="Open settings"
+        buttonClassName="w-9 h-9 p-0 rounded-full btn-icon"
+      />
     </>
   );
 
@@ -758,19 +869,21 @@ export function ToolBar() {
         className="hidden"
         onChange={handleUpdateCodeFile}
       />
-      {isModalOpen && <FilterModal />}
 
-      <div className="border-b-2 border-fg-ternary/60">
+      <div
+        ref={toolbarInnerRef}
+        className="w-full h-full flex flex-col overflow-hidden"
+      >
         {diffState.active && (
-          <div className="flex items-center gap-3 px-4 py-1.5 bg-bg-secondary/60 border-b border-fg-ternary/20 text-xs">
-            <span className="font-semibold text-fg-secondary">Diff view</span>
+          <div className="flex items-center gap-3 px-4 py-1.5 bg-bg-elevated/60 border-b border-border/20 text-xs shrink-0">
+            <span className="font-semibold text-fg-muted">Diff view</span>
             <span style={{ color: "#4caf50" }} className="font-medium">
               +{diffState.addedIds.length} added
             </span>
             <span style={{ color: "#ef5350" }} className="font-medium">
               -{diffState.removedIds.length} removed
             </span>
-            <span className="text-fg-ternary/60">
+            <span className="text-fg-disabled/60">
               Right-click an element to accept individually
             </span>
             <div className="flex items-center gap-1.5 ml-auto">
@@ -796,7 +909,7 @@ export function ToolBar() {
               </button>
               <button
                 onClick={() => dispatch(clearDiff())}
-                className="flex items-center gap-1 px-2 py-0.5 rounded border border-fg-ternary/40 text-fg-secondary text-xs font-medium hover:bg-fg-ternary/10 transition-colors"
+                className="flex items-center gap-1 px-2 py-0.5 rounded border border-border/40 text-fg-muted text-xs font-medium hover:bg-border/10 transition-colors"
                 title="Clear diff — exit diff view without accepting"
               >
                 Clear diff
@@ -804,158 +917,212 @@ export function ToolBar() {
             </div>
           </div>
         )}
-        {/* Mobile header — visible only on small screens */}
-        <div className="flex sm:hidden items-center px-4 py-2">
-          <Btn
-            title="Toggle menu"
-            active={mobileOpen}
-            onClick={() => setMobileOpen((v) => !v)}
+        {!isWideBar ? (
+          /* ── Panel / wrap layout — compact pills wrap to fill space ── */
+          <div className="flex flex-wrap gap-2 p-3 justify-center content-start overflow-y-auto flex-1">
+            <Pill label="Create" compact>
+              {createBtns}
+            </Pill>
+            <Pill label="Mode" compact>
+              {modeBtns}
+            </Pill>
+            <Pill label="Rel" compact>
+              {relBtns}
+            </Pill>
+            <Pill label="Select" compact>
+              {selectBtns}
+            </Pill>
+            <Pill label="Project" compact>
+              {projectBtns}
+            </Pill>
+            <Pill label="Code" compact>
+              {codeBtns}
+            </Pill>
+            <Pill label="Layout" compact>
+              {layoutBtns}
+            </Pill>
+            <Pill label="Style" compact>
+              {styleBtns}
+            </Pill>
+            <Pill label="View" compact>
+              {viewBtns}
+            </Pill>
+          </div>
+        ) : isMobile ? (
+          /* ── Hamburger trigger ────────────────────────────────────────── */
+          <div className="flex items-center px-4 py-2">
+            <Btn
+              title="Toggle menu"
+              active={mobileOpen}
+              onClick={() => setMobileOpen((v) => !v)}
+            >
+              <Menu size={15} />
+            </Btn>
+          </div>
+        ) : (
+          /* ── Full / compact pill row — overflow scrolls, never wraps ─── */
+          <div
+            className={`w-full flex items-center gap-2 px-4 py-2.5 overflow-x-auto flex-nowrap ${isCompact ? "" : "justify-around"}`}
           >
-            <Menu size={15} />
-          </Btn>
-        </div>
-
-        {/* Desktop toolbar — hidden on small screens */}
-        <div className="hidden w-full sm:flex items-center justify-around gap-2 px-4 py-2.5 flex-wrap">
-          <Pill
-            label="Create"
-            activeSlot={
-              is("create") ? (
-                <ActiveIndicator title={`New ${activeElementType}`}>
-                  <ElementIcon type={activeElementType} />
-                </ActiveIndicator>
-              ) : undefined
-            }
-          >
-            {createBtns}
-          </Pill>
-          <Divider />
-          <Pill
-            label="Mode"
-            activeSlot={
-              <ActiveIndicator
-                title={interactionMode}
-                danger={is("delete") || is("disconnect")}
-              >
-                {
-                  {
-                    select: <MousePointer2 size={15} />,
-                    create: <Pencil size={15} />,
-                    connect: <Link2 size={15} />,
-                    delete: <Trash2 size={15} />,
-                    disconnect: <Unlink size={15} />,
-                    readonly: <Lock size={15} />,
-                  }[interactionMode]
-                }
-              </ActiveIndicator>
-            }
-          >
-            {modeBtns}
-          </Pill>
-          <Divider />
-          <Pill
-            label="Rel"
-            activeSlot={
-              is("connect") ? (
-                <ActiveIndicator
-                  title={
-                    REL_TYPES.find((r) => r.type === activeRelationshipType)
-                      ?.label
-                  }
-                >
-                  <span className="text-[12px] font-bold font-mono leading-none select-none">
+            <Pill
+              label="Create"
+              compact={isCompact}
+              activeSlot={
+                !isCompact && is("create") ? (
+                  <ActiveIndicator title={`New ${activeElementType}`}>
+                    <ElementIcon type={activeElementType} />
+                  </ActiveIndicator>
+                ) : undefined
+              }
+            >
+              {createBtns}
+            </Pill>
+            <Divider />
+            <Pill
+              label="Mode"
+              compact={isCompact}
+              activeSlot={
+                !isCompact ? (
+                  <ActiveIndicator
+                    title={interactionMode}
+                    danger={is("delete") || is("disconnect")}
+                  >
                     {
-                      REL_TYPES.find((r) => r.type === activeRelationshipType)
-                        ?.glyph
+                      {
+                        select: <MousePointer2 size={15} />,
+                        create: <Pencil size={15} />,
+                        connect: <Link2 size={15} />,
+                        delete: <Trash2 size={15} />,
+                        disconnect: <Unlink size={15} />,
+                        readonly: <Lock size={15} />,
+                      }[interactionMode]
                     }
-                  </span>
-                </ActiveIndicator>
-              ) : undefined
-            }
-          >
-            {relBtns}
-          </Pill>
-          <Divider />
-          <Pill
-            label="Select"
-            activeSlot={
-              visiblePresets.filter((p) => p.isActive).length > 0 ? (
-                <>
-                  {visiblePresets
-                    .filter((p) => p.isActive)
-                    .map((preset) => (
-                      <span
-                        key={preset.id}
-                        className="btn-icon active pointer-events-none select-none bg-bg-primary shrink-0 relative overflow-hidden"
-                        style={{
-                          color: preset.color,
-                          borderColor: preset.color,
-                        }}
-                        title={`${preset.label} — ${preset.mode}`}
-                      >
+                  </ActiveIndicator>
+                ) : undefined
+              }
+            >
+              {modeBtns}
+            </Pill>
+            <Divider />
+            <Pill
+              label="Rel"
+              compact={isCompact}
+              activeSlot={
+                !isCompact && is("connect") ? (
+                  <ActiveIndicator
+                    title={
+                      REL_TYPES.find((r) => r.type === activeRelationshipType)
+                        ?.label
+                    }
+                  >
+                    <span className="text-[12px] font-bold font-mono leading-none select-none">
+                      {
+                        REL_TYPES.find((r) => r.type === activeRelationshipType)
+                          ?.glyph
+                      }
+                    </span>
+                  </ActiveIndicator>
+                ) : undefined
+              }
+            >
+              {relBtns}
+            </Pill>
+            <Divider />
+            <Pill
+              label="Select"
+              compact={isCompact}
+              activeSlot={
+                !isCompact &&
+                visiblePresets.filter((p) => p.isActive).length > 0 ? (
+                  <>
+                    {visiblePresets
+                      .filter((p) => p.isActive)
+                      .map((preset) => (
                         <span
-                          className="absolute inset-0 rounded-[inherit] opacity-15"
-                          style={{ background: preset.color }}
-                        />
-                        <span className="relative text-[9px] font-bold leading-none select-none truncate max-w-[5ch]">
-                          {preset.label.slice(0, 6)}
+                          key={preset.id}
+                          className="btn-icon active pointer-events-none select-none bg-bg-base shrink-0 relative overflow-hidden"
+                          style={{
+                            color: preset.color,
+                            borderColor: preset.color,
+                          }}
+                          title={`${preset.label} — ${preset.mode}`}
+                        >
+                          <span
+                            className="absolute inset-0 rounded-[inherit] opacity-15"
+                            style={{ background: preset.color }}
+                          />
+                          <span className="relative text-[9px] font-bold leading-none select-none truncate max-w-[5ch]">
+                            {preset.label.slice(0, 6)}
+                          </span>
                         </span>
-                      </span>
-                    ))}
-                </>
-              ) : undefined
-            }
-          >
-            {selectBtns}
-          </Pill>
-          <Divider />
-          <Pill label="Project">{projectBtns}</Pill>
-          <Divider />
-          <Pill label="Code">{codeBtns}</Pill>
-          <Divider />
-          <Pill
-            label="Layout"
-            activeSlot={
-              <ActiveIndicator title={viewMode}>
-                {
-                  {
-                    circular: <Circle size={15} />,
-                    basic: <Circle size={15} />,
-                    hierarchical: <TreePine size={15} />,
-                    timeline: <ArrowRightLeft size={15} />,
-                    pipeline: <Workflow size={15} />,
-                  }[viewMode]
-                }
-              </ActiveIndicator>
-            }
-          >
-            {layoutBtns}
-          </Pill>
-          <Divider />
-          <Pill
-            label="Style"
-            activeSlot={
-              <ActiveIndicator title={renderStyle}>
-                {
-                  {
-                    svg: <Spline size={15} />,
-                    rect: <Square size={15} />,
-                    polygon: <Hexagon size={15} />,
-                  }[renderStyle]
-                }
-              </ActiveIndicator>
-            }
-          >
-            {styleBtns}
-          </Pill>
-          <Divider />
-          <Pill label="View">{viewBtns}</Pill>
-        </div>
+                      ))}
+                  </>
+                ) : undefined
+              }
+            >
+              {selectBtns}
+            </Pill>
+            <Divider />
+            <Pill label="Project" compact={isCompact}>
+              {projectBtns}
+            </Pill>
+            <Divider />
+            <Pill label="Code" compact={isCompact}>
+              {codeBtns}
+            </Pill>
+            <Divider />
+            <Pill
+              label="Layout"
+              compact={isCompact}
+              activeSlot={
+                !isCompact ? (
+                  <ActiveIndicator title={viewMode}>
+                    {
+                      {
+                        circular: <Circle size={15} />,
+                        basic: <Circle size={15} />,
+                        hierarchical: <TreePine size={15} />,
+                        timeline: <ArrowRightLeft size={15} />,
+                        pipeline: <Workflow size={15} />,
+                      }[viewMode]
+                    }
+                  </ActiveIndicator>
+                ) : undefined
+              }
+            >
+              {layoutBtns}
+            </Pill>
+            <Divider />
+            <Pill
+              label="Style"
+              compact={isCompact}
+              activeSlot={
+                !isCompact ? (
+                  <ActiveIndicator title={renderStyle}>
+                    {
+                      {
+                        svg: <Spline size={15} />,
+                        rect: <Square size={15} />,
+                        polygon: <Hexagon size={15} />,
+                      }[renderStyle]
+                    }
+                  </ActiveIndicator>
+                ) : undefined
+              }
+            >
+              {styleBtns}
+            </Pill>
+            <Divider />
+            <Pill label="View" compact={isCompact}>
+              {viewBtns}
+            </Pill>
+          </div>
+        )}
 
-        {/* Mobile panel — all pills forced open, stacked in a wrap grid */}
-        {mobileOpen && (
+        {/* Hamburger expanded panel */}
+        {isMobile && mobileOpen && (
           <PillOpenContext.Provider value={true}>
-            <div className="sm:hidden flex flex-wrap justify-around gap-2 px-4 py-3">
+            <div className="flex flex-wrap justify-around gap-2 px-4 py-3">
               <Pill label="Create">{createBtns}</Pill>
               <Pill label="Mode">{modeBtns}</Pill>
               <Pill label="Rel">{relBtns}</Pill>

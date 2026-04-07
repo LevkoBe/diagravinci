@@ -1,92 +1,124 @@
-import { useState, useRef } from "react";
+import { DynamicPanelRoot } from "@levkobe/c7one";
+import type { WindowDef, LayoutNodeDecl } from "@levkobe/c7one";
+import {
+  Code2,
+  Bot,
+  LayoutPanelLeft,
+  Settings2,
+  BookOpen,
+  Wrench,
+  ListFilter,
+  SlidersHorizontal,
+} from "lucide-react";
+import { useUndoRedo } from "./presentation/hooks/useUndoRedo";
 import { CodeEditor } from "./presentation/components/CodeEditor";
 import { VisualCanvas } from "./presentation/components/VisualCanvas";
 import { PropertiesPanel } from "./presentation/components/PropertiesPanel";
 import { ToolBar } from "./presentation/components/ToolBar";
 import AIPanel from "./presentation/components/AIPanel";
 import { TemplatePanel } from "./presentation/components/TemplatePanel";
-import {
-  loadSplitterWidth,
-  saveSplitterWidth,
-} from "./application/store/persistence";
-import { useUndoRedo } from "./presentation/hooks/useUndoRedo";
+import { FiltersPanel } from "./presentation/components/FilterModal";
+import { AppSettingsPanel } from "./presentation/components/AppSettingsPanel";
+
+const WINDOWS: WindowDef[] = [
+  {
+    id: "toolbar",
+    title: "Toolbar",
+    icon: <Wrench size={16} aria-hidden="true" />,
+    component: ToolBar,
+  },
+  {
+    id: "editor",
+    title: "Code Editor",
+    icon: <Code2 size={16} aria-hidden="true" />,
+    component: CodeEditor,
+  },
+  {
+    id: "ai",
+    title: "AI Assistant",
+    icon: <Bot size={16} aria-hidden="true" />,
+    component: AIPanel,
+  },
+  {
+    id: "canvas",
+    title: "Visual Canvas",
+    icon: <LayoutPanelLeft size={16} aria-hidden="true" />,
+    component: VisualCanvas,
+  },
+  {
+    id: "properties",
+    title: "Properties",
+    icon: <Settings2 size={16} aria-hidden="true" />,
+    component: PropertiesPanel,
+  },
+  {
+    id: "templates",
+    title: "Templates",
+    icon: <BookOpen size={16} aria-hidden="true" />,
+    component: TemplatePanel,
+  },
+  {
+    id: "filters",
+    title: "Filters",
+    icon: <ListFilter size={16} aria-hidden="true" />,
+    component: FiltersPanel,
+  },
+  {
+    id: "settings",
+    title: "Settings",
+    icon: <SlidersHorizontal size={16} aria-hidden="true" />,
+    component: AppSettingsPanel,
+  },
+];
+
+// 12% is a safe starting point — ToolBar measures itself on mount and calls
+// moveDivider to snap to the exact needed height immediately after first render.
+const DEFAULT_LAYOUT: LayoutNodeDecl = {
+  type: "group",
+  direction: "vertical",
+  sizes: [12, 88],
+  children: [
+    { type: "leaf", windowId: "toolbar" },
+    {
+      type: "group",
+      direction: "horizontal",
+      sizes: [25, 50, 25],
+      children: [
+        {
+          type: "group",
+          direction: "vertical",
+          sizes: [55, 45],
+          children: [
+            { type: "leaf", windowId: "editor" },
+            { type: "leaf", windowId: "ai" },
+          ],
+        },
+        { type: "leaf", windowId: "canvas", isDefault: true },
+        {
+          type: "group",
+          direction: "vertical",
+          sizes: [55, 45],
+          children: [
+            { type: "leaf", windowId: "properties" },
+            { type: "leaf", windowId: "templates" },
+          ],
+        },
+      ],
+    },
+  ],
+};
 
 export default function App() {
   useUndoRedo();
-  const [leftWidth, setLeftWidth] = useState(() => loadSplitterWidth(340));
-  const containerRef = useRef<HTMLDivElement>(null);
-  const isDragging = useRef(false);
-  const leftWidthRef = useRef(leftWidth);
-
-  const startDrag = () => {
-    isDragging.current = true;
-    document.body.style.cursor = "col-resize";
-  };
-
-  const stopDrag = () => {
-    if (isDragging.current) {
-      saveSplitterWidth(leftWidthRef.current);
-    }
-    isDragging.current = false;
-    document.body.style.cursor = "default";
-  };
-
-  const onDrag = (e: React.MouseEvent) => {
-    if (!isDragging.current || !containerRef.current) return;
-
-    const bounds = containerRef.current.getBoundingClientRect();
-    const newWidth = e.clientX - bounds.left;
-
-    const min = 260;
-    const max = bounds.width - 400;
-    if (newWidth > min && newWidth < max) {
-      leftWidthRef.current = newWidth;
-      setLeftWidth(newWidth);
-    }
-  };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-bg-primary">
-      <ToolBar />
-
-      <div
-        ref={containerRef}
-        onMouseMove={onDrag}
-        onMouseUp={stopDrag}
-        className="flex flex-1 overflow-hidden gap-2 p-2"
-      >
-        <div
-          style={{ width: leftWidth }}
-          className="flex flex-col shrink-0 rounded-lg overflow-hidden border border-fg-ternary/50 shadow-parchment bg-bg-secondary"
-        >
-          <div className="flex-1 overflow-auto p-3 min-h-0">
-            <CodeEditor />
-          </div>
-          <div className="flex-1 overflow-auto p-3 min-h-0 border-t-2 border-fg-ternary/50">
-            <AIPanel />
-          </div>
-        </div>
-
-        {/* Drag divider */}
-        <div
-          onMouseDown={startDrag}
-          className="w-1.5 cursor-col-resize bg-fg-ternary/40 hover:bg-accent/60 transition-colors rounded"
-        />
-
-        <div className="flex-1 rounded-lg overflow-hidden border border-fg-ternary/50 shadow-parchment bg-bg-primary">
-          <VisualCanvas />
-        </div>
-
-        {/* Right panel: Properties + Templates */}
-        <div className="w-72 shrink-0 flex flex-col gap-2">
-          <div className="rounded-lg overflow-hidden border border-fg-ternary/50 shadow-parchment bg-bg-secondary flex-1 min-h-0">
-            <PropertiesPanel />
-          </div>
-          <div className="rounded-lg overflow-hidden border border-fg-ternary/50 shadow-parchment bg-bg-secondary flex-1 min-h-0">
-            <TemplatePanel />
-          </div>
-        </div>
-      </div>
+    <div className="fixed inset-0 overflow-hidden bg-bg-base text-fg-primary">
+      <DynamicPanelRoot
+        windows={WINDOWS}
+        layout={DEFAULT_LAYOUT}
+        storageKey="diagravinci-layout-v2"
+        className="w-full h-full"
+      />
     </div>
   );
 }

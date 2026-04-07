@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Trash2, Check } from "lucide-react";
+import { DangerIconBtn } from "./DangerIconBtn";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { setViewMode } from "../../application/store/diagramSlice";
 import { syncManager } from "../../application/store/store";
@@ -19,7 +20,7 @@ const VIEW_LABELS: Record<ViewState["viewMode"], string> = {
 
 const VIEW_COLORS: Record<ViewState["viewMode"], string> = {
   circular: "bg-purple-500/15 text-purple-800",
-  basic: "bg-fg-ternary/15 text-fg-secondary",
+  basic: "bg-fg-ternary/15 text-fg-muted",
   hierarchical: "bg-blue-500/15 text-blue-800",
   timeline: "bg-amber-500/15 text-amber-800",
   pipeline: "bg-green-500/15 text-green-800",
@@ -59,13 +60,13 @@ function CollectionsView({
   return (
     <div className="flex flex-col h-full">
       <div className="px-3 pt-3 pb-2 flex items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold text-fg-ternary uppercase tracking-wider">
+        <p className="text-[11px] font-semibold text-fg-disabled uppercase tracking-wider">
           Collections
         </p>
         <button
           onClick={onImport}
           title="Import collection from zip"
-          className="text-[10px] px-2 py-1 rounded border border-fg-ternary/30 hover:border-accent/60 hover:bg-accent/5 text-fg-secondary hover:text-accent transition-all"
+          className="text-[10px] px-2 py-1 rounded border border-border/30 hover:border-accent/60 hover:bg-accent/5 text-fg-muted hover:text-accent transition-all"
         >
           Import
         </button>
@@ -76,19 +77,19 @@ function CollectionsView({
           <button
             key={col.id}
             onClick={() => onOpen(col)}
-            className="w-full text-left p-3 rounded-lg border border-fg-ternary/30 hover:border-accent/60 hover:bg-accent/5 transition-all group"
+            className="w-full text-left p-3 rounded-lg border border-border/30 hover:border-accent/60 hover:bg-accent/5 transition-all group"
           >
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-semibold text-fg-primary group-hover:text-accent transition-colors leading-tight">
                 {col.name}
               </span>
               {col.isBuiltIn && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-fg-ternary/15 text-fg-ternary">
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-fg-ternary/15 text-fg-disabled">
                   built-in
                 </span>
               )}
             </div>
-            <p className="text-xs text-fg-ternary mt-0.5">
+            <p className="text-xs text-fg-disabled mt-0.5">
               {col.templates.length} template
               {col.templates.length !== 1 ? "s" : ""}
             </p>
@@ -98,19 +99,19 @@ function CollectionsView({
 
       <form
         onSubmit={handleCreate}
-        className="px-3 pb-3 pt-2 border-t border-fg-ternary/20 flex gap-2"
+        className="px-3 pb-3 pt-2 border-t border-border/20 flex gap-2"
       >
         <input
           type="text"
           placeholder="New collection name…"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          className="flex-1 text-xs bg-bg-primary/60 border border-fg-ternary/30 rounded px-2 py-1.5 focus:outline-none focus:border-accent/60 text-fg-primary placeholder:text-fg-ternary"
+          className="flex-1 text-xs bg-bg-base/60 border border-border/30 rounded px-2 py-1.5 focus:outline-none focus:border-accent/60 text-fg-primary placeholder:text-fg-disabled"
         />
         <button
           type="submit"
           disabled={!newName.trim()}
-          className="px-2.5 py-1.5 rounded border border-fg-ternary/30 hover:border-accent/60 hover:bg-accent/5 text-fg-secondary hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm font-bold"
+          className="px-2.5 py-1.5 rounded border border-border/30 hover:border-accent/60 hover:bg-accent/5 text-fg-muted hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm font-bold"
           title="Create collection"
         >
           +
@@ -133,7 +134,7 @@ function TemplateCard({
     <div
       role="button"
       tabIndex={0}
-      className="w-full text-left p-3 rounded-lg border border-fg-ternary/30 hover:border-accent/60 hover:bg-accent/5 transition-all group cursor-pointer"
+      className="w-full text-left p-3 rounded-lg border border-border/30 hover:border-accent/60 hover:bg-accent/5 transition-all group cursor-pointer"
       onClick={() => onApply(template)}
       onKeyDown={(e) =>
         (e.key === "Enter" || e.key === " ") && onApply(template)
@@ -146,27 +147,27 @@ function TemplateCard({
         <div className="flex items-center gap-1 shrink-0">
           <TemplateBadge mode={template.preferredView} />
           {onDelete && (
-            <button
+            <DangerIconBtn
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(template);
               }}
               title="Remove template"
-              className="btn-icon danger p-1! opacity-0 group-hover:opacity-100"
+              className="p-1! opacity-0 group-hover:opacity-100"
             >
               <Trash2 size={12} />
-            </button>
+            </DangerIconBtn>
           )}
         </div>
       </div>
-      <p className="text-xs text-fg-secondary leading-snug">
+      <p className="text-xs text-fg-muted leading-snug">
         {template.description}
       </p>
       <div className="flex flex-wrap gap-1 mt-2">
         {template.tags.map((tag) => (
           <span
             key={tag}
-            className="text-[10px] px-1.5 py-0.5 rounded bg-fg-ternary/15 text-fg-ternary"
+            className="text-[10px] px-1.5 py-0.5 rounded bg-fg-ternary/15 text-fg-disabled"
           >
             {tag}
           </span>
@@ -249,7 +250,7 @@ function CollectionView({
         <div className="flex items-center gap-1 mb-2">
           <button
             onClick={onClose}
-            className="text-[10px] px-1.5 py-1 rounded hover:bg-fg-ternary/10 text-fg-ternary hover:text-fg-secondary transition-all"
+            className="text-[10px] px-1.5 py-1 rounded hover:bg-border/10 text-fg-disabled hover:text-fg-muted transition-all"
             title="Back to collections"
           >
             ← All
@@ -259,16 +260,16 @@ function CollectionView({
           </p>
           <button
             onClick={() => onExport(collection)}
-            className="text-[10px] px-1.5 py-1 rounded border border-fg-ternary/30 hover:border-accent/60 hover:bg-accent/5 text-fg-secondary hover:text-accent transition-all"
+            className="text-[10px] px-1.5 py-1 rounded border border-border/30 hover:border-accent/60 hover:bg-accent/5 text-fg-muted hover:text-accent transition-all"
             title="Export as zip"
           >
             Export
           </button>
           {!collection.isBuiltIn && (
-            <button
+            <DangerIconBtn
               onClick={handleDelete}
               onBlur={() => setConfirmingDelete(false)}
-              className="btn-icon danger p-1.5!"
+              className="p-1.5!"
               title={
                 confirmingDelete
                   ? "Click again to confirm"
@@ -276,7 +277,7 @@ function CollectionView({
               }
             >
               {confirmingDelete ? <Check size={13} /> : <Trash2 size={13} />}
-            </button>
+            </DangerIconBtn>
           )}
         </div>
 
@@ -285,13 +286,13 @@ function CollectionView({
           placeholder="Search templates…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full text-xs bg-bg-primary/60 border border-fg-ternary/30 rounded px-2 py-1.5 focus:outline-none focus:border-accent/60 text-fg-primary placeholder:text-fg-ternary"
+          className="w-full text-xs bg-bg-base/60 border border-border/30 rounded px-2 py-1.5 focus:outline-none focus:border-accent/60 text-fg-primary placeholder:text-fg-disabled"
         />
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-2 flex flex-col gap-2 min-h-0">
         {filtered.length === 0 ? (
-          <p className="text-xs text-fg-ternary text-center py-4">
+          <p className="text-xs text-fg-disabled text-center py-4">
             {query ? `No templates match "${query}"` : "No templates yet."}
           </p>
         ) : (
@@ -309,19 +310,19 @@ function CollectionView({
       {!collection.isBuiltIn && (
         <form
           onSubmit={handleSaveTemplate}
-          className="px-3 pb-3 pt-2 border-t border-fg-ternary/20 flex gap-2"
+          className="px-3 pb-3 pt-2 border-t border-border/20 flex gap-2"
         >
           <input
             type="text"
             placeholder="Save current diagram as…"
             value={newTemplateName}
             onChange={(e) => setNewTemplateName(e.target.value)}
-            className="flex-1 text-xs bg-bg-primary/60 border border-fg-ternary/30 rounded px-2 py-1.5 focus:outline-none focus:border-accent/60 text-fg-primary placeholder:text-fg-ternary"
+            className="flex-1 text-xs bg-bg-base/60 border border-border/30 rounded px-2 py-1.5 focus:outline-none focus:border-accent/60 text-fg-primary placeholder:text-fg-disabled"
           />
           <button
             type="submit"
             disabled={!newTemplateName.trim()}
-            className="px-2.5 py-1.5 rounded border border-fg-ternary/30 hover:border-accent/60 hover:bg-accent/5 text-fg-secondary hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm font-bold"
+            className="px-2.5 py-1.5 rounded border border-border/30 hover:border-accent/60 hover:bg-accent/5 text-fg-muted hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm font-bold"
             title="Save to collection"
           >
             +

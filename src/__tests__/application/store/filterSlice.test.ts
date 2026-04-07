@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
 import reducer, {
-  openFilterModal,
-  closeFilterModal,
-  setActiveModalPreset,
   addPreset,
   updatePreset,
   removePreset,
@@ -39,36 +36,11 @@ describe("filterSlice", () => {
   it("has correct initial state", () => {
     const state = reducer(undefined, { type: "@@INIT" });
     expect(state.presets).toEqual([]);
-    expect(state.isModalOpen).toBe(false);
     expect(state.foldLevel).toBe(1);
     expect(state.foldActive).toBe(false);
     expect(state.manuallyFolded).toEqual([]);
     expect(state.manuallyUnfolded).toEqual([]);
     expect(state._rev).toBe(0);
-  });
-
-  describe("modal actions", () => {
-    it("openFilterModal sets isModalOpen to true", () => {
-      const state = reducer(undefined, openFilterModal());
-      expect(state.isModalOpen).toBe(true);
-    });
-
-    it("closeFilterModal sets isModalOpen to false", () => {
-      const s1 = reducer(undefined, openFilterModal());
-      const s2 = reducer(s1, closeFilterModal());
-      expect(s2.isModalOpen).toBe(false);
-    });
-
-    it("setActiveModalPreset updates activeModalPresetId", () => {
-      const state = reducer(undefined, setActiveModalPreset("p1"));
-      expect(state.activeModalPresetId).toBe("p1");
-    });
-
-    it("setActiveModalPreset can set null", () => {
-      const s1 = reducer(undefined, setActiveModalPreset("p1"));
-      const s2 = reducer(s1, setActiveModalPreset(null));
-      expect(s2.activeModalPresetId).toBeNull();
-    });
   });
 
   describe("preset CRUD", () => {

@@ -1,6 +1,5 @@
 import { configureStore } from "@reduxjs/toolkit";
 import diagramReducer from "./diagramSlice";
-import themeReducer from "./themeSlice";
 import uiReducer from "./uiSlice";
 import filterReducer from "./filterSlice";
 import historyReducer from "./historySlice";
@@ -8,7 +7,6 @@ import diffReducer from "./diffSlice";
 import { SyncManager } from "../SyncManager";
 import { TabSyncManager } from "../TabSyncManager";
 import { loadState, loadStateAsync, saveState } from "./persistence";
-import { setTheme } from "./themeSlice";
 import {
   setRenderStyle,
   setInteractionMode,
@@ -24,7 +22,6 @@ export const store = configureStore({
   reducer: {
     filter: filterReducer,
     diagram: diagramReducer,
-    theme: themeReducer,
     ui: uiReducer,
     history: historyReducer,
     diff: diffReducer,
@@ -35,7 +32,6 @@ export const store = configureStore({
 if (!preloadedState) {
   loadStateAsync().then((idbState) => {
     if (!idbState) return;
-    store.dispatch(setTheme(idbState.theme.isDark));
     store.dispatch(setRenderStyle(idbState.ui.renderStyle));
     store.dispatch(setActiveElementType(idbState.ui.activeElementType));
     store.dispatch(

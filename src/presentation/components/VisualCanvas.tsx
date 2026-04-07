@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Konva from "konva";
+import { useC7One, detectIsDark } from "@levkobe/c7one";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import {
   setCanvasSize,
@@ -74,7 +75,8 @@ export function VisualCanvas() {
   const viewState = useAppSelector((s) => s.diagram.viewState);
   const filterState = useAppSelector((s) => s.filter);
   const diffState = useAppSelector((s) => s.diff);
-  const isDark = useAppSelector((s) => s.theme.isDark);
+  const { colors } = useC7One();
+  const isDark = detectIsDark(colors["--color-bg-base"]);
   const {
     interactionMode,
     activeElementType,
@@ -151,8 +153,8 @@ export function VisualCanvas() {
     if (!containerRef.current) return;
     const stage = new Konva.Stage({
       container: containerRef.current,
-      width: containerRef.current.offsetWidth,
-      height: containerRef.current.offsetHeight,
+      width: containerRef.current.getBoundingClientRect().width,
+      height: containerRef.current.getBoundingClientRect().height,
       draggable: true,
     });
     const relationshipLayer = new Konva.Layer();
@@ -357,17 +359,20 @@ export function VisualCanvas() {
       dragSelectRef.current = null;
     });
 
-    const handleResize = () => {
-      if (!containerRef.current || !stageRef.current) return;
-      const { offsetWidth: width, offsetHeight: height } = containerRef.current;
+    const handleResize = (entries?: ResizeObserverEntry[]) => {
+      if (!stageRef.current) return;
+      const { width, height } = entries
+        ? entries[0].contentRect
+        : containerRef.current!.getBoundingClientRect();
       stageRef.current.width(width);
       stageRef.current.height(height);
-      dispatch(setCanvasSize({ width, height }));
+      dispatch(setCanvasSize({ width: Math.round(width), height: Math.round(height) }));
     };
     handleResize();
-    window.addEventListener("resize", handleResize);
+    const ro = new ResizeObserver(handleResize);
+    ro.observe(containerRef.current);
     return () => {
-      window.removeEventListener("resize", handleResize);
+      ro.disconnect();
       stage.destroy();
     };
   }, [dispatch]);
@@ -428,8 +433,8 @@ export function VisualCanvas() {
         accent: getCSSVariable("--color-accent"),
         fgPrimary: getCSSVariable("--color-fg-primary"),
         selected: getCSSVariable("--color-state-selected"),
-        bgSecondary: getCSSVariable("--color-bg-secondary"),
-        relationship: getCSSVariable("--color-fg-secondary"),
+        bgSecondary: getCSSVariable("--color-bg-elevated"),
+        relationship: getCSSVariable("--color-fg-muted"),
       },
       {
         onPositionChange: (id, worldPos) => {
@@ -591,7 +596,7 @@ export function VisualCanvas() {
     dispatch,
   ]);
 
-  return <div ref={containerRef} className="w-full h-full bg-bg-primary" />;
+  return <div ref={containerRef} className="w-full h-full bg-bg-base overflow-hidden" />;
 }
 
 function createNewElement(
