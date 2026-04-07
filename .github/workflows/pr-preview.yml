@@ -23,6 +23,8 @@ jobs:
       - name: Install dependencies
         if: github.event.action != 'closed'
         run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
         if: github.event.action != 'closed'
