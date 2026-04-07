@@ -19,6 +19,8 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@levkobe'
 
       - name: Install dependencies
         if: github.event.action != 'closed'
