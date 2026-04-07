@@ -24,7 +24,7 @@ jobs:
         if: github.event.action != 'closed'
         run: npm ci
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
 
       - name: Build
         if: github.event.action != 'closed'
