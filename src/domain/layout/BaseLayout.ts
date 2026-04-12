@@ -25,6 +25,12 @@ export class AncestryTracker {
   }
 }
 
+export function getChildren(parent: Element, model: DiagramModel): Element[] {
+  return parent.childIds
+    .map((id) => model.elements[id])
+    .filter((c): c is Element => !!c);
+}
+
 export function calculateSize(value: number): number {
   return (
     Math.pow(value, AppConfig.layout.SIZE_EXP) * AppConfig.layout.SIZE_MULT
@@ -98,9 +104,7 @@ export abstract class BaseLayout implements LayoutAlgorithm {
       return;
     }
 
-    const children = element.childIds
-      .map((id) => model.elements[id])
-      .filter((c): c is Element => !!c);
+    const children = getChildren(element, model);
     if (!children.length) return;
 
     const childContainer = allocatedSize * CHILD_FILL;
@@ -141,9 +145,7 @@ export abstract class BaseLayout implements LayoutAlgorithm {
       coloredPaths: previousViewState?.coloredPaths ?? {},
     } as const;
 
-    const rootChildren = model.root.childIds
-      .map((id) => model.elements[id])
-      .filter((e): e is Element => !!e);
+    const rootChildren = getChildren(model.root, model);
 
     if (!rootChildren.length) {
       return { positions, relationships: [], ...baseState };

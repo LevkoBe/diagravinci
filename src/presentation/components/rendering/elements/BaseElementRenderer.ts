@@ -54,7 +54,25 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     this.colorOverride = colorOverride;
   }
 
-  abstract render(): ElementRenderResult | undefined;
+  protected abstract addElementShape(group: Konva.Group): Konva.Shape;
+
+  render(): ElementRenderResult | undefined {
+    const pos = this.viewState.positions[this.path];
+    if (!pos) return;
+
+    const group = this.createElementGroup();
+    const shapeNode = this.addElementShape(group);
+    this.addLabel(group);
+    this.addDecorationsIfNeeded(group);
+
+    const { onHoverIn, onHoverOut } = this.createHoverCallbacks(
+      group,
+      shapeNode,
+      shapeNode.strokeWidth(),
+    );
+
+    return { group, onHoverIn, onHoverOut };
+  }
 
   protected resolveStroke(): string {
     return this.colorOverride || this.colors.accent;

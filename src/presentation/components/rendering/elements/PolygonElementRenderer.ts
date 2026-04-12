@@ -1,59 +1,11 @@
 import Konva from "konva";
-import type { ElementRenderResult } from "../types";
-import type { ViewState } from "../../../../domain/models/ViewState";
-import type { Element } from "../../../../domain/models/Element";
-import type { Colors } from "../types";
 import { BaseElementRenderer } from "./BaseElementRenderer";
 import { VConfig } from "../../visualConfig";
 
 const { DIM_OPACITY } = VConfig.elements;
 
 export class PolygonElementRenderer extends BaseElementRenderer {
-  constructor(
-    element: Element,
-    path: string,
-    viewState: ViewState,
-    connectingFromId: string | null,
-    colors: Colors,
-    isNew: boolean,
-    isDimmed: boolean,
-    size: number,
-    zoom: number,
-    colorOverride: string | null = null,
-  ) {
-    super(
-      element,
-      path,
-      viewState,
-      connectingFromId,
-      colors,
-      isNew,
-      isDimmed,
-      size,
-      zoom,
-      colorOverride,
-    );
-  }
-
-  render(): ElementRenderResult | undefined {
-    const pos = this.viewState.positions[this.path];
-    if (!pos) return;
-
-    const group = this.createElementGroup();
-    const shapeNode = this.addElementShape(group);
-    this.addLabel(group);
-    this.addDecorationsIfNeeded(group);
-
-    const { onHoverIn, onHoverOut } = this.createHoverCallbacks(
-      group,
-      shapeNode,
-      shapeNode.strokeWidth(),
-    );
-
-    return { group, onHoverIn, onHoverOut };
-  }
-
-  private addElementShape(group: Konva.Group): Konva.Shape {
+  protected addElementShape(group: Konva.Group): Konva.Shape {
     const { size } = this;
     const r = size / 2;
     const strokeWidth = 2 / Math.max(this.zoom, 0.1);

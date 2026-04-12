@@ -50,6 +50,24 @@ const initialState: FilterState = {
   _rev: 0,
 };
 
+function swapPresets(state: FilterState, id: string, dir: 1 | -1): void {
+  const idx = state.presets.findIndex((p) => p.id === id);
+  if (idx < 0) return;
+  const target = idx + dir;
+  if (target < 0 || target >= state.presets.length) return;
+  [state.presets[idx], state.presets[target]] = [state.presets[target], state.presets[idx]];
+  state._rev++;
+}
+
+const CYCLE_MAP: Record<string, [FilterMode, boolean]> = {
+  "color:false": ["color", true],
+  "dim:false": ["color", true],
+  "hide:false": ["color", true],
+  "color:true": ["dim", true],
+  "dim:true": ["hide", true],
+  "hide:true": ["hide", false],
+};
+
 const filterSlice = createSlice({
   name: "filter",
   initialState,
@@ -134,34 +152,16 @@ const filterSlice = createSlice({
     },
 
     movePresetUp(state, { payload: id }: PayloadAction<string>) {
-      const idx = state.presets.findIndex((p) => p.id === id);
-      if (idx <= 0) return;
-      const tmp = state.presets[idx - 1];
-      state.presets[idx - 1] = state.presets[idx];
-      state.presets[idx] = tmp;
-      state._rev++;
+      swapPresets(state, id, -1);
     },
     movePresetDown(state, { payload: id }: PayloadAction<string>) {
-      const idx = state.presets.findIndex((p) => p.id === id);
-      if (idx < 0 || idx >= state.presets.length - 1) return;
-      const tmp = state.presets[idx + 1];
-      state.presets[idx + 1] = state.presets[idx];
-      state.presets[idx] = tmp;
-      state._rev++;
+      swapPresets(state, id, 1);
     },
     cyclePreset(state, { payload: id }: PayloadAction<string>) {
       const preset = state.presets.find((p) => p.id === id);
       if (!preset) return;
-      if (!preset.isActive) {
-        preset.isActive = true;
-        preset.mode = "color";
-      } else if (preset.mode === "color") {
-        preset.mode = "dim";
-      } else if (preset.mode === "dim") {
-        preset.mode = "hide";
-      } else {
-        preset.isActive = false;
-      }
+      const next = CYCLE_MAP[`${preset.mode}:${preset.isActive}`];
+      if (next) [preset.mode, preset.isActive] = next;
       state._rev++;
     },
     syncPresetsFromTab(

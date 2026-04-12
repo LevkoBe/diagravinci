@@ -213,8 +213,8 @@ export class DiagramLayerRenderer {
         onPositionChange: this.callbacks.onPositionChange,
         onReparent: this.callbacks.onReparent,
         setHovered: (p) => this.setHovered(p),
-        findHoveredPath: (id, pos) => this.findHoveredPath(id, pos),
-        findNewParentPath: (p, pos) => this.findNewParentPath(p, pos),
+        findHoveredPath: (id, pos) => this.findBestPath(id, pos, null),
+        findNewParentPath: (p, pos) => this.findBestPath(p, pos, null) ?? this.model.root.id,
         updateRelationshipLines: (p) => this.updateRelationshipLines(p),
         updateChildRelationshipLines: (p) =>
           this.updateChildRelationshipLines(p),
@@ -255,10 +255,15 @@ export class DiagramLayerRenderer {
     );
   }
 
+  private forEachChildPath(parentPath: string, fn: (path: string) => void): void {
+    const prefix = parentPath + ".";
+    for (const p of Object.keys(this.viewState.positions)) {
+      if (p.startsWith(prefix)) fn(p);
+    }
+  }
+
   private updateChildRelationshipLines(parentPath: string): void {
-    Object.keys(this.viewState.positions).forEach((p) => {
-      if (p.startsWith(parentPath + ".")) this.updateRelationshipLines(p);
-    });
+    this.forEachChildPath(parentPath, (p) => this.updateRelationshipLines(p));
   }
 
   private moveChildGroupsForDrag(parentPath: string): void {
@@ -275,8 +280,7 @@ export class DiagramLayerRenderer {
       y: newParentPos.y - storedParentPos.y,
     };
 
-    Object.keys(this.viewState.positions).forEach((p) => {
-      if (!p.startsWith(parentPath + ".")) return;
+    this.forEachChildPath(parentPath, (p) => {
       const childGroup = this.groupMap.get(p);
       const storedChildPos = this.viewState.positions[p]?.position;
       if (childGroup && storedChildPos) {
@@ -301,8 +305,7 @@ export class DiagramLayerRenderer {
       };
     }
 
-    Object.keys(this.viewState.positions).forEach((p) => {
-      if (!p.startsWith(parentPath + ".")) return;
+    this.forEachChildPath(parentPath, (p) => {
       const childGroup = this.groupMap.get(p);
       if (childGroup) {
         this.callbacks.onPositionChange(
@@ -327,15 +330,16 @@ export class DiagramLayerRenderer {
     return this.viewState.positions[path]?.position ?? null;
   }
 
-  private findHoveredPath(
-    draggedElementId: string,
+  private findBestPath(
+    draggedKey: string,
     worldCenter: { x: number; y: number },
+    fallback: string | null,
   ): string | null {
     let bestPath: string | null = null;
     let bestSize = Infinity;
 
     for (const [path, pos] of Object.entries(this.viewState.positions)) {
-      if (path.startsWith(draggedElementId)) continue;
+      if (path.startsWith(draggedKey)) continue;
       if (this.hiddenSet.has(path)) continue;
 
       const size = this.getSize(path);
@@ -348,30 +352,6 @@ export class DiagramLayerRenderer {
       }
     }
 
-    return bestPath;
-  }
-
-  private findNewParentPath(
-    draggedElementPath: string,
-    worldCenter: { x: number; y: number },
-  ): string {
-    let bestPath: string | null = null;
-    let bestSize = Infinity;
-
-    for (const [path, pos] of Object.entries(this.viewState.positions)) {
-      if (path.startsWith(draggedElementPath)) continue;
-      if (this.hiddenSet.has(path)) continue;
-
-      const size = this.getSize(path);
-      const dx = worldCenter.x - pos.position.x;
-      const dy = worldCenter.y - pos.position.y;
-
-      if (Math.hypot(dx, dy) <= size / 2 && size < bestSize) {
-        bestSize = size;
-        bestPath = path;
-      }
-    }
-
-    return bestPath ?? this.model.root.id;
+    return bestPath ?? fallback;
   }
 }

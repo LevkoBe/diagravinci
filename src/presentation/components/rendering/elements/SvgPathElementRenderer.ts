@@ -1,5 +1,5 @@
 import Konva from "konva";
-import type { Colors, ElementRenderResult } from "../types";
+import type { Colors } from "../types";
 import type { ViewState } from "../../../../domain/models/ViewState";
 import type { Element } from "../../../../domain/models/Element";
 import { ELEMENT_SVGS } from "../../../ElementConfigs";
@@ -45,24 +45,6 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
     this.elementSvgs = elementSvgs;
   }
 
-  render(): ElementRenderResult | undefined {
-    const pos = this.viewState.positions[this.path];
-    if (!pos) return;
-
-    const group = this.createElementGroup();
-    const pathNode = this.addElementShape(group);
-    this.addLabel(group);
-    this.addDecorationsIfNeeded(group);
-
-    const { onHoverIn, onHoverOut } = this.createHoverCallbacks(
-      group,
-      pathNode,
-      pathNode.strokeWidth(),
-    );
-
-    return { group, onHoverIn, onHoverOut };
-  }
-
   protected override addContainerBackground(group: Konva.Group): void {
     group.add(
       new Konva.Circle({
@@ -73,7 +55,7 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
     );
   }
 
-  private addElementShape(group: Konva.Group): Konva.Path {
+  protected addElementShape(group: Konva.Group): Konva.Path {
     const { size } = this;
     const config = this.elementSvgs[this.element.type];
     const scale = size / Math.max(config.viewBoxWidth, config.viewBoxHeight);

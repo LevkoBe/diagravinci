@@ -45,6 +45,27 @@ export function addElement(
   };
 }
 
+/**
+ * Returns all element IDs in the subtree rooted at `rootId` (including the root).
+ * Cycle-safe via a visited set.
+ */
+export function getSubtreeIds(
+  rootId: string,
+  elements: Record<string, Element>,
+): string[] {
+  const result: string[] = [];
+  const queue = [rootId];
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (visited.has(id)) continue;
+    visited.add(id);
+    result.push(id);
+    elements[id]?.childIds.forEach((c) => queue.push(c));
+  }
+  return result;
+}
+
 export function addRelationship(
   model: DiagramModel,
   relationship: Relationship,

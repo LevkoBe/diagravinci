@@ -11,6 +11,16 @@ import {
 import { restoreHistory } from "../../application/store/diagramSlice";
 import { store, syncManager } from "../../application/store/store";
 
+function makeEntry(code: string, model: HistoryEntry["model"], viewState: { positions: HistoryEntry["positions"]; relationships: HistoryEntry["relationships"]; viewMode: HistoryEntry["viewMode"] }): HistoryEntry {
+  return {
+    code,
+    model,
+    positions: viewState.positions,
+    relationships: viewState.relationships,
+    viewMode: viewState.viewMode,
+  };
+}
+
 export function useUndoRedo() {
   const dispatch = useAppDispatch();
   const code = useAppSelector((s) => s.diagram.code);
@@ -20,22 +30,10 @@ export function useUndoRedo() {
   const isApplyingRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const latestRef = useRef<HistoryEntry>({
-    code,
-    model,
-    positions: viewState.positions,
-    relationships: viewState.relationships,
-    viewMode: viewState.viewMode,
-  });
+  const latestRef = useRef<HistoryEntry>(makeEntry(code, model, viewState));
 
   useEffect(() => {
-    latestRef.current = {
-      code,
-      model,
-      positions: viewState.positions,
-      relationships: viewState.relationships,
-      viewMode: viewState.viewMode,
-    };
+    latestRef.current = makeEntry(code, model, viewState);
   });
 
   useEffect(() => {
@@ -80,16 +78,18 @@ export function useUndoRedo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function applyUndo() {
-    const { history } = store.getState();
-    if (history.past.length === 0) return;
-
+  function flushPendingHistory(): void {
     if (debounceRef.current !== null) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
       dispatch(pushHistory(latestRef.current));
     }
+  }
 
+  function applyUndo() {
+    const { history } = store.getState();
+    if (history.past.length === 0) return;
+    flushPendingHistory();
     dispatch(undoHistory());
     applyEntry(store.getState().history.present);
   }
@@ -97,13 +97,7 @@ export function useUndoRedo() {
   function applyRedo() {
     const { history } = store.getState();
     if (history.future.length === 0) return;
-
-    if (debounceRef.current !== null) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-      dispatch(pushHistory(latestRef.current));
-    }
-
+    flushPendingHistory();
     dispatch(redoHistory());
     applyEntry(store.getState().history.present);
   }
@@ -111,14 +105,8 @@ export function useUndoRedo() {
   function applyEntry(entry: HistoryEntry | null) {
     if (!entry) return;
 
-    const currentState = store.getState();
-    const current: HistoryEntry = {
-      code: currentState.diagram.code,
-      model: currentState.diagram.model,
-      positions: currentState.diagram.viewState.positions,
-      relationships: currentState.diagram.viewState.relationships,
-      viewMode: currentState.diagram.viewState.viewMode,
-    };
+    const { diagram } = store.getState();
+    const current = makeEntry(diagram.code, diagram.model, diagram.viewState);
 
     if (entriesEqual(current, entry)) return;
 

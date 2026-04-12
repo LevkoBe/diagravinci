@@ -24,7 +24,10 @@ import { useExecution } from "../hooks/useExecution";
 import { getExecutionColorMap } from "../../application/ExecutionEngine";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
 import { FilterResolver } from "../../domain/sync/FilterResolver";
-import type { DiagramModel } from "../../domain/models/DiagramModel";
+import {
+  getSubtreeIds,
+  type DiagramModel,
+} from "../../domain/models/DiagramModel";
 import type { Element, ElementType } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
 import type { Position } from "../../domain/models/Element";
@@ -38,20 +41,6 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function getSubtreeIds(model: DiagramModel, rootId: string): string[] {
-  const result: string[] = [];
-  const queue = [rootId];
-  const visited = new Set<string>();
-  while (queue.length > 0) {
-    const id = queue.shift()!;
-    if (visited.has(id)) continue;
-    visited.add(id);
-    result.push(id);
-    model.elements[id]?.childIds.forEach((c) => queue.push(c));
-  }
-  return result;
-}
-
 export function VisualCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
@@ -60,13 +49,17 @@ export function VisualCanvas() {
   const selectionLayerRef = useRef<Konva.Layer | null>(null);
   const prevPathsRef = useRef<Set<string>>(new Set());
   /** Positions from the previous render, keyed by path. Used to animate moves. */
-  const prevElementPositionsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const prevElementPositionsRef = useRef<
+    Record<string, { x: number; y: number }>
+  >({});
   /**
    * Clone positions keyed by element ID (not path). When a clone moves from one
    * parent to another its path changes, so we track by ID to still find the old
    * position and animate from old to new.
    */
-  const prevClonePositionsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const prevClonePositionsRef = useRef<
+    Record<string, { x: number; y: number }>
+  >({});
   /**
    * Paths whose position was just updated by a user drag. These should not
    * receive the execution-move animation in the same render cycle.
@@ -90,7 +83,6 @@ export function VisualCanvas() {
   const viewState = useAppSelector((s) => s.diagram.viewState);
   const filterState = useAppSelector((s) => s.filter);
   const diffState = useAppSelector((s) => s.diff);
-
 
   const spawnOriginsRef = useExecution();
   const execInstances = useAppSelector((s) => s.execution.instances);
@@ -212,7 +204,11 @@ export function VisualCanvas() {
         const { ZOOM_MIN, ZOOM_MAX, ZOOM_STEP_FACTOR } = AppConfig.canvas;
         const newScale = Math.max(
           ZOOM_MIN,
-          Math.min(ZOOM_MAX, oldScale * (direction > 0 ? ZOOM_STEP_FACTOR : 1 / ZOOM_STEP_FACTOR)),
+          Math.min(
+            ZOOM_MAX,
+            oldScale *
+              (direction > 0 ? ZOOM_STEP_FACTOR : 1 / ZOOM_STEP_FACTOR),
+          ),
         );
         stage.scale({ x: newScale, y: newScale });
         stage.position({
@@ -293,7 +289,10 @@ export function VisualCanvas() {
       const dx = pointer.x - startScreen.x;
       const dy = pointer.y - startScreen.y;
 
-      if (!dragSelectRef.current.active && Math.hypot(dx, dy) > AppConfig.canvas.DRAG_SELECT_THRESHOLD_PX) {
+      if (
+        !dragSelectRef.current.active &&
+        Math.hypot(dx, dy) > AppConfig.canvas.DRAG_SELECT_THRESHOLD_PX
+      ) {
         dragSelectRef.current.active = true;
         const ws = toWorld(startScreen.x, startScreen.y);
         const wc = toWorld(pointer.x, pointer.y);
@@ -306,7 +305,10 @@ export function VisualCanvas() {
           stroke: selColor,
           strokeWidth: 1 / stageScale,
           dash: AppConfig.canvas.SELECTION_RECT_DASH.map((v) => v / stageScale),
-          fill: hexToRgba(selColor, AppConfig.canvas.SELECTION_RECT_FILL_OPACITY),
+          fill: hexToRgba(
+            selColor,
+            AppConfig.canvas.SELECTION_RECT_FILL_OPACITY,
+          ),
           listening: false,
         });
         selectionLayer.add(rect);
@@ -387,7 +389,9 @@ export function VisualCanvas() {
         : containerRef.current!.getBoundingClientRect();
       stageRef.current.width(width);
       stageRef.current.height(height);
-      dispatch(setCanvasSize({ width: Math.round(width), height: Math.round(height) }));
+      dispatch(
+        setCanvasSize({ width: Math.round(width), height: Math.round(height) }),
+      );
     };
     handleResize();
     const ro = new ResizeObserver(handleResize);
@@ -559,7 +563,10 @@ export function VisualCanvas() {
             }
           } else {
             if (shiftKey) {
-              const subtreeIds = getSubtreeIds(modelRef.current, elementId);
+              const subtreeIds = getSubtreeIds(
+                elementId,
+                modelRef.current.elements,
+              );
               const currentIds = store.getState().ui.selectedElementIds;
               const currentSet = new Set(currentIds);
               const allSelected = subtreeIds.every((id) => currentSet.has(id));
@@ -700,9 +707,15 @@ export function VisualCanvas() {
     execInstances,
     execColor,
     tickIntervalMs,
+    spawnOriginsRef,
   ]);
 
-  return <div ref={containerRef} className="w-full h-full bg-bg-base overflow-hidden" />;
+  return (
+    <div
+      ref={containerRef}
+      className="w-full h-full bg-bg-base overflow-hidden"
+    />
+  );
 }
 
 function createNewElement(

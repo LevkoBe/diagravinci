@@ -18,7 +18,7 @@ function generate(model: DiagramModel): string {
 
 function modelWithElement(
   id: string,
-  type: "object" | "state" | "function" | "flow" | "choice",
+  type: "object" | "state" | "function" | "flow" | "choice" | "collection",
 ): DiagramModel {
   const model = createEmptyDiagram();
   model.elements[id] = createElement(id, type);

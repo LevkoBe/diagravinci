@@ -1,8 +1,4 @@
 import Konva from "konva";
-import type { ElementRenderResult } from "../types";
-import type { ViewState } from "../../../../domain/models/ViewState";
-import type { Element } from "../../../../domain/models/Element";
-import type { Colors } from "../types";
 import { BaseElementRenderer } from "./BaseElementRenderer";
 import { VConfig } from "../../visualConfig";
 
@@ -10,51 +6,7 @@ const { DIM_OPACITY } = VConfig.elements;
 const es = VConfig.elementShapes;
 
 export class SimpleRectElementRenderer extends BaseElementRenderer {
-  constructor(
-    element: Element,
-    path: string,
-    viewState: ViewState,
-    connectingFromId: string | null,
-    colors: Colors,
-    isNew: boolean,
-    isDimmed: boolean,
-    size: number,
-    zoom: number,
-    colorOverride: string | null = null,
-  ) {
-    super(
-      element,
-      path,
-      viewState,
-      connectingFromId,
-      colors,
-      isNew,
-      isDimmed,
-      size,
-      zoom,
-      colorOverride,
-    );
-  }
-
-  render(): ElementRenderResult | undefined {
-    const pos = this.viewState.positions[this.path];
-    if (!pos) return;
-
-    const group = this.createElementGroup();
-    const rectNode = this.addElementShape(group);
-    this.addLabel(group);
-    this.addDecorationsIfNeeded(group);
-
-    const { onHoverIn, onHoverOut } = this.createHoverCallbacks(
-      group,
-      rectNode,
-      rectNode.strokeWidth(),
-    );
-
-    return { group, onHoverIn, onHoverOut };
-  }
-
-  private addElementShape(group: Konva.Group): Konva.Rect {
+  protected addElementShape(group: Konva.Group): Konva.Rect {
     const { size } = this;
 
     const strokeWidth = 2 / Math.max(this.zoom, 0.1);

@@ -179,6 +179,35 @@ function isRoundRobin(el: Element): boolean {
   return el.type === "function" && el.id === "round_robin";
 }
 
+/**
+ * Moves all clones of an instance to a new target element and records a
+ * forwarded instance for the next tick.
+ */
+function forwardInstance(
+  instance: TokenInstance,
+  nextTargetId: string,
+  nextTargetPath: string,
+  nextTargetPos: { x: number; y: number },
+  delta: ExecutionStepDelta,
+  nextInstances: TokenInstance[],
+): void {
+  for (const cloneId of instance.clonedElementIds) {
+    delta.moveElements.push({
+      elementId: cloneId,
+      fromParentId: instance.currentElementId,
+      fromPath: `${instance.currentPath}.${cloneId}`,
+      toParentId: nextTargetId,
+      toPath: `${nextTargetPath}.${cloneId}`,
+      newPosition: { ...nextTargetPos },
+    });
+  }
+  nextInstances.push({
+    ...instance,
+    currentElementId: nextTargetId,
+    currentPath: nextTargetPath,
+  });
+}
+
 // ─── main export ─────────────────────────────────────────────────────────────
 
 /**
@@ -362,24 +391,8 @@ export function computeExecutionStep(
 
       const nextTargetId = conditionMet ? yesTarget : noTarget;
       const nextTargetPath = findElementPath(viewState, nextTargetId);
-      const nextTargetPos =
-        viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
-
-      for (const cloneId of instance.clonedElementIds) {
-        delta.moveElements.push({
-          elementId: cloneId,
-          fromParentId: instance.currentElementId,
-          fromPath: `${instance.currentPath}.${cloneId}`,
-          toParentId: nextTargetId,
-          toPath: `${nextTargetPath}.${cloneId}`,
-          newPosition: { ...nextTargetPos },
-        });
-      }
-      nextInstances.push({
-        ...instance,
-        currentElementId: nextTargetId,
-        currentPath: nextTargetPath,
-      });
+      const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
+      forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
       continue;
     }
 
@@ -393,26 +406,10 @@ export function computeExecutionStep(
 
       if (isRoundRobin(currentEl)) {
         // round_robin: forward clones round-robin to the next target.
-        const nextTargetId =
-          targets[instanceRoundRobinIdx(instance.id) % targets.length];
+        const nextTargetId = targets[instanceRoundRobinIdx(instance.id) % targets.length];
         const nextTargetPath = findElementPath(viewState, nextTargetId);
-        const nextTargetPos =
-          viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
-        for (const cloneId of instance.clonedElementIds) {
-          delta.moveElements.push({
-            elementId: cloneId,
-            fromParentId: instance.currentElementId,
-            fromPath: `${instance.currentPath}.${cloneId}`,
-            toParentId: nextTargetId,
-            toPath: `${nextTargetPath}.${cloneId}`,
-            newPosition: { ...nextTargetPos },
-          });
-        }
-        nextInstances.push({
-          ...instance,
-          currentElementId: nextTargetId,
-          currentPath: nextTargetPath,
-        });
+        const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
+        forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
         continue;
       }
 
@@ -423,23 +420,8 @@ export function computeExecutionStep(
         // No template children — pass incoming tokens through unchanged.
         const nextTargetId = targets[0];
         const nextTargetPath = findElementPath(viewState, nextTargetId);
-        const nextTargetPos =
-          viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
-        for (const cloneId of instance.clonedElementIds) {
-          delta.moveElements.push({
-            elementId: cloneId,
-            fromParentId: instance.currentElementId,
-            fromPath: `${instance.currentPath}.${cloneId}`,
-            toParentId: nextTargetId,
-            toPath: `${nextTargetPath}.${cloneId}`,
-            newPosition: { ...nextTargetPos },
-          });
-        }
-        nextInstances.push({
-          ...instance,
-          currentElementId: nextTargetId,
-          currentPath: nextTargetPath,
-        });
+        const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
+        forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
       } else {
         // Consume incoming, then produce template children at next target.
         removeInstanceClones();
@@ -501,24 +483,8 @@ export function computeExecutionStep(
     // Default forwarding: state, collection (after type-filter), flow (after type-filter).
     const nextTargetId = targets[0];
     const nextTargetPath = findElementPath(viewState, nextTargetId);
-    const nextTargetPos =
-      viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
-
-    for (const cloneId of instance.clonedElementIds) {
-      delta.moveElements.push({
-        elementId: cloneId,
-        fromParentId: instance.currentElementId,
-        fromPath: `${instance.currentPath}.${cloneId}`,
-        toParentId: nextTargetId,
-        toPath: `${nextTargetPath}.${cloneId}`,
-        newPosition: { ...nextTargetPos },
-      });
-    }
-    nextInstances.push({
-      ...instance,
-      currentElementId: nextTargetId,
-      currentPath: nextTargetPath,
-    });
+    const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
+    forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
   }
 
   // ── Step 2: spontaneous generation — only `gen` function elements ──────────
