@@ -29,7 +29,7 @@ describe("Parser", () => {
     expect(Object.values(model.elements).length).toBe(1);
     const elem = Array.from(Object.values(model.elements))[0];
     expect(elem.id).toBe("players");
-    expect(elem.type).toBe("state");
+    expect(elem.type).toBe("collection");
   });
 
   it("should parse element with properties", () => {
@@ -60,7 +60,7 @@ describe("Parser", () => {
 
     expect(nick.type).toBe("object");
     expect(health.type).toBe("object");
-    expect(items.type).toBe("state");
+    expect(items.type).toBe("collection");
     expect(walk.type).toBe("function");
     expect(decide.type).toBe("choice");
   });
@@ -75,7 +75,7 @@ describe("Parser", () => {
     expect(player.childIds).toContain(username.id);
     expect(player.childIds).toContain(password.id);
     expect(player.id).toBe("players");
-    expect(player.type).toBe("state");
+    expect(player.type).toBe("collection");
   });
 
   it("should parse a few elements", () => {
@@ -115,9 +115,9 @@ describe("Parser", () => {
     expect(play.childIds).toContain(fight.id);
     expect(start.childIds).toContain(step1.id);
     expect(start.childIds).toContain(step2.id);
-    expect(play.type).toBe("state");
-    expect(walk.type).toBe("state");
-    expect(fight.type).toBe("state");
+    expect(play.type).toBe("collection");
+    expect(walk.type).toBe("object");
+    expect(fight.type).toBe("object");
     expect(start.type).toBe("function");
     expect(step1.type).toBe("function");
     expect(step2.type).toBe("function");
@@ -465,8 +465,8 @@ describe("Parser", () => {
       f,
     ] = Array.from(Object.values(model.elements));
     expect(a.type).toBe("object");
-    expect(anon1.type).toBe("state");
-    expect(a1.type).toBe("state");
+    expect(anon1.type).toBe("collection");
+    expect(a1.type).toBe("object");
     expect(b.type).toBe("object");
     expect(anon2.type).toBe("object");
     expect(b1.type).toBe("object");
@@ -560,7 +560,7 @@ describe("Parser", () => {
     expect(f.childIds).toContain(d.id);
     expect(a.type).toBe("function");
     expect(b.type).toBe("object");
-    expect(c.type).toBe("state");
+    expect(c.type).toBe("object");
     expect(d.type).toBe("choice");
   });
 

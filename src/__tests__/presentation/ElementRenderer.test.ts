@@ -139,9 +139,8 @@ describe("ElementRenderer", () => {
       expect(result?.group.y()).toBe(150);
     });
 
-    it("should offset local position relative to parent", () => {
+    it("uses absolute world coordinates — group placed at element's own position", () => {
       const element = MockElementFactory.createElement("b", "object");
-      const parentPos: Position = { x: 100, y: 100 };
       const viewState = new ViewStateBuilder()
         .addElement("b", 150, 150, 60, false)
         .build();
@@ -158,10 +157,11 @@ describe("ElementRenderer", () => {
         1,
       );
 
-      const result = renderer.render(parentPos);
+      const result = renderer.render();
 
-      expect(result?.group.x()).toBe(50);
-      expect(result?.group.y()).toBe(50);
+      // Flat layout: group placed at its absolute world position, not relative to parent.
+      expect(result?.group.x()).toBe(150);
+      expect(result?.group.y()).toBe(150);
     });
   });
 
@@ -707,6 +707,7 @@ describe("ElementRenderer", () => {
         findHoveredPath,
         updateRelationshipLines,
         updateChildRelationshipLines,
+        moveChildGroups: () => {},
       };
       const stage = helper.getStage();
       const handler = new ElementEventHandler(

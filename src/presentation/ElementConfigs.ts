@@ -12,6 +12,13 @@ export const ELEMENT_SVGS: Record<ElementType, SvgConfig> = {
     viewBoxWidth: 197,
     viewBoxHeight: 165,
   },
+  // [] collection: square brackets
+  collection: {
+    data: "M71 8H50V157H71M126 8H147V157H126",
+    viewBoxWidth: 197,
+    viewBoxHeight: 165,
+  },
+  // || state: two vertical bars (same SVG style as the old state)
   state: {
     data: "M128.25 8H165.5V157H128.25M45.25 157H8V8H45.25",
     viewBoxWidth: 173,

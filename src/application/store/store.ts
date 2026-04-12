@@ -4,6 +4,7 @@ import uiReducer from "./uiSlice";
 import filterReducer from "./filterSlice";
 import historyReducer from "./historySlice";
 import diffReducer from "./diffSlice";
+import executionReducer from "./executionSlice";
 import { SyncManager } from "../SyncManager";
 import { TabSyncManager } from "../TabSyncManager";
 import { loadState, loadStateAsync, saveState } from "./persistence";
@@ -25,6 +26,7 @@ export const store = configureStore({
     ui: uiReducer,
     history: historyReducer,
     diff: diffReducer,
+    execution: executionReducer,
   },
   preloadedState,
 });

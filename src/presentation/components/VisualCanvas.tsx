@@ -20,6 +20,8 @@ import { toggleElementFold } from "../../application/store/filterSlice";
 import { acceptDiffId } from "../../application/store/diffSlice";
 import { syncManager, store } from "../../application/store/store";
 import { getCSSVariable } from "../../shared/utils";
+import { useExecution } from "../hooks/useExecution";
+import { getExecutionColorMap } from "../../application/ExecutionEngine";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
 import { FilterResolver } from "../../domain/sync/FilterResolver";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
@@ -57,6 +59,19 @@ export function VisualCanvas() {
   const elementLayerRef = useRef<Konva.Layer | null>(null);
   const selectionLayerRef = useRef<Konva.Layer | null>(null);
   const prevPathsRef = useRef<Set<string>>(new Set());
+  /** Positions from the previous render, keyed by path. Used to animate moves. */
+  const prevElementPositionsRef = useRef<Record<string, { x: number; y: number }>>({});
+  /**
+   * Clone positions keyed by element ID (not path). When a clone moves from one
+   * parent to another its path changes, so we track by ID to still find the old
+   * position and animate from old to new.
+   */
+  const prevClonePositionsRef = useRef<Record<string, { x: number; y: number }>>({});
+  /**
+   * Paths whose position was just updated by a user drag. These should not
+   * receive the execution-move animation in the same render cycle.
+   */
+  const justDraggedPathsRef = useRef<Set<string>>(new Set());
   const [zoom, setZoom] = useState(1);
 
   const dragSelectRef = useRef<{
@@ -75,6 +90,12 @@ export function VisualCanvas() {
   const viewState = useAppSelector((s) => s.diagram.viewState);
   const filterState = useAppSelector((s) => s.filter);
   const diffState = useAppSelector((s) => s.diff);
+
+
+  const spawnOriginsRef = useExecution();
+  const execInstances = useAppSelector((s) => s.execution.instances);
+  const execColor = useAppSelector((s) => s.execution.executionColor);
+  const tickIntervalMs = useAppSelector((s) => s.execution.tickIntervalMs);
   const { colors } = useC7One();
   const isDark = detectIsDark(colors["--color-bg-base"]);
   const {
@@ -438,9 +459,10 @@ export function VisualCanvas() {
       },
       {
         onPositionChange: (id, worldPos) => {
-          if (worldPos)
+          if (worldPos) {
+            justDraggedPathsRef.current.add(id);
             dispatch(updateElementPositionInView({ id, position: worldPos }));
-          else syncManager.syncFromVis(model);
+          } else syncManager.syncFromVis(model);
         },
         onReparent: (elementId, oldParentPath, newParentPath) => {
           const updatedModel = applyReparent(
@@ -581,9 +603,90 @@ export function VisualCanvas() {
       zoom,
       renderStyle,
       interactionMode === "readonly",
+      getExecutionColorMap(execInstances, execColor),
     );
 
+    // Build the set of active clone element IDs before rendering so it can be
+    // reused for both the move animation and the prevClonePositions snapshot.
+    const cloneIds = new Set(execInstances.flatMap((i) => i.clonedElementIds));
+
     renderer.render(relationshipLayerRef.current, elementLayerRef.current);
+
+    // Animate execution clones that moved this tick.
+    // Groups are already placed at NEW positions by the renderer. We snap them
+    // back to the OLD position and tween forward, so the user sees smooth motion.
+    //
+    // We track positions by ELEMENT ID (not path) because a clone's path changes
+    // when it moves from one parent to another (e.g. "gen.obj_0" → "queue.obj_0").
+    // Path-based prev-position lookup would always miss moved clones.
+    //
+    // We skip paths that were just updated by a user drag so that dragging a
+    // clone doesn't trigger the snap-back animation.
+    if (cloneIds.size > 0) {
+      const groupMap = renderer.getGroupMap();
+      const prevClonePositions = prevClonePositionsRef.current;
+      // 80% of the tick interval, capped at 600ms so fast ticks still look smooth.
+      const animDuration = Math.min((tickIntervalMs / 1000) * 0.8, 0.6);
+
+      for (const [path, posEntry] of Object.entries(viewState.positions)) {
+        const elementId = path.split(".").at(-1)!;
+        if (!cloneIds.has(elementId)) continue;
+        if (justDraggedPathsRef.current.has(path)) continue; // user just dragged this
+
+        const oldPos = prevClonePositions[elementId]; // keyed by ID, survives path changes
+        if (!oldPos) {
+          const spawnPos = spawnOriginsRef.current.get(elementId);
+          if (spawnPos) {
+            const group = groupMap.get(path);
+            if (group) {
+              const newPos = posEntry.position;
+              group.x(spawnPos.x);
+              group.y(spawnPos.y);
+              new Konva.Tween({
+                node: group,
+                x: newPos.x,
+                y: newPos.y,
+                duration: animDuration,
+                easing: Konva.Easings.EaseInOut,
+              }).play();
+            }
+          }
+          continue; // newly created — scale-in handles it, no move anim
+        }
+
+        const newPos = posEntry.position;
+        if (oldPos.x === newPos.x && oldPos.y === newPos.y) continue;
+
+        const group = groupMap.get(path);
+        if (!group) continue;
+
+        group.x(oldPos.x);
+        group.y(oldPos.y);
+        new Konva.Tween({
+          node: group,
+          x: newPos.x,
+          y: newPos.y,
+          duration: animDuration,
+          easing: Konva.Easings.EaseInOut,
+        }).play();
+      }
+    }
+    // Clear dragged-path guard after each render cycle.
+    justDraggedPathsRef.current.clear();
+
+    // Snapshot clone positions by element ID for the next render's animation.
+    const newClonePositions: Record<string, { x: number; y: number }> = {};
+    for (const [path, posEntry] of Object.entries(viewState.positions)) {
+      const elementId = path.split(".").at(-1)!;
+      if (cloneIds.has(elementId)) {
+        newClonePositions[elementId] = posEntry.position;
+      }
+    }
+    prevClonePositionsRef.current = newClonePositions;
+
+    prevElementPositionsRef.current = Object.fromEntries(
+      Object.entries(viewState.positions).map(([k, v]) => [k, v.position]),
+    );
     prevPathsRef.current = new Set(Object.keys(viewState.positions));
   }, [
     model,
@@ -594,6 +697,9 @@ export function VisualCanvas() {
     renderStyle,
     interactionMode,
     dispatch,
+    execInstances,
+    execColor,
+    tickIntervalMs,
   ]);
 
   return <div ref={containerRef} className="w-full h-full bg-bg-base overflow-hidden" />;

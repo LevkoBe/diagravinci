@@ -12,7 +12,7 @@ const dc = VConfig.decorations;
 const ANONYMOUS_PREFIX = AppConfig.parser.ANONYMOUS_ID_PREFIX + "_";
 
 export interface IElementRenderer {
-  render(parentPos?: { x: number; y: number }): ElementRenderResult | undefined;
+  render(): ElementRenderResult | undefined;
 }
 
 export abstract class BaseElementRenderer implements IElementRenderer {
@@ -54,28 +54,19 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     this.colorOverride = colorOverride;
   }
 
-  abstract render(parentPos?: {
-    x: number;
-    y: number;
-  }): ElementRenderResult | undefined;
+  abstract render(): ElementRenderResult | undefined;
 
   protected resolveStroke(): string {
     return this.colorOverride || this.colors.accent;
   }
 
-  protected createElementGroup(parentPos?: {
-    x: number;
-    y: number;
-  }): Konva.Group {
+  protected createElementGroup(): Konva.Group {
     const pos = this.viewState.positions[this.path];
     if (!pos) throw new Error("Position not found");
 
-    const localX = parentPos ? pos.position.x - parentPos.x : pos.position.x;
-    const localY = parentPos ? pos.position.y - parentPos.y : pos.position.y;
-
     const group = new Konva.Group({
-      x: localX,
-      y: localY,
+      x: pos.position.x,
+      y: pos.position.y,
       draggable: true,
       scaleX: this.isNew ? 0 : 1,
       scaleY: this.isNew ? 0 : 1,

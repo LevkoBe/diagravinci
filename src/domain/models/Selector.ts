@@ -1,6 +1,7 @@
 export type ElementTypeKey =
   | "object"
   | "state"
+  | "collection"
   | "function"
   | "flow"
   | "choice";

@@ -36,14 +36,11 @@ export class SimpleRectElementRenderer extends BaseElementRenderer {
     );
   }
 
-  render(parentPos?: {
-    x: number;
-    y: number;
-  }): ElementRenderResult | undefined {
+  render(): ElementRenderResult | undefined {
     const pos = this.viewState.positions[this.path];
     if (!pos) return;
 
-    const group = this.createElementGroup(parentPos);
+    const group = this.createElementGroup();
     const rectNode = this.addElementShape(group);
     this.addLabel(group);
     this.addDecorationsIfNeeded(group);
@@ -67,8 +64,11 @@ export class SimpleRectElementRenderer extends BaseElementRenderer {
       case "object":
         dash = undefined;
         break;
-      case "state":
+      case "collection":
         dash = es.DASH_STATE as number[];
+        break;
+      case "state":
+        dash = [8, 4, 2, 4] as number[];
         break;
       case "function":
         dash = es.DASH_FUNCTION as number[];

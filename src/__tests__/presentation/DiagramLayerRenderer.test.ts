@@ -603,12 +603,10 @@ describe("DiagramLayerRenderer", () => {
       const relationshipLayer = new Konva.Layer();
       const elementLayer = new Konva.Layer();
       renderer.render(relationshipLayer, elementLayer);
-      // parent rendered as top-level group in elementLayer
-      expect(elementLayer.getChildren().length).toBe(1);
-      // child rendered inside parent group
-      const parentGroup = elementLayer.getChildren()[0] as Konva.Group;
-      const childGroups = parentGroup.getChildren().filter((c) => c instanceof Konva.Group);
-      expect(childGroups.length).toBeGreaterThan(0);
+      // flat rendering: parent and child are both direct children of elementLayer
+      expect(elementLayer.getChildren().length).toBe(2);
+      const groups = elementLayer.getChildren().filter((c) => c instanceof Konva.Group);
+      expect(groups.length).toBe(2);
     });
   });
 

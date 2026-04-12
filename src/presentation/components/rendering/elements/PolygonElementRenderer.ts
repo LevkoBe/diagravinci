@@ -35,14 +35,11 @@ export class PolygonElementRenderer extends BaseElementRenderer {
     );
   }
 
-  render(parentPos?: {
-    x: number;
-    y: number;
-  }): ElementRenderResult | undefined {
+  render(): ElementRenderResult | undefined {
     const pos = this.viewState.positions[this.path];
     if (!pos) return;
 
-    const group = this.createElementGroup(parentPos);
+    const group = this.createElementGroup();
     const shapeNode = this.addElementShape(group);
     this.addLabel(group);
     this.addDecorationsIfNeeded(group);
@@ -78,8 +75,8 @@ export class PolygonElementRenderer extends BaseElementRenderer {
         });
         break;
       }
-      case "state": {
-        // Rectangle
+      case "collection": {
+        // Rectangle — queue/list container
         shape = new Konva.Rect({
           width: size,
           height: size,
@@ -88,6 +85,18 @@ export class PolygonElementRenderer extends BaseElementRenderer {
           stroke,
           strokeWidth,
           opacity,
+        });
+        break;
+      }
+      case "state": {
+        // Octagon — distinct from collection rectangle
+        shape = new Konva.RegularPolygon({
+          sides: 8,
+          radius: r,
+          stroke,
+          strokeWidth,
+          opacity,
+          rotation: 22.5,
         });
         break;
       }

@@ -33,6 +33,10 @@ import {
   Redo2,
   GitCompare,
   CheckCheck,
+  Play,
+  Pause,
+  RotateCcw,
+  StepForward,
 } from "lucide-react";
 import {
   Button,
@@ -74,6 +78,14 @@ import {
   clearAllRemoved,
   clearDiff,
 } from "../../application/store/diffSlice";
+import {
+  startExecution,
+  pauseExecution,
+  resetExecution,
+  tickAdvance,
+  setMaterialize,
+} from "../../application/store/executionSlice";
+import { computeExecutionStep, applyDeltaToModel, buildCleanedModel } from "../../application/ExecutionEngine";
 import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 import { Lexer } from "../../infrastructure/parser/Lexer";
 import { Parser } from "../../infrastructure/parser/Parser";
@@ -82,11 +94,13 @@ import { ViewStateMerger } from "../../domain/sync/ViewStateMerger";
 import { ELEMENT_SVGS } from "../ElementConfigs";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
 import type { Element } from "../../domain/models/Element";
+import type { ViewState } from "../../domain/models/ViewState";
 import { useUndoRedo } from "../hooks/useUndoRedo";
-import { store } from "../../application/store/store";
+import { store, syncManager } from "../../application/store/store";
 
 const ELEMENT_TYPES = [
   { type: "object" },
+  { type: "collection" },
   { type: "state" },
   { type: "function" },
   { type: "flow" },
@@ -366,6 +380,52 @@ export function ToolBar() {
   const { presets, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
     useAppSelector((s) => s.filter);
   const diffState = useAppSelector((s) => s.diff);
+  const execState = useAppSelector((s) => s.execution);
+  const isExecuteMode = viewMode === "execute";
+
+  const prevViewModeRef = useRef<ViewState["viewMode"]>(viewMode);
+
+  const cleanupAndReset = () => {
+    if (!execState.materialize && execState.instances.length > 0) {
+      const { model: currentModel } = store.getState().diagram;
+      const cleanedModel = buildCleanedModel(currentModel, execState.instances);
+      syncManager.syncFromVis(cleanedModel);
+    }
+    dispatch(resetExecution());
+  };
+
+  const handleToggleExecute = () => {
+    if (isExecuteMode) {
+      cleanupAndReset();
+      dispatch(setViewMode(prevViewModeRef.current));
+    } else {
+      prevViewModeRef.current = viewMode;
+      dispatch(setViewMode("execute"));
+    }
+  };
+
+  const handleExecuteStep = () => {
+    const state = store.getState();
+    const { instances, tickCount, nextInstanceId, executionColor } =
+      state.execution;
+    const { model: currentModel, viewState: currentViewState } = state.diagram;
+    const result = computeExecutionStep(
+      currentModel,
+      currentViewState,
+      instances,
+      tickCount,
+      nextInstanceId,
+      executionColor,
+    );
+    const newModel = applyDeltaToModel(currentModel, result.delta);
+    syncManager.syncFromVis(newModel);
+    dispatch(
+      tickAdvance({
+        nextInstances: result.nextInstances,
+        nextInstanceId: result.nextInstanceId,
+      }),
+    );
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
   const updateCodeInputRef = useRef<HTMLInputElement>(null);
@@ -791,6 +851,63 @@ export function ToolBar() {
     </>
   );
 
+  const execBtns = (
+    <>
+      <Btn
+        title="Toggle execute mode"
+        active={isExecuteMode}
+        onClick={handleToggleExecute}
+      >
+        <Play size={15} />
+      </Btn>
+      {isExecuteMode && (
+        <>
+          <Btn
+            title="Run"
+            active={execState.status === "running"}
+            onClick={() => dispatch(startExecution())}
+            disabled={execState.status === "running"}
+          >
+            <Play size={15} />
+          </Btn>
+          <Btn
+            title="Pause"
+            active={execState.status === "paused"}
+            onClick={() => dispatch(pauseExecution())}
+            disabled={execState.status !== "running"}
+          >
+            <Pause size={15} />
+          </Btn>
+          <Btn
+            title="Step (one tick)"
+            onClick={handleExecuteStep}
+            disabled={execState.status === "running"}
+          >
+            <StepForward size={15} />
+          </Btn>
+          <Btn
+            title="Reset"
+            onClick={cleanupAndReset}
+            disabled={execState.status === "stopped" && execState.tickCount === 0}
+          >
+            <RotateCcw size={15} />
+          </Btn>
+          <Btn
+            title={
+              execState.materialize
+                ? "Keep generated elements: on"
+                : "Keep generated elements: off"
+            }
+            active={execState.materialize}
+            onClick={() => dispatch(setMaterialize(!execState.materialize))}
+          >
+            <CheckCheck size={15} />
+          </Btn>
+        </>
+      )}
+    </>
+  );
+
   const styleBtns = (
     [
       { value: "svg", title: "SVG paths", icon: <Spline size={15} /> },
@@ -941,6 +1058,9 @@ export function ToolBar() {
             <Pill label="Layout" compact>
               {layoutBtns}
             </Pill>
+            <Pill label="Run" compact>
+              {execBtns}
+            </Pill>
             <Pill label="Style" compact>
               {styleBtns}
             </Pill>
@@ -1084,6 +1204,7 @@ export function ToolBar() {
                         hierarchical: <TreePine size={15} />,
                         timeline: <ArrowRightLeft size={15} />,
                         pipeline: <Workflow size={15} />,
+                        execute: <Play size={15} />,
                       }[viewMode]
                     }
                   </ActiveIndicator>
@@ -1091,6 +1212,24 @@ export function ToolBar() {
               }
             >
               {layoutBtns}
+            </Pill>
+            <Divider />
+            <Pill
+              label="Run"
+              compact={isCompact}
+              activeSlot={
+                !isCompact && isExecuteMode ? (
+                  <ActiveIndicator title={execState.status}>
+                    {execState.status === "running" ? (
+                      <Play size={15} />
+                    ) : (
+                      <Pause size={15} />
+                    )}
+                  </ActiveIndicator>
+                ) : undefined
+              }
+            >
+              {execBtns}
             </Pill>
             <Divider />
             <Pill
@@ -1130,6 +1269,7 @@ export function ToolBar() {
               <Pill label="Project">{projectBtns}</Pill>
               <Pill label="Code">{codeBtns}</Pill>
               <Pill label="Layout">{layoutBtns}</Pill>
+              <Pill label="Run">{execBtns}</Pill>
               <Pill label="Style">{styleBtns}</Pill>
               <Pill label="View">{viewBtns}</Pill>
             </div>

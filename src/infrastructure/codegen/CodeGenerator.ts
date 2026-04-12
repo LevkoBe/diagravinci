@@ -80,7 +80,7 @@ export class CodeGenerator {
   private generateRelationship(relationship: Relationship): string {
     const arrow = relationship.type;
     return relationship.label
-      ? `${relationship.source} ${arrow}${relationship.label}${arrow} ${relationship.target}`
+      ? `${relationship.source} --${relationship.label}${arrow} ${relationship.target}`
       : `${relationship.source} ${arrow} ${relationship.target}`;
   }
 
@@ -88,8 +88,10 @@ export class CodeGenerator {
     switch (type) {
       case "object":
         return ["{", "}"];
-      case "state":
+      case "collection":
         return ["[", "]"];
+      case "state":
+        return ["|", "|"];
       case "function":
         return ["(", ")"];
       case "flow":

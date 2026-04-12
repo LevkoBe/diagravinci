@@ -47,6 +47,9 @@ export class Lexer {
       } else if (/[a-zA-Z_]/.test(char)) {
         tokens.push(this.readIdentifier());
         continue;
+      } else if (/[0-9]/.test(char)) {
+        tokens.push(this.readNumber());
+        continue;
       }
 
       this.advance();
@@ -60,6 +63,18 @@ export class Lexer {
     let value = "";
 
     while (/[a-z0-9_]/i.test(this.peek())) {
+      value += this.peek();
+      this.advance();
+    }
+
+    return createToken("IDENTIFIER", value, start.row, start.col);
+  }
+
+  private readNumber(): Token {
+    const start = { row: this.row, col: this.col };
+    let value = "";
+
+    while (/[0-9]/.test(this.peek())) {
       value += this.peek();
       this.advance();
     }

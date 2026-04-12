@@ -36,6 +36,8 @@ export class DiagramLayerRenderer {
   private readonly renderStyle: RenderStyle;
 
   private readonly isReadonly: boolean;
+  /** elementId → color for execution-generated clones (derived, not stored in viewState). */
+  private readonly executionColorMap: Record<string, string>;
 
   constructor(
     stage: Konva.Stage,
@@ -48,6 +50,7 @@ export class DiagramLayerRenderer {
     zoom: number,
     renderStyle: RenderStyle = "polygon",
     isReadonly = false,
+    executionColorMap: Record<string, string> = {},
   ) {
     this.stage = stage;
     this.model = model;
@@ -59,6 +62,7 @@ export class DiagramLayerRenderer {
     this.zoom = zoom;
     this.renderStyle = renderStyle;
     this.isReadonly = isReadonly;
+    this.executionColorMap = executionColorMap;
 
     const { pixelSizes, zoomHidden, zoomDimmed } = computeElementSizes(
       model,
@@ -94,32 +98,36 @@ export class DiagramLayerRenderer {
       if (element) this.renderRecursive(element, elementLayer, id);
     });
 
+    // Depth-first traversal guarantees parents are added before children,
+    // so children naturally render on top in Konva's draw order.
+
     relationshipLayer.batchDraw();
     elementLayer.batchDraw();
   }
 
   private renderRecursive(
     element: Element,
-    parentGroup: Konva.Group | Konva.Layer,
+    elementLayer: Konva.Layer,
     path: string,
-    parentPos?: { x: number; y: number },
   ): void {
     if (this.hiddenSet.has(path)) return;
 
     const isDimmed = this.dimmedSet.has(path);
 
-    const colorOverride = this.viewState.coloredPaths?.[path] ?? null;
+    const colorOverride =
+      this.executionColorMap[element.id] ??
+      this.viewState.coloredPaths?.[path] ??
+      null;
 
     const elementGroup = this.renderElement(
       element,
       path,
-      parentPos,
       isDimmed,
       colorOverride,
     );
     if (!elementGroup) return;
 
-    parentGroup.add(elementGroup);
+    elementLayer.add(elementGroup);
 
     if (!this.prevPaths.has(path)) {
       new Konva.Tween({
@@ -133,18 +141,10 @@ export class DiagramLayerRenderer {
 
     if (this.viewState.foldedPaths.includes(path)) return;
 
-    const pos = this.viewState.positions[path];
-    if (!pos) return;
-
     element.childIds.forEach((childId) => {
       const child = this.model.elements[childId];
       if (child) {
-        this.renderRecursive(
-          child,
-          elementGroup,
-          `${path}.${childId}`,
-          pos.position,
-        );
+        this.renderRecursive(child, elementLayer, `${path}.${childId}`);
       }
     });
   }
@@ -157,7 +157,6 @@ export class DiagramLayerRenderer {
   private renderElement(
     element: Element,
     path: string,
-    parentPos?: { x: number; y: number },
     isDimmed = false,
     colorOverride: string | null = null,
   ): Konva.Group | undefined {
@@ -184,7 +183,7 @@ export class DiagramLayerRenderer {
           ? new PolygonElementRenderer(...args)
           : new SvgPathElementRenderer(...args);
 
-    const renderResult = elementRenderer.render(parentPos);
+    const renderResult = elementRenderer.render();
     if (!renderResult) return;
 
     const { group, onHoverIn, onHoverOut } = renderResult;
@@ -219,6 +218,7 @@ export class DiagramLayerRenderer {
         updateRelationshipLines: (p) => this.updateRelationshipLines(p),
         updateChildRelationshipLines: (p) =>
           this.updateChildRelationshipLines(p),
+        moveChildGroups: (p) => this.moveChildGroupsForDrag(p),
         updateChildPositions: (p) => this.updateChildPositions(p),
         getRootId: () => this.model.root.id,
       },
@@ -238,6 +238,10 @@ export class DiagramLayerRenderer {
     return group;
   }
 
+  getGroupMap(): Map<string, Konva.Group> {
+    return this.groupMap;
+  }
+
   private setHovered(path: string | null): void {
     if (path === this.hoveredPath) return;
     if (this.hoveredPath) this.hoverOut.get(this.hoveredPath)?.();
@@ -254,6 +258,31 @@ export class DiagramLayerRenderer {
   private updateChildRelationshipLines(parentPath: string): void {
     Object.keys(this.viewState.positions).forEach((p) => {
       if (p.startsWith(parentPath + ".")) this.updateRelationshipLines(p);
+    });
+  }
+
+  private moveChildGroupsForDrag(parentPath: string): void {
+    const parentGroup = this.groupMap.get(parentPath);
+    const storedParentPos = this.viewState.positions[parentPath]?.position;
+    if (!parentGroup || !storedParentPos) return;
+
+    const newParentPos = screenToWorld(
+      parentGroup.getAbsolutePosition(),
+      this.stage,
+    );
+    const delta = {
+      x: newParentPos.x - storedParentPos.x,
+      y: newParentPos.y - storedParentPos.y,
+    };
+
+    Object.keys(this.viewState.positions).forEach((p) => {
+      if (!p.startsWith(parentPath + ".")) return;
+      const childGroup = this.groupMap.get(p);
+      const storedChildPos = this.viewState.positions[p]?.position;
+      if (childGroup && storedChildPos) {
+        childGroup.x(storedChildPos.x + delta.x);
+        childGroup.y(storedChildPos.y + delta.y);
+      }
     });
   }
 

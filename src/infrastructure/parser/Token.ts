@@ -1,6 +1,6 @@
 export const PARTIAL_RELATIONSHIPS = ["..", "--"] as const;
-export const OPENING_WRAPPERS = ["{", "[", "(", "<", ">"] as const;
-export const CLOSING_WRAPPERS = ["}", "]", ")", ">"] as const;
+export const OPENING_WRAPPERS = ["{", "[", "(", "<", ">", "|"] as const;
+export const CLOSING_WRAPPERS = ["}", "]", ")", ">", "|"] as const;
 export const RELATIONSHIPS = [
   "-->",
   "..>",
@@ -15,11 +15,13 @@ export const RELATIONSHIPS = [
   "<|--",
   "<|..",
 ] as const;
+export const PROP_OPERATORS = ["="] as const;
 export const TOKEN_LITERALS = [
   ...RELATIONSHIPS,
   ...PARTIAL_RELATIONSHIPS,
   ...OPENING_WRAPPERS,
   ...CLOSING_WRAPPERS,
+  ...PROP_OPERATORS,
 ] as const;
 
 export type RelationshipType =
@@ -29,7 +31,7 @@ export type OpeningWrapper = (typeof OPENING_WRAPPERS)[number];
 export type ClosingWrapper = (typeof CLOSING_WRAPPERS)[number];
 export type NameType = "IDENTIFIER";
 // TokenKind maps to the 5 types above
-export type TokenKind = "-" | ">" | "{" | "}" | "x";
+export type TokenKind = "-" | ">" | "{" | "}" | "x" | "=";
 
 export type TokenType = (typeof TOKEN_LITERALS)[number] | NameType | "NEWLINE";
 
@@ -42,15 +44,17 @@ export interface Token {
 }
 
 const getKindByType = (type: TokenType): TokenKind =>
-  /^(\.\.|--)$/.test(type)
-    ? "-"
-    : /\.\.|--/.test(type)
-      ? ">"
-      : /[[{(<]/.test(type)
-        ? "{"
-        : /[\]})>]/.test(type)
-          ? "}"
-          : "x";
+  type === "="
+    ? "="
+    : /^(\.\.|--)$/.test(type)
+      ? "-"
+      : /\.\.|--/.test(type)
+        ? ">"
+        : /[[{(<]/.test(type)
+          ? "{"
+          : /[\]})>|]/.test(type)
+            ? "}"
+            : "x";
 
 export function isRelationshipType(value?: unknown): value is RelationshipType {
   return (

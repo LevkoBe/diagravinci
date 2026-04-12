@@ -8,10 +8,6 @@ import { VConfig } from "../../visualConfig";
 
 const { STROKE_EXP, DIM_OPACITY } = VConfig.elements;
 
-export interface IElementRenderer {
-  render(parentPos?: { x: number; y: number }): ElementRenderResult | undefined;
-}
-
 export class SvgPathElementRenderer extends BaseElementRenderer {
   private readonly elementSvgs: Record<
     string,
@@ -49,14 +45,11 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
     this.elementSvgs = elementSvgs;
   }
 
-  render(parentPos?: {
-    x: number;
-    y: number;
-  }): ElementRenderResult | undefined {
+  render(): ElementRenderResult | undefined {
     const pos = this.viewState.positions[this.path];
     if (!pos) return;
 
-    const group = this.createElementGroup(parentPos);
+    const group = this.createElementGroup();
     const pathNode = this.addElementShape(group);
     this.addLabel(group);
     this.addDecorationsIfNeeded(group);

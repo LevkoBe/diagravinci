@@ -27,10 +27,11 @@ const WRAPPERS: Record<
   { close: ClosingWrapper; type: ElementType; defaultChildType: ElementType }
 > = {
   "{": { close: "}", type: "object", defaultChildType: "object" },
-  "[": { close: "]", type: "state", defaultChildType: "state" },
+  "[": { close: "]", type: "collection", defaultChildType: "object" },
   "(": { close: ")", type: "function", defaultChildType: "function" },
   "<": { close: ">", type: "choice", defaultChildType: "choice" },
   ">": { close: ">", type: "flow", defaultChildType: "object" },
+  "|": { close: "|", type: "state", defaultChildType: "object" },
 };
 
 export class Parser {
@@ -63,6 +64,12 @@ export class Parser {
     while (this.peek() && this.peek()!.type !== WRAPPERS[wrapper].close) {
       switch (this.peek()?.kind) {
         case "}":
+          if (this.peek()?.type === "|") {
+            // || state: sets type of the preceding element (like { [ ( <)
+            lastEl = this.parseOpeningWrapper(parent, lastRel, lastEl, depth, "|");
+            lastRel = null;
+            break;
+          }
           if (this.peek()?.type !== ">") {
             this.next(); // skip redundant wrapper
             lastEl = null;
@@ -92,6 +99,9 @@ export class Parser {
             parent.childIds.push(lastEl.id);
           break;
         }
+        default:
+          this.next(); // skip unrecognized token (e.g., stray "=")
+          break;
       }
     }
     if (lastRel) this.updateRelationship(lastRel.id, parent.id);
@@ -116,8 +126,9 @@ export class Parser {
     return lastEl;
   }
 
-  private parseElement = (defaultType?: ElementType): Element =>
-    this.createElement(this.next()?.value, defaultType);
+  private parseElement = (defaultType?: ElementType): Element => {
+    return this.createElement(this.next()?.value, defaultType);
+  };
 
   private parseRelationship = (
     source: Element,

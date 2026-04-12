@@ -50,8 +50,13 @@ describe("CodeGenerator", () => {
       expect(code).toContain("x{}");
     });
 
-    it("uses [] for state type", () => {
+    it("uses || for state type", () => {
       const code = generate(modelWithElement("x", "state"));
+      expect(code).toContain("x||");
+    });
+
+    it("uses [] for collection type", () => {
+      const code = generate(modelWithElement("x", "collection"));
       expect(code).toContain("x[]");
     });
 
@@ -120,7 +125,7 @@ describe("CodeGenerator", () => {
         "calls",
       );
       const code = generate(model);
-      expect(code).toContain("a -->calls--> b");
+      expect(code).toContain("a --calls--> b");
     });
 
     it("generates dashed relationship", () => {

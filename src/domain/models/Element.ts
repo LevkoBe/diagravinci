@@ -1,4 +1,4 @@
-export type ElementType = "object" | "state" | "function" | "flow" | "choice";
+export type ElementType = "object" | "state" | "collection" | "function" | "flow" | "choice";
 export type FoldState = "expanded" | "collapsed";
 
 export interface Position {

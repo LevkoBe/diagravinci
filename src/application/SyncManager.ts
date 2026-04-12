@@ -106,6 +106,7 @@ export class SyncManager {
 
   reLayout(): void {
     const { model, viewState, canvasSize } = this.store.getState().diagram;
+    if (viewState.viewMode === "execute") return;
     const newViewState = ViewStateMerger.merge(viewState, model, canvasSize);
     this.store.dispatch(setViewState(newViewState));
   }
