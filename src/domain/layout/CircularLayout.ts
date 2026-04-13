@@ -28,7 +28,8 @@ export default class CircularLayout extends BaseLayout {
     containerHeight: number,
   ): { x: number; y: number; size: number }[] {
     const containerSize = Math.min(containerWidth, containerHeight);
-    const weights = children.map((c) => layoutWeight(c, model));
+    const weightMemo = new Map<string, number>();
+    const weights = children.map((c) => layoutWeight(c, model, new Set(), weightMemo));
     const size = Math.min(
       calculateSize(Math.max(...weights)),
       containerSize * ELEMENT_FILL,
