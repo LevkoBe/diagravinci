@@ -219,8 +219,13 @@ export function computeExecutionStep(
     return el.childIds.filter((id) => !allCloneIds.has(id) && model.elements[id]);
   }
 
+  const templateChildTypesCache = new Map<string, Set<string>>();
   function templateChildTypes(el: Element): Set<string> {
-    return new Set(templateChildren(el).map((id) => model.elements[id]!.type));
+    const cached = templateChildTypesCache.get(el.id);
+    if (cached) return cached;
+    const types = new Set(templateChildren(el).map((id) => model.elements[id]!.type));
+    templateChildTypesCache.set(el.id, types);
+    return types;
   }
 
   for (const instance of instances) {
