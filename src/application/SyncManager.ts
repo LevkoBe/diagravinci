@@ -84,6 +84,9 @@ export class SyncManager {
       canvasSize,
     } = this.store.getState().diagram;
 
+    const diff = ModelDiffer.diff(currentModel, updatedModel);
+    if (ModelDiffer.isEmpty(diff)) return;
+
     const newViewState = ViewStateMerger.merge(
       currentViewState,
       updatedModel,
@@ -91,13 +94,8 @@ export class SyncManager {
     );
     this.store.dispatch(setViewState(newViewState));
 
-    const diff = ModelDiffer.diff(currentModel, updatedModel);
-    if (ModelDiffer.isEmpty(diff)) return;
-
     const code = this.codeGenerator.generate(updatedModel);
-
     this.store.dispatch(setModel(updatedModel));
-
     this.store.dispatch(setCode(code));
     this.notify({
       source: "vis",
