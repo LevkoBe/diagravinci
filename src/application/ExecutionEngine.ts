@@ -297,18 +297,18 @@ export function computeExecutionStep(
         pattern: id.startsWith("anon_") ? null : id,
       }));
 
+      const compiledSelectors = selectors.map((s) => ({
+        ...s,
+        regex: s.pattern === null ? null : (() => { try { return new RegExp(s.pattern!); } catch { return null; } })(),
+      }));
       const conditionMet =
         selectors.length === 0 ||
         instance.clonedElementIds.some((cid) => {
           const cloneEl = model.elements[cid];
-          return selectors.some((s) => {
+          return compiledSelectors.some((s) => {
             if (cloneEl?.type !== s.type) return false;
             if (s.pattern === null) return true;
-            try {
-              return new RegExp(s.pattern).test(baseName(cid));
-            } catch {
-              return s.pattern === baseName(cid);
-            }
+            return s.regex ? s.regex.test(baseName(cid)) : s.pattern === baseName(cid);
           });
         });
 
