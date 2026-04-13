@@ -60,26 +60,26 @@ export class Lexer {
 
   private readIdentifier(): Token {
     const start = { row: this.row, col: this.col };
-    let value = "";
+    const chars: string[] = [];
 
     while (/[a-z0-9_]/i.test(this.peek())) {
-      value += this.peek();
+      chars.push(this.peek());
       this.advance();
     }
 
-    return createToken("IDENTIFIER", value, start.row, start.col);
+    return createToken("IDENTIFIER", chars.join(""), start.row, start.col);
   }
 
   private readNumber(): Token {
     const start = { row: this.row, col: this.col };
-    let value = "";
+    const chars: string[] = [];
 
     while (/[0-9]/.test(this.peek())) {
-      value += this.peek();
+      chars.push(this.peek());
       this.advance();
     }
 
-    return createToken("IDENTIFIER", value, start.row, start.col);
+    return createToken("IDENTIFIER", chars.join(""), start.row, start.col);
   }
 
   private skipComment(): void {
