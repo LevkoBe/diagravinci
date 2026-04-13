@@ -52,8 +52,9 @@ export function getSubtreeIds(
   const result: string[] = [];
   const queue = [rootId];
   const visited = new Set<string>();
-  while (queue.length > 0) {
-    const id = queue.shift()!;
+  let qi = 0;
+  while (qi < queue.length) {
+    const id = queue[qi++];
     if (visited.has(id)) continue;
     visited.add(id);
     result.push(id);

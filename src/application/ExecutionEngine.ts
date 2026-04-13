@@ -206,8 +206,9 @@ export function computeExecutionStep(
   for (const inst of instances) {
     for (const topId of inst.clonedElementIds) {
       const bfsQ = [topId];
-      while (bfsQ.length > 0) {
-        const id = bfsQ.shift()!;
+      let bfsQi = 0;
+      while (bfsQi < bfsQ.length) {
+        const id = bfsQ[bfsQi++];
         allCloneIds.add(id);
         model.elements[id]?.childIds.forEach((c) => bfsQ.push(c));
       }
