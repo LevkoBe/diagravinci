@@ -34,6 +34,7 @@ import type { Relationship } from "../../domain/models/Relationship";
 import type { Position } from "../../domain/models/Element";
 import { AppConfig } from "../../config/appConfig";
 import { VConfig } from "./visualConfig";
+import { lightStateTokens, darkStateTokens } from "../../themes";
 
 function hexToRgba(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -83,13 +84,16 @@ export function VisualCanvas() {
     [model, viewState, zoom],
   );
 
-  const canvasColors = useMemo(() => ({
-    accent: getCSSVariable("--color-accent"),
-    fgPrimary: getCSSVariable("--color-fg-primary"),
-    selected: getCSSVariable("--color-state-selected"),
-    bgSecondary: getCSSVariable("--color-bg-elevated"),
-    relationship: getCSSVariable("--color-fg-muted"),
-  }), [isDark]);
+  const canvasColors = useMemo(() => {
+    const stateTokens = detectIsDark(colors["--color-bg-base"]) ? darkStateTokens : lightStateTokens;
+    return {
+      accent: colors["--color-accent"],
+      fgPrimary: colors["--color-fg-primary"],
+      selected: stateTokens["--color-state-selected"],
+      bgSecondary: colors["--color-bg-elevated"],
+      relationship: colors["--color-fg-muted"],
+    };
+  }, [colors]);
   const {
     interactionMode,
     activeElementType,
@@ -690,6 +694,7 @@ export function VisualCanvas() {
     execColor,
     tickIntervalMs,
     spawnOriginsRef,
+    elementSizes,
   ]);
 
   return (
