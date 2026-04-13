@@ -70,11 +70,13 @@ export class FilterResolver {
       }
     }
 
+    const manuallyUnfoldedSet = new Set(filterState.manuallyUnfolded);
+
     if (filterState.foldActive) {
       for (const path of allPaths) {
         if (
           pathDepth(path) === filterState.foldLevel &&
-          !filterState.manuallyUnfolded.includes(path)
+          !manuallyUnfoldedSet.has(path)
         ) {
           foldedSet.add(path);
         }
@@ -83,7 +85,7 @@ export class FilterResolver {
 
     for (const path of filterState.manuallyFolded) {
       if (!positions[path]) continue;
-      if (filterState.manuallyUnfolded.includes(path)) continue;
+      if (manuallyUnfoldedSet.has(path)) continue;
       foldedSet.add(path);
     }
 

@@ -28,8 +28,9 @@ export class CodeGenerator {
 
   generate(): string {
     const lines: string[] = [];
+    const rootIdSet = new Set(this.model.root.childIds);
     const rootElements = Object.values(this.model.elements).filter((e) =>
-      this.model.root.childIds.includes(e.id),
+      rootIdSet.has(e.id),
     );
 
     for (const element of rootElements)

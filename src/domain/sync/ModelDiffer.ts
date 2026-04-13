@@ -43,11 +43,13 @@ export class ModelDiffer {
     Object.keys(oldModel.elements)
       .filter((id) => !newModel.elements[id])
       .forEach((id) => removedElementIds.push(id));
+    const oldRootSet = new Set(oldModel.root.childIds);
+    const newRootSet = new Set(newModel.root.childIds);
     newModel.root.childIds
-      .filter((id) => !oldModel.root.childIds.includes(id))
+      .filter((id) => !oldRootSet.has(id))
       .forEach((id) => addedElements.push(newModel.elements[id]));
     oldModel.root.childIds
-      .filter((id) => !newModel.root.childIds.includes(id))
+      .filter((id) => !newRootSet.has(id))
       .forEach((id) => removedElementIds.push(id));
 
     const oldRelMap = oldModel.relationships;

@@ -71,16 +71,23 @@ export class ExecuteLayout implements LayoutAlgorithm {
       ...previousViewState.positions,
     };
 
+    const childIdSets: Record<string, Set<string>> = {
+      [model.root.id]: new Set(model.root.childIds),
+    };
+    for (const [id, el] of Object.entries(model.elements)) {
+      childIdSets[id] = new Set(el.childIds);
+    }
+
     for (const path of Object.keys(positions)) {
       const segments = path.split(".");
       let valid = true;
-      let parentChildIds: string[] = model.root.childIds;
+      let parentId = model.root.id;
       for (const segment of segments) {
-        if (!parentChildIds.includes(segment)) {
+        if (!childIdSets[parentId]?.has(segment)) {
           valid = false;
           break;
         }
-        parentChildIds = model.elements[segment]?.childIds ?? [];
+        parentId = segment;
       }
       if (!valid) delete positions[path];
     }
