@@ -41,19 +41,22 @@ export function resolveRelationships(
   model: DiagramModel,
   positions: Record<string, PositionedElement>,
 ): PositionedRelationship[] {
-  const shallowPath = (elementId: string): string | null => {
-    let best: string | null = null;
-    for (const path of Object.keys(positions)) {
-      if (path.split(".").at(-1) !== elementId) continue;
-      if (best === null || path.split(".").length < best.split(".").length) {
-        best = path;
-      }
+  const shallowPathByElementId = new Map<string, string>();
+  const depthOf = new Map<string, number>();
+  for (const path of Object.keys(positions)) {
+    const lastDot = path.lastIndexOf(".");
+    const id = lastDot === -1 ? path : path.slice(lastDot + 1);
+    let depth = 1;
+    for (let i = 0; i < path.length; i++) if (path[i] === ".") depth++;
+    const existingDepth = depthOf.get(id) ?? Infinity;
+    if (depth < existingDepth) {
+      shallowPathByElementId.set(id, path);
+      depthOf.set(id, depth);
     }
-    return best;
-  };
+  }
   return Object.values(model.relationships).flatMap((rel) => {
-    const sourcePath = shallowPath(rel.source);
-    const targetPath = shallowPath(rel.target);
+    const sourcePath = shallowPathByElementId.get(rel.source) ?? null;
+    const targetPath = shallowPathByElementId.get(rel.target) ?? null;
     if (!sourcePath || !targetPath) return [];
     return [
       { id: rel.id, sourcePath, targetPath, type: rel.type, label: rel.label },
