@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Konva from "konva";
 import { useC7One, detectIsDark } from "@levkobe/c7one";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
@@ -77,6 +77,13 @@ export function VisualCanvas() {
   const tickIntervalMs = useAppSelector((s) => s.execution.tickIntervalMs);
   const { colors } = useC7One();
   const isDark = detectIsDark(colors["--color-bg-base"]);
+  const canvasColors = useMemo(() => ({
+    accent: getCSSVariable("--color-accent"),
+    fgPrimary: getCSSVariable("--color-fg-primary"),
+    selected: getCSSVariable("--color-state-selected"),
+    bgSecondary: getCSSVariable("--color-bg-elevated"),
+    relationship: getCSSVariable("--color-fg-muted"),
+  }), [isDark]);
   const {
     interactionMode,
     activeElementType,
@@ -442,11 +449,7 @@ export function VisualCanvas() {
       viewState,
       connectingFromId,
       {
-        accent: getCSSVariable("--color-accent"),
-        fgPrimary: getCSSVariable("--color-fg-primary"),
-        selected: getCSSVariable("--color-state-selected"),
-        bgSecondary: getCSSVariable("--color-bg-elevated"),
-        relationship: getCSSVariable("--color-fg-muted"),
+        ...canvasColors,
       },
       {
         onPositionChange: (id, worldPos) => {
@@ -671,7 +674,7 @@ export function VisualCanvas() {
     model,
     viewState,
     connectingFromId,
-    isDark,
+    canvasColors,
     zoom,
     renderStyle,
     interactionMode,
