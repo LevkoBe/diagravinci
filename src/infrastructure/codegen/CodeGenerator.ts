@@ -104,7 +104,11 @@ export class CodeGenerator {
     }
   }
 
+  private static readonly INDENTS = Array.from({ length: 20 }, (_, i) =>
+    "  ".repeat(i),
+  );
+
   private getIndentation(level: number): string {
-    return "  ".repeat(level);
+    return CodeGenerator.INDENTS[level] ?? "  ".repeat(level);
   }
 }
