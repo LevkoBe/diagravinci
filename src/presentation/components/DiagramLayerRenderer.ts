@@ -12,7 +12,7 @@ import { PolygonElementRenderer } from "./rendering/elements/PolygonElementRende
 import type { IElementRenderer } from "./rendering/elements/BaseElementRenderer";
 import type { RenderStyle } from "../../application/store/uiSlice";
 
-import { computeElementSizes } from "./rendering/elementSizing";
+import { computeElementSizes, type ElementSizes } from "./rendering/elementSizing";
 
 function createElementRenderer(
   renderStyle: RenderStyle,
@@ -72,6 +72,7 @@ export class DiagramLayerRenderer {
     renderStyle: RenderStyle = "polygon",
     isReadonly = false,
     executionColorMap: Record<string, string> = {},
+    elementSizes?: ElementSizes,
   ) {
     this.stage = stage;
     this.model = model;
@@ -85,11 +86,8 @@ export class DiagramLayerRenderer {
     this.isReadonly = isReadonly;
     this.executionColorMap = executionColorMap;
 
-    const { pixelSizes, zoomHidden, zoomDimmed } = computeElementSizes(
-      model,
-      this.viewState,
-      zoom,
-    );
+    const { pixelSizes, zoomHidden, zoomDimmed } =
+      elementSizes ?? computeElementSizes(model, this.viewState, zoom);
     this.pixelSizes = pixelSizes;
 
     this.hiddenSet = new Set([...viewState.hiddenPaths, ...zoomHidden]);
