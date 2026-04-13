@@ -21,7 +21,7 @@ function saveUserCollections(collections: TemplateCollection[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(collections));
   } catch {
-    // Silently ignore quota errors
+    // quota exceeded
   }
 }
 

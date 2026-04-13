@@ -158,7 +158,6 @@ describe("ElementRenderer", () => {
 
       const result = renderer.render();
 
-      // Flat layout: group placed at its absolute world position, not relative to parent.
       expect(result?.group.x()).toBe(150);
       expect(result?.group.y()).toBe(150);
     });
@@ -879,7 +878,7 @@ describe("ElementRenderer", () => {
 
       const result = renderer.render();
       expect(result).toBeDefined();
-      // Icon element skips the text label path
+
       const textShapes = result?.group
         .getChildren()
         .filter((c) => c instanceof Konva.Text);
@@ -899,7 +898,7 @@ describe("ElementRenderer", () => {
         null,
         defaultColors,
         false,
-        true, // isDimmed
+        true,
         100,
         1,
       );
@@ -909,7 +908,6 @@ describe("ElementRenderer", () => {
     });
 
     it("falls through to text label when icon name is not found", () => {
-      // _not_a_real_icon_ — no matching lucide icon, falls through to text
       const element = MockElementFactory.createElement(
         "_not_a_real_icon_",
         "object",
@@ -932,7 +930,7 @@ describe("ElementRenderer", () => {
 
       const result = renderer.render();
       expect(result).toBeDefined();
-      // Falls through to text label since no icon matches
+
       const textShapes = result?.group
         .getChildren()
         .filter((c) => c instanceof Konva.Text);

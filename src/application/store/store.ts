@@ -1,4 +1,5 @@
 import { configureStore } from "@reduxjs/toolkit";
+import { AppConfig } from "../../config/appConfig";
 import diagramReducer from "./diagramSlice";
 import uiReducer from "./uiSlice";
 import filterReducer from "./filterSlice";
@@ -53,7 +54,7 @@ store.subscribe(() => {
   saveTimer = setTimeout(() => {
     saveState(store.getState());
     saveTimer = null;
-  }, 1000);
+  }, AppConfig.history.SAVE_DEBOUNCE_MS);
 });
 
 export const syncManager = new SyncManager(store);

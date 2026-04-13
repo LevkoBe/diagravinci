@@ -150,8 +150,7 @@ function adaptiveRelLabel(
   );
   const maxWidth = Math.max(lineLen * 0.7, 40);
 
-  // Heuristic: avg char width ≈ 0.6 × fontSize; target 80% of maxWidth
-  const heuristicFont = (maxWidth * 0.8) / (text.length * 0.6);
+  const heuristicFont = (maxWidth * VConfig.elements.LABEL_TARGET_WIDTH_RATIO) / (text.length * VConfig.elements.CHAR_WIDTH_RATIO);
   const fontSize = Math.max(RC.REL_LABEL_MIN_FONT, Math.min(RC.REL_LABEL_MAX_FONT_THRESHOLD, heuristicFont));
   const useEllipsis = heuristicFont < RC.REL_LABEL_MIN_FONT;
 

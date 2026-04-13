@@ -36,7 +36,6 @@ export class DiagramLayerRenderer {
   private readonly renderStyle: RenderStyle;
 
   private readonly isReadonly: boolean;
-  /** elementId → color for execution-generated clones (derived, not stored in viewState). */
   private readonly executionColorMap: Record<string, string>;
 
   constructor(
@@ -97,9 +96,6 @@ export class DiagramLayerRenderer {
       const element = this.model.elements[id];
       if (element) this.renderRecursive(element, elementLayer, id);
     });
-
-    // Depth-first traversal guarantees parents are added before children,
-    // so children naturally render on top in Konva's draw order.
 
     relationshipLayer.batchDraw();
     elementLayer.batchDraw();

@@ -1,10 +1,12 @@
+import type { ViewState } from "./ViewState";
+
 export interface DiagramTemplate {
   id: string;
   name: string;
   description: string;
   tags: string[];
 
-  preferredView: "circular" | "hierarchical" | "timeline" | "pipeline";
+  preferredView: ViewState["viewMode"];
 
   code: string;
 }

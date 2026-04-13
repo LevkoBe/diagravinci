@@ -147,4 +147,31 @@ describe("Lexer", () => {
     const tokens = new Lexer("player o--owns-- tool").tokenize();
     expect(tokens.some((t) => t.type === "o--")).toBe(true);
   });
+
+  it("tokenizes a standalone number as an IDENTIFIER", () => {
+    const tokens = new Lexer("42").tokenize();
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].type).toBe("IDENTIFIER");
+    expect(tokens[0].value).toBe("42");
+  });
+
+  it("tokenizes a number mixed with other tokens", () => {
+    const tokens = new Lexer("step1 --> 42").tokenize();
+    const identifiers = tokens.filter((t) => t.type === "IDENTIFIER");
+
+    expect(identifiers.some((t) => t.value === "42")).toBe(true);
+  });
+
+  it("tokenizes multi-digit number", () => {
+    const tokens = new Lexer("100").tokenize();
+    expect(tokens[0].value).toBe("100");
+    expect(tokens[0].type).toBe("IDENTIFIER");
+  });
+
+  it("skips unknown characters gracefully", () => {
+    const tokens = new Lexer("foo @ bar").tokenize();
+    const identifiers = tokens.filter((t) => t.type === "IDENTIFIER");
+    expect(identifiers.map((t) => t.value)).toContain("foo");
+    expect(identifiers.map((t) => t.value)).toContain("bar");
+  });
 });

@@ -1,4 +1,5 @@
 import type { AppStore, RootState } from "./store/store";
+import { AppConfig } from "../config/appConfig";
 import { setModel, setViewState, setCode } from "./store/diagramSlice";
 import { syncPresetsFromTab } from "./store/filterSlice";
 import type { FilterPreset } from "../domain/models/Selector";
@@ -96,7 +97,7 @@ export class TabSyncManager {
         positions: curr.diagram.viewState.positions,
         relationships: curr.diagram.viewState.relationships,
       } satisfies TabMessage);
-    }, 300);
+    }, AppConfig.ui.TAB_BROADCAST_DEBOUNCE_MS);
   }
 
   private broadcastPresets(state: RootState) {

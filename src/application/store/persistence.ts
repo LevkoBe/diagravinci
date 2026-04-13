@@ -3,6 +3,7 @@ import type { FilterState } from "./filterSlice";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { DiagramState } from "./diagramSlice";
 import type { ViewState } from "../../domain/models/ViewState";
+import { AppConfig } from "../../config/appConfig";
 
 const DB_NAME = "diagravinci_db";
 const DB_VERSION = 1;
@@ -43,16 +44,7 @@ type AppState = {
   };
 };
 
-const FALLBACK_COLORS = [
-  "#e05c5c",
-  "#e07a2f",
-  "#d4a017",
-  "#5cb85c",
-  "#2f9ee0",
-  "#7b5ce0",
-  "#d45cb8",
-  "#5ce0c8",
-];
+const FALLBACK_COLORS = AppConfig.ui.COLOR_PALETTE;
 
 let _db: IDBDatabase | null = null;
 
@@ -98,7 +90,7 @@ async function idbSet(key: string, value: unknown): Promise<void> {
       req.onerror = () => reject(req.error);
     });
   } catch {
-    // Silently ignore
+    // quota exceeded
   }
 }
 
@@ -187,13 +179,10 @@ export function saveState(state: AppState): void {
   try {
     localStorage.setItem(STATE_KEY, JSON.stringify(persisted));
   } catch {
-    // Quota exceeded — IDB will serve the data on next load
+    // quota exceeded — IDB serves as fallback
   }
 }
 
-// loadSplitterWidth / saveSplitterWidth are no longer needed now that
-// App.tsx uses DynamicPanelRoot with its own storageKey persistence.
-// Kept here as no-ops to avoid breaking any residual imports.
 export function loadSplitterWidth(defaultWidth: number): number {
   return defaultWidth;
 }

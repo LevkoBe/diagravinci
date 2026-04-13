@@ -35,7 +35,12 @@ describe("RelationshipRenderer", () => {
 
   it("renders nothing when there are no relationships", () => {
     const viewState = makeViewState();
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(),
+    );
     renderer.render(layer);
     expect(layer.getChildren().length).toBe(0);
   });
@@ -47,7 +52,12 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "-->")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(),
+    );
     renderer.render(layer);
     expect(layer.getChildren().length).toBeGreaterThan(0);
   });
@@ -59,7 +69,12 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "-->")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(["a"]), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(["a"]),
+      new Set(),
+    );
     renderer.render(layer);
     expect(layer.getChildren().length).toBe(0);
   });
@@ -71,7 +86,12 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "-->")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(["b"]), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(["b"]),
+      new Set(),
+    );
     renderer.render(layer);
     expect(layer.getChildren().length).toBe(0);
   });
@@ -83,7 +103,12 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "-->")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set(["a"]));
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(["a"]),
+    );
     renderer.render(layer);
     const group = layer.getChildren()[0] as Konva.Group;
     expect(group.opacity()).toBeLessThan(1);
@@ -96,7 +121,12 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "-->", "uses")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(),
+    );
     renderer.render(layer);
     const group = layer.getChildren()[0] as Konva.Group;
     const texts = group.getChildren().filter((c) => c instanceof Konva.Text);
@@ -110,7 +140,12 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "<--")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(),
+    );
     renderer.render(layer);
     expect(layer.getChildren().length).toBeGreaterThan(0);
   });
@@ -122,7 +157,12 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "..>")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(),
+    );
     renderer.render(layer);
     expect(layer.getChildren().length).toBeGreaterThan(0);
   });
@@ -134,7 +174,12 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "*--")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(),
+    );
     renderer.render(layer);
     expect(layer.getChildren().length).toBeGreaterThan(0);
   });
@@ -146,7 +191,12 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "--|>")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(),
+    );
     renderer.render(layer);
     expect(layer.getChildren().length).toBeGreaterThan(0);
   });
@@ -157,7 +207,12 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "-->")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(),
+    );
     renderer.render(layer);
     expect(layer.getChildren().length).toBe(0);
   });
@@ -169,7 +224,12 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "-->")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(),
+    );
     renderer.render(layer);
 
     expect(() => {
@@ -188,7 +248,12 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "-->", "calls")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(),
+    );
     renderer.render(layer);
 
     renderer.updateLinePosition("a", (path) => {
@@ -196,7 +261,7 @@ describe("RelationshipRenderer", () => {
       if (path === "b") return { x: 300, y: 100 };
       return null;
     });
-    // The group should still have children after update
+
     const group = layer.getChildren()[0] as Konva.Group;
     expect(group.getChildren().length).toBeGreaterThan(0);
   });
@@ -208,7 +273,12 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "<--")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(),
+    );
     renderer.render(layer);
 
     expect(() => {
@@ -227,7 +297,12 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "-->")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(),
+    );
     renderer.render(layer);
 
     expect(() => {
@@ -242,7 +317,12 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "-->")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(),
+    );
     renderer.render(layer);
 
     expect(() => {
@@ -256,9 +336,14 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "a", "-->")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(),
+    );
     renderer.render(layer);
-    // Zero-length line returns null points, so no group should be added
+
     expect(layer.getChildren().length).toBe(0);
   });
 
@@ -269,11 +354,15 @@ describe("RelationshipRenderer", () => {
       .addRelationship("r1", "a", "b", "-->")
       .build();
 
-    const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+    const renderer = new RelationshipRenderer(
+      viewState,
+      defaultColors,
+      new Set(),
+      new Set(),
+    );
     renderer.render(layer);
     renderer.clear();
 
-    // After clear, updateLinePosition should do nothing (no group stored)
     expect(() => {
       renderer.updateLinePosition("a", () => ({ x: 200, y: 100 }));
     }).not.toThrow();

@@ -279,44 +279,215 @@ describe("FilterResolver.resolve", () => {
 
 describe("FilterResolver.equal", () => {
   it("returns true for equal filter lists", () => {
-    const a = { hiddenPaths: ["x", "y"], dimmedPaths: ["z"], foldedPaths: [], coloredPaths: {} };
-    const b = { hiddenPaths: ["y", "x"], dimmedPaths: ["z"], foldedPaths: [], coloredPaths: {} };
+    const a = {
+      hiddenPaths: ["x", "y"],
+      dimmedPaths: ["z"],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
+    const b = {
+      hiddenPaths: ["y", "x"],
+      dimmedPaths: ["z"],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
     expect(FilterResolver.equal(a, b)).toBe(true);
   });
 
   it("returns false when hidden paths differ", () => {
-    const a = { hiddenPaths: ["x"], dimmedPaths: [], foldedPaths: [], coloredPaths: {} };
-    const b = { hiddenPaths: ["y"], dimmedPaths: [], foldedPaths: [], coloredPaths: {} };
+    const a = {
+      hiddenPaths: ["x"],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
+    const b = {
+      hiddenPaths: ["y"],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
     expect(FilterResolver.equal(a, b)).toBe(false);
   });
 
   it("returns false when dimmed paths differ", () => {
-    const a = { hiddenPaths: [], dimmedPaths: ["x"], foldedPaths: [], coloredPaths: {} };
-    const b = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: {} };
+    const a = {
+      hiddenPaths: [],
+      dimmedPaths: ["x"],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
+    const b = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
     expect(FilterResolver.equal(a, b)).toBe(false);
   });
 
   it("returns false when folded paths differ", () => {
-    const a = { hiddenPaths: [], dimmedPaths: [], foldedPaths: ["x"], coloredPaths: {} };
-    const b = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: {} };
+    const a = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: ["x"],
+      coloredPaths: {},
+    };
+    const b = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
     expect(FilterResolver.equal(a, b)).toBe(false);
   });
 
   it("returns false when colored paths differ", () => {
-    const a = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: { "a": "#ff0000" } };
-    const b = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: {} };
+    const a = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: { a: "#ff0000" },
+    };
+    const b = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
     expect(FilterResolver.equal(a, b)).toBe(false);
   });
 
   it("returns true for equal colored paths with multiple entries regardless of insertion order", () => {
-    const a = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: { "b": "#0000ff", "a": "#ff0000" } };
-    const b = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: { "a": "#ff0000", "b": "#0000ff" } };
+    const a = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: { b: "#0000ff", a: "#ff0000" },
+    };
+    const b = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: { a: "#ff0000", b: "#0000ff" },
+    };
     expect(FilterResolver.equal(a, b)).toBe(true);
   });
 
   it("returns false when multiple colored paths differ in values", () => {
-    const a = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: { "a": "#ff0000", "b": "#00ff00" } };
-    const b = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: { "a": "#ff0000", "b": "#0000ff" } };
+    const a = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: { a: "#ff0000", b: "#00ff00" },
+    };
+    const b = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: { a: "#ff0000", b: "#0000ff" },
+    };
     expect(FilterResolver.equal(a, b)).toBe(false);
+  });
+
+  it("handles missing coloredPaths gracefully (treats as empty)", () => {
+    const a = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: undefined as unknown as Record<string, string>,
+    };
+    const b = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
+    expect(FilterResolver.equal(a, b)).toBe(true);
+  });
+});
+
+describe("FilterResolver.resolve — matchesPreset edge cases", () => {
+  it("active hide preset with empty atoms treats all paths as unmatched (hidden)", () => {
+    const filterState: FilterState = {
+      presets: [
+        {
+          id: "empty",
+          label: "empty",
+          mode: "hide",
+          isActive: true,
+          color: "#f00",
+          selector: { atoms: [], combiner: "" },
+        },
+      ],
+      foldLevel: 1,
+      foldActive: false,
+      manuallyFolded: [],
+      manuallyUnfolded: [],
+      _rev: 0,
+    };
+    const positions = makePositions(["a"]);
+    const model = makeModel(["a"]);
+    const result = FilterResolver.resolve(filterState, positions, model);
+    expect(result.hiddenPaths).toContain("a");
+  });
+
+  it("dim preset with a non-matching atom dims unmatched paths", () => {
+    const filterState: FilterState = {
+      presets: [
+        {
+          id: "p1",
+          label: "p1",
+          mode: "dim",
+          isActive: true,
+          color: "#f00",
+          selector: {
+            atoms: [
+              { id: "a0", types: [], path: "^NOMATCH$", meta: { kind: "raw" } },
+            ],
+            combiner: "",
+          },
+        },
+      ],
+      foldLevel: 1,
+      foldActive: false,
+      manuallyFolded: [],
+      manuallyUnfolded: [],
+      _rev: 0,
+    };
+    const positions = makePositions(["x"]);
+    const model = makeModel(["x"]);
+    const result = FilterResolver.resolve(filterState, positions, model);
+    expect(result.dimmedPaths).toContain("x");
+  });
+
+  it("matchesPreset handles element not in model (type defaults to empty string)", () => {
+    const filterState: FilterState = {
+      presets: [
+        {
+          id: "p1",
+          label: "p1",
+          mode: "color",
+          isActive: true,
+          color: "#aabbcc",
+          selector: {
+            atoms: [
+              { id: "a0", types: [], path: "ghost", meta: { kind: "raw" } },
+            ],
+            combiner: "",
+          },
+        },
+      ],
+      foldLevel: 1,
+      foldActive: false,
+      manuallyFolded: [],
+      manuallyUnfolded: [],
+      _rev: 0,
+    };
+
+    const positions = makePositions(["ghost"]);
+    const model = makeModel([]);
+    const result = FilterResolver.resolve(filterState, positions, model);
+    expect(result).toBeDefined();
   });
 });

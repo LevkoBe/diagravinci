@@ -30,7 +30,6 @@ export type RelationshipType =
 export type OpeningWrapper = (typeof OPENING_WRAPPERS)[number];
 export type ClosingWrapper = (typeof CLOSING_WRAPPERS)[number];
 export type NameType = "IDENTIFIER";
-// TokenKind maps to the 5 types above
 export type TokenKind = "-" | ">" | "{" | "}" | "x" | "=";
 
 export type TokenType = (typeof TOKEN_LITERALS)[number] | NameType | "NEWLINE";

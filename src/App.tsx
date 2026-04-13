@@ -71,8 +71,6 @@ const WINDOWS: WindowDef[] = [
   },
 ];
 
-// 12% is a safe starting point — ToolBar measures itself on mount and calls
-// moveDivider to snap to the exact needed height immediately after first render.
 const DEFAULT_LAYOUT: LayoutNodeDecl = {
   type: "group",
   direction: "vertical",

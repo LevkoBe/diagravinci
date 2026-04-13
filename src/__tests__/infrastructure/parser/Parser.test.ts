@@ -602,3 +602,33 @@ describe("Parser", () => {
     expect(c.childIds).toContain(a.id);
   });
 });
+
+describe("Parser edge cases", () => {
+  const parse = (input: string) => {
+    const tokens = new Lexer(input).tokenize();
+    return new Parser(tokens).parse();
+  };
+
+  it("silently skips stray '=' tokens (unrecognised token default branch)", () => {
+    const model = parse("a = b");
+
+    const ids = Object.keys(model.elements);
+    expect(ids).toContain("a");
+    expect(ids).toContain("b");
+  });
+
+  it("parses empty input without error", () => {
+    const model = parse("");
+    expect(Object.keys(model.elements)).toHaveLength(0);
+  });
+
+  it("parses redundant closing wrapper without error", () => {
+    expect(() => parse("a } b")).not.toThrow();
+  });
+
+  it("throws when nesting depth exceeds MAX_NESTING_DEPTH", () => {
+    const depth = 1002;
+    const open = "a" + "{a".repeat(depth);
+    expect(() => parse(open)).toThrow("Maximum parser nesting depth exceeded");
+  });
+});

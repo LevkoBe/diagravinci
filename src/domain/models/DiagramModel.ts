@@ -45,10 +45,6 @@ export function addElement(
   };
 }
 
-/**
- * Returns all element IDs in the subtree rooted at `rootId` (including the root).
- * Cycle-safe via a visited set.
- */
 export function getSubtreeIds(
   rootId: string,
   elements: Record<string, Element>,

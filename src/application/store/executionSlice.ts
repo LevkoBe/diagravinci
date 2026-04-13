@@ -1,14 +1,11 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { AppConfig } from "../../config/appConfig";
 
 export interface TokenInstance {
   id: string;
-  /** The diagram element this instance is currently anchored to. */
   currentElementId: string;
-  /** The viewState path for the current element (e.g. "mid" or "parent.mid"). */
   currentPath: string;
-  /** Real element IDs that were added to the model for this instance. */
   clonedElementIds: string[];
-  /** Real relationship IDs that were added to the model for this instance. */
   clonedRelationshipIds: string[];
 }
 
@@ -18,12 +15,9 @@ interface ExecutionState {
   status: ExecutionStatus;
   tickCount: number;
   instances: TokenInstance[];
-  /** Auto-increment counter used to generate unique clone suffixes. */
   nextInstanceId: number;
   tickIntervalMs: number;
-  /** When true, cloned elements survive a reset (they become permanent). */
   materialize: boolean;
-  /** Stroke/fill color applied to generated element clones. */
   executionColor: string;
 }
 
@@ -32,9 +26,9 @@ const initialState: ExecutionState = {
   tickCount: 0,
   instances: [],
   nextInstanceId: 0,
-  tickIntervalMs: 500,
+  tickIntervalMs: AppConfig.execution.DEFAULT_TICK_INTERVAL_MS,
   materialize: false,
-  executionColor: "#f97316",
+  executionColor: AppConfig.execution.TOKEN_COLOR,
 };
 
 const executionSlice = createSlice({

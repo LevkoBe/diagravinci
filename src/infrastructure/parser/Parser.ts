@@ -65,13 +65,12 @@ export class Parser {
       switch (this.peek()?.kind) {
         case "}":
           if (this.peek()?.type === "|") {
-            // || state: sets type of the preceding element (like { [ ( <)
             lastEl = this.parseOpeningWrapper(parent, lastRel, lastEl, depth, "|");
             lastRel = null;
             break;
           }
           if (this.peek()?.type !== ">") {
-            this.next(); // skip redundant wrapper
+            this.next();
             lastEl = null;
             break;
           }
@@ -100,7 +99,7 @@ export class Parser {
           break;
         }
         default:
-          this.next(); // skip unrecognized token (e.g., stray "=")
+          this.next();
           break;
       }
     }

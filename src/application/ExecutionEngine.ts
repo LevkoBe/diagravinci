@@ -6,28 +6,21 @@ import type { TokenInstance } from "./store/executionSlice";
 
 export type { TokenInstance };
 
-/**
- * Describes all model/viewState mutations produced by one execution tick.
- */
 export interface ExecutionStepDelta {
-  /** Add new clone elements as children of a specific parent element. */
   addElements: Array<{
     element: Element;
     parentElementId: string;
     path: string;
     posEntry: PositionedElement;
-    /** Element ID that generated this clone — used to animate spawn from origin. */
     spawnOriginId: string;
   }>;
   addRelationships: Relationship[];
-  /** Remove consumed clone elements from their parent. */
   removeElements: Array<{
     elementId: string;
     parentElementId: string;
     path: string;
   }>;
   removeRelationshipIds: string[];
-  /** Move propagated clones from one parent element to the next. */
   moveElements: Array<{
     elementId: string;
     fromParentId: string;
@@ -44,12 +37,6 @@ export interface StepResult {
   nextInstanceId: number;
 }
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
-
-/**
- * Any directed relationship carries execution tokens EXCEPT inheritance (`--|>`, `..|>`).
- * This includes both solid `-->` and dotted `..>` arrows.
- */
 function isFlowRelationship(type: string): boolean {
   return type.includes(">") && !type.includes("|>");
 }
@@ -64,7 +51,6 @@ function buildOutgoingMap(model: DiagramModel): Record<string, string[]> {
   return outgoing;
 }
 
-/** Find the viewState path for an element (prefers shortest/direct match). */
 function findElementPath(viewState: ViewState, elementId: string): string {
   if (viewState.positions[elementId]) return elementId;
   let found: string | null = null;
@@ -78,17 +64,9 @@ function findElementPath(viewState: ViewState, elementId: string): string {
 
 interface ClonedItem {
   element: Element;
-  /** null = direct child of the source; otherwise the clone ID of the parent. */
   parentCloneId: string | null;
 }
 
-/**
- * Clones the subtree rooted at each ID in `rootChildIds` using `suffix` to
- * make IDs unique. Returns a flat list with each item's correct parent clone ID
- * so that callers can set `parentElementId` accurately (top-level items have
- * parentCloneId === null, nested items have their parent's clone ID).
- * Also clones any relationships whose both endpoints live inside the subtree.
- */
 function cloneSubtree(
   model: DiagramModel,
   rootChildIds: string[],
@@ -137,10 +115,6 @@ function cloneSubtree(
   return { all, relationships };
 }
 
-/**
- * Recursively collects all elements in the subtree rooted at `rootId`
- * (including the root) so they can all be added to removeElements.
- */
 function collectSubtreeRemoves(
   model: DiagramModel,
   rootId: string,
@@ -164,25 +138,18 @@ function collectSubtreeRemoves(
   return result;
 }
 
-/** Strips trailing `_N` numeric suffix from a clone ID to recover the original name. */
 function baseName(id: string): string {
   return id.replace(/_\d+$/, "");
 }
 
-/** True for `gen` function elements (spontaneous generators). */
 function isGen(el: Element): boolean {
   return el.type === "function" && el.id === "gen";
 }
 
-/** True for `round_robin` function elements (incoming round-robin routers). */
 function isRoundRobin(el: Element): boolean {
   return el.type === "function" && el.id === "round_robin";
 }
 
-/**
- * Moves all clones of an instance to a new target element and records a
- * forwarded instance for the next tick.
- */
 function forwardInstance(
   instance: TokenInstance,
   nextTargetId: string,
@@ -208,31 +175,6 @@ function forwardInstance(
   });
 }
 
-// ─── main export ─────────────────────────────────────────────────────────────
-
-/**
- * Pure function: computes the next execution step.
- *
- * Execution behavior is determined by element type and reserved names — no
- * element `props` are used.
- *
- * ── Element behaviour summary ──────────────────────────────────────────────
- *  `gen()`       function named "gen": spontaneous generator — clones its
- *                template children every tick and forwards to next element.
- *  `round_robin()` function named "round_robin": incoming router — distributes
- *                arriving tokens round-robin across outgoing targets.
- *  `()` function (other): trigger-based — consumes arriving tokens, then
- *                produces its own template children at the next element.
- *                If no template children, passes tokens through unchanged.
- *  `{}` object   — absorbs all arriving tokens; does not forward.
- *  `[]` collection — type filter on input (template child types); accumulates
- *                at dead-end; forwards when outgoing path exists.
- *  `||` state    — pass-through 1:1.
- *  `>>` flow     — type filter: only passes tokens whose type matches a
- *                template child type; empty = pass all.
- *  `<>` choice   — routes 1:1 via yes/no branches. Each template child is a
- *                selector {type, name-regex}; first match → yes, none → no.
- */
 export function computeExecutionStep(
   model: DiagramModel,
   viewState: ViewState,
@@ -255,13 +197,11 @@ export function computeExecutionStep(
 
   const outgoing = buildOutgoingMap(model);
 
-  // Round-robin routing index derived from the instance ID (persistent across ticks).
   function instanceRoundRobinIdx(instanceId: string): number {
     const m = instanceId.match(/(\d+)$/);
     return m ? parseInt(m[1], 10) : 0;
   }
 
-  // Build allCloneIds BEFORE Step 1 so type/name checks can exclude clones.
   const allCloneIds = new Set<string>();
   for (const inst of instances) {
     for (const topId of inst.clonedElementIds) {
@@ -274,17 +214,14 @@ export function computeExecutionStep(
     }
   }
 
-  /** Original (non-clone) children of an element that exist in the model. */
   function templateChildren(el: Element): string[] {
     return el.childIds.filter((id) => !allCloneIds.has(id) && model.elements[id]);
   }
 
-  /** Set of types from an element's template children. */
   function templateChildTypes(el: Element): Set<string> {
     return new Set(templateChildren(el).map((id) => model.elements[id]!.type));
   }
 
-  // ── Step 1: propagate existing instances ─────────────────────────────────
   for (const instance of instances) {
     const currentEl = model.elements[instance.currentElementId];
 
@@ -304,8 +241,6 @@ export function computeExecutionStep(
       }
     };
 
-    // `{}` object: absorbs all arriving tokens regardless of name.
-    // (Name-based update of stored children is a future feature.)
     if (currentEl?.type === "object") {
       removeInstanceClones();
       continue;
@@ -315,17 +250,15 @@ export function computeExecutionStep(
       (tid) => model.elements[tid] !== undefined,
     );
 
-    // Dead-end handling.
     if (targets.length === 0) {
       if (currentEl?.type === "collection" || currentEl?.type === "state") {
         nextInstances.push(instance); // accumulate indefinitely
       } else {
-        removeInstanceClones(); // consume and drop
+        removeInstanceClones();
       }
       continue;
     }
 
-    // `>>` flow: type filter — drop tokens not matching template child types.
     if (currentEl?.type === "flow") {
       const allowed = templateChildTypes(currentEl);
       if (allowed.size > 0) {
@@ -337,10 +270,8 @@ export function computeExecutionStep(
           continue;
         }
       }
-      // Matched or no filter — fall through to forwarding.
     }
 
-    // `[]` collection: same type filter on incoming tokens.
     if (currentEl?.type === "collection") {
       const allowed = templateChildTypes(currentEl);
       if (allowed.size > 0) {
@@ -352,14 +283,11 @@ export function computeExecutionStep(
           continue;
         }
       }
-      // Matched or no filter — fall through to forwarding.
     }
 
-    // `<>` choice: type + name-regex routing.
     if (currentEl?.type === "choice" && targets.length > 1) {
       const selectors = templateChildren(currentEl).map((id) => ({
         type: model.elements[id]!.type as string,
-        // Anonymous children (anon_*) match any name of the right type.
         pattern: id.startsWith("anon_") ? null : id,
       }));
 
@@ -369,11 +297,11 @@ export function computeExecutionStep(
           const cloneEl = model.elements[cid];
           return selectors.some((s) => {
             if (cloneEl?.type !== s.type) return false;
-            if (s.pattern === null) return true; // type-only match
+            if (s.pattern === null) return true;
             try {
               return new RegExp(s.pattern).test(baseName(cid));
             } catch {
-              return s.pattern === baseName(cid); // fallback: literal match
+              return s.pattern === baseName(cid);
             }
           });
         });
@@ -396,16 +324,13 @@ export function computeExecutionStep(
       continue;
     }
 
-    // `()` function: three sub-cases by name.
     if (currentEl?.type === "function") {
       if (isGen(currentEl)) {
-        // gen absorbs tokens that arrive to prevent feedback loops.
         removeInstanceClones();
         continue;
       }
 
       if (isRoundRobin(currentEl)) {
-        // round_robin: forward clones round-robin to the next target.
         const nextTargetId = targets[instanceRoundRobinIdx(instance.id) % targets.length];
         const nextTargetPath = findElementPath(viewState, nextTargetId);
         const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
@@ -413,17 +338,14 @@ export function computeExecutionStep(
         continue;
       }
 
-      // Regular function (trigger-based):
       const tmplChildIds = templateChildren(currentEl);
 
       if (tmplChildIds.length === 0) {
-        // No template children — pass incoming tokens through unchanged.
         const nextTargetId = targets[0];
         const nextTargetPath = findElementPath(viewState, nextTargetId);
         const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
         forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
       } else {
-        // Consume incoming, then produce template children at next target.
         removeInstanceClones();
         const nextTargetId = targets[0];
         const nextTargetPath = findElementPath(viewState, nextTargetId);
@@ -480,25 +402,18 @@ export function computeExecutionStep(
       continue;
     }
 
-    // Default forwarding: state, collection (after type-filter), flow (after type-filter).
     const nextTargetId = targets[0];
     const nextTargetPath = findElementPath(viewState, nextTargetId);
     const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
     forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
   }
 
-  // ── Step 2: spontaneous generation — only `gen` function elements ──────────
-  //
-  // allCloneIds was already built above and is reused here to distinguish
-  // template children from execution-placed clones.
   for (const element of Object.values(model.elements)) {
     if (!isGen(element)) continue;
 
     const targets = outgoing[element.id] ?? [];
     if (targets.length === 0) continue;
 
-    // When gen has no template children, borrow from the first target's template
-    // children so that `gen()` "generates everything the consumer consumes".
     let tmplChildIds = templateChildren(element);
     if (tmplChildIds.length === 0) {
       const firstTarget = model.elements[targets[0]];
@@ -564,7 +479,6 @@ export function computeExecutionStep(
   return { delta, nextInstances, nextInstanceId: idCounter };
 }
 
-/** Returns the set of element IDs that belong to active instances. */
 export function getExecutionColorMap(
   instances: TokenInstance[],
   color: string,
@@ -578,15 +492,10 @@ export function getExecutionColorMap(
   return map;
 }
 
-/**
- * Applies an ExecutionStepDelta to a model immutably (spread-based, no mutation).
- * Returns the new model state after adds, removes, and moves.
- */
 export function applyDeltaToModel(
   model: DiagramModel,
   delta: ExecutionStepDelta,
 ): DiagramModel {
-  // Shallow-copy elements (with childIds arrays cloned)
   const elements: Record<string, Element> = {};
   for (const [id, el] of Object.entries(model.elements)) {
     elements[id] = { ...el, childIds: [...el.childIds] };
@@ -594,7 +503,6 @@ export function applyDeltaToModel(
   const relationships = { ...model.relationships };
   const root = { ...model.root, childIds: [...model.root.childIds] };
 
-  // Add new clone elements as children of their parent
   for (const { element, parentElementId } of delta.addElements) {
     elements[element.id] = { ...element, childIds: [...element.childIds] };
     const parent = elements[parentElementId];
@@ -603,12 +511,10 @@ export function applyDeltaToModel(
     }
   }
 
-  // Add new relationships
   for (const rel of delta.addRelationships) {
     relationships[rel.id] = rel;
   }
 
-  // Remove consumed elements
   for (const { elementId, parentElementId } of delta.removeElements) {
     delete elements[elementId];
     const parent = elements[parentElementId];
@@ -617,12 +523,10 @@ export function applyDeltaToModel(
     }
   }
 
-  // Remove consumed relationships
   for (const id of delta.removeRelationshipIds) {
     delete relationships[id];
   }
 
-  // Move elements: detach from old parent, attach to new parent
   for (const { elementId, fromParentId, toParentId } of delta.moveElements) {
     const fromParent = elements[fromParentId];
     if (fromParent) {
@@ -637,10 +541,6 @@ export function applyDeltaToModel(
   return { ...model, root, elements, relationships };
 }
 
-/**
- * Returns a new model with all execution-generated clones removed.
- * Used when resetting execution with materialize = false.
- */
 export function buildCleanedModel(
   model: DiagramModel,
   instances: TokenInstance[],

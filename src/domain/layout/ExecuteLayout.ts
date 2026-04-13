@@ -12,10 +12,6 @@ import type { ViewState, PositionedElement } from "../models/ViewState";
 import { layoutWeight } from "./LayoutUtils";
 import CircularLayout from "./CircularLayout";
 
-/**
- * Computes circular child positions relative to (0, 0), identical to
- * CircularLayout.computePositions but accessible as a plain function.
- */
 function circularChildPositions(
   children: Element[],
   model: DiagramModel,
@@ -56,17 +52,6 @@ function circularChildPositions(
   }));
 }
 
-/**
- * Layout used in execute mode.
- *
- * Preserves positions for all elements that already have them so manually
- * placed elements are never repositioned during execution. For new elements
- * (execution-generated clones) it computes their positions using the same
- * circular algorithm as the normal layout, spreading them around their parent.
- * Stale positions (for elements no longer in the model) are removed.
- *
- * Falls back to a full CircularLayout when there are no prior positions.
- */
 export class ExecuteLayout implements LayoutAlgorithm {
   name = "execute";
 
@@ -86,11 +71,6 @@ export class ExecuteLayout implements LayoutAlgorithm {
       ...previousViewState.positions,
     };
 
-    // Remove positions for paths that are no longer structurally valid.
-    // A path "A.B.C" is valid iff A is in root.childIds, B is in A.childIds,
-    // and C is in B.childIds. This also removes stale paths left when clones
-    // are re-parented during execution (e.g. "oldParent.clone_1" after the
-    // clone moves to "newParent.clone_1").
     for (const path of Object.keys(positions)) {
       const segments = path.split(".");
       let valid = true;
@@ -105,9 +85,6 @@ export class ExecuteLayout implements LayoutAlgorithm {
       if (!valid) delete positions[path];
     }
 
-    // Add positions for elements that are in the model but not yet placed.
-    // Uses the same circular math as the normal layout so clones spread out
-    // properly around their parent rather than all stacking at the same point.
     const addMissing = (elementId: string, parentPath: string | null): void => {
       const el = model.elements[elementId];
       if (!el || el.childIds.length === 0) return;
@@ -127,16 +104,12 @@ export class ExecuteLayout implements LayoutAlgorithm {
       });
 
       if (newChildren.length === 0) {
-        // All children already have positions — recurse into them.
         for (const child of children) {
           addMissing(child.id, myPath);
         }
         return;
       }
 
-      // When any child is new (execution clone arrived or element was reparented
-      // here), recompute circular positions for ALL children so that siblings
-      // spread out evenly instead of piling on top of each other.
       const offsets = circularChildPositions(children, model, containerSize);
       children.forEach((child, i) => {
         const childPath = `${myPath}.${child.id}`;
@@ -153,14 +126,10 @@ export class ExecuteLayout implements LayoutAlgorithm {
       });
     };
 
-    // Walk root-level children first so their positions are established before
-    // we recurse into their children.
     for (const id of model.root.childIds) {
       addMissing(id, null);
     }
 
-    // Fallback: root-level elements that still have no position (e.g. newly typed
-    // while in execute mode). Place them to the right of everything already placed.
     const unpositioned = model.root.childIds.filter(
       (id) => model.elements[id] && !positions[id],
     );
@@ -180,7 +149,6 @@ export class ExecuteLayout implements LayoutAlgorithm {
           value: 1,
         };
         x += DEFAULT_SIZE + 40;
-        // Now that this element has a position, also place its children.
         addMissing(id, null);
       }
     }

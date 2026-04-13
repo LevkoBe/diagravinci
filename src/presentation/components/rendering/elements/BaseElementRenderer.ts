@@ -119,7 +119,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       : (rawId ?? this.element.type.toUpperCase());
     const maxWidth = this.size * ec.LABEL_WIDTH_RATIO;
     const zoomFactor = Math.max(this.zoom, 0.01);
-    const heuristicFont = (maxWidth * 0.8) / (labelText.length * 0.6);
+    const heuristicFont = (maxWidth * ec.LABEL_TARGET_WIDTH_RATIO) / (labelText.length * ec.CHAR_WIDTH_RATIO);
     const minFont = ec.LABEL_MIN_FONT / zoomFactor;
     const maxFont = ec.LABEL_MAX_FONT_THRESHOLD / zoomFactor;
     const fontSize = Math.max(minFont, Math.min(maxFont, heuristicFont));
@@ -172,10 +172,10 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       group.add(
         new Konva.Text({
           text: "↺",
-          fontSize: Math.max(10, size * 0.28),
+          fontSize: Math.max(ec.LABEL_MIN_FONT, size * dc.RECURSIVE_TEXT_SIZE_RATIO),
           fill: dc.RECURSIVE_COLOR,
-          x: size * 0.18,
-          y: -(size / 2 + 16),
+          x: size * dc.RECURSIVE_TEXT_X_RATIO,
+          y: -(size / 2 + dc.RECURSIVE_TEXT_OFFSET),
           listening: false,
         }),
       );

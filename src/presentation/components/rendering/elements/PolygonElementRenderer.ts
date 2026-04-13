@@ -16,7 +16,6 @@ export class PolygonElementRenderer extends BaseElementRenderer {
 
     switch (this.element.type) {
       case "object": {
-        // Hexagon
         shape = new Konva.RegularPolygon({
           sides: 6,
           radius: r,
@@ -28,7 +27,6 @@ export class PolygonElementRenderer extends BaseElementRenderer {
         break;
       }
       case "collection": {
-        // Rectangle — queue/list container
         shape = new Konva.Rect({
           width: size,
           height: size,
@@ -41,7 +39,6 @@ export class PolygonElementRenderer extends BaseElementRenderer {
         break;
       }
       case "state": {
-        // Octagon — distinct from collection rectangle
         shape = new Konva.RegularPolygon({
           sides: 8,
           radius: r,
@@ -53,7 +50,6 @@ export class PolygonElementRenderer extends BaseElementRenderer {
         break;
       }
       case "function": {
-        // Fallback: circle
         shape = new Konva.Circle({
           radius: r,
           stroke,
@@ -63,7 +59,6 @@ export class PolygonElementRenderer extends BaseElementRenderer {
         break;
       }
       case "flow": {
-        // Triangle (pointing up)
         shape = new Konva.RegularPolygon({
           sides: 3,
           radius: r,
@@ -75,7 +70,6 @@ export class PolygonElementRenderer extends BaseElementRenderer {
         break;
       }
       case "choice": {
-        // Rhombus / diamond
         shape = new Konva.Line({
           points: [0, -r, r, 0, 0, r, -r, 0],
           closed: true,
@@ -86,7 +80,6 @@ export class PolygonElementRenderer extends BaseElementRenderer {
         break;
       }
       default: {
-        // Pentagon
         shape = new Konva.RegularPolygon({
           sides: 5,
           radius: r,

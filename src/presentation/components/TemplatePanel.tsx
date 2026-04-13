@@ -16,6 +16,7 @@ const VIEW_LABELS: Record<ViewState["viewMode"], string> = {
   hierarchical: "Hierarchical",
   timeline: "Timeline",
   pipeline: "Pipeline",
+  execute: "Execute",
 };
 
 const VIEW_COLORS: Record<ViewState["viewMode"], string> = {
@@ -24,6 +25,7 @@ const VIEW_COLORS: Record<ViewState["viewMode"], string> = {
   hierarchical: "bg-blue-500/15 text-blue-800",
   timeline: "bg-amber-500/15 text-amber-800",
   pipeline: "bg-green-500/15 text-green-800",
+  execute: "bg-indigo-500/15 text-indigo-800",
 };
 
 function TemplateBadge({ mode }: { mode: ViewState["viewMode"] }) {

@@ -26,6 +26,17 @@ export const AppConfig = {
     DEFAULT_ELEMENT_TYPE: "object" as const,
     DEFAULT_RELATIONSHIP_TYPE: "-->" as const,
     DEFAULT_RENDER_STYLE: "svg" as const,
+    COLOR_PALETTE: [
+      "#e05c5c",
+      "#e07a2f",
+      "#d4a017",
+      "#5cb85c",
+      "#2f9ee0",
+      "#7b5ce0",
+      "#d45cb8",
+      "#5ce0c8",
+    ] as string[],
+    TAB_BROADCAST_DEBOUNCE_MS: 300,
   },
 
   editor: {
@@ -40,6 +51,12 @@ export const AppConfig = {
 
   history: {
     DEBOUNCE_MS: 500,
+    SAVE_DEBOUNCE_MS: 1000,
+  },
+
+  execution: {
+    DEFAULT_TICK_INTERVAL_MS: 500,
+    TOKEN_COLOR: "#f97316",
   },
 
   layout: {

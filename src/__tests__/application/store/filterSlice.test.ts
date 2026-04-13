@@ -153,13 +153,12 @@ describe("filterSlice", () => {
     });
 
     it("toggleElementFold removes path from manuallyUnfolded when re-folding", () => {
-      // First, mark "a" as unfolded
       const s1 = reducer(
         undefined,
         toggleElementFold({ path: "a", currentlyFolded: true }),
       );
       expect(s1.manuallyUnfolded).toContain("a");
-      // Re-fold "a" — should remove it from manuallyUnfolded and add to manuallyFolded
+
       const s2 = reducer(
         s1,
         toggleElementFold({ path: "a", currentlyFolded: false }),
@@ -226,20 +225,29 @@ describe("filterSlice", () => {
     });
 
     it("cycles color → dim", () => {
-      const s1 = reducer(undefined, addPreset({ ...makePreset("p1"), mode: "color", isActive: true }));
+      const s1 = reducer(
+        undefined,
+        addPreset({ ...makePreset("p1"), mode: "color", isActive: true }),
+      );
       const s2 = reducer(s1, cyclePreset("p1"));
       expect(s2.presets[0].mode).toBe("dim");
       expect(s2.presets[0].isActive).toBe(true);
     });
 
     it("cycles dim → hide", () => {
-      const s1 = reducer(undefined, addPreset({ ...makePreset("p1"), mode: "dim", isActive: true }));
+      const s1 = reducer(
+        undefined,
+        addPreset({ ...makePreset("p1"), mode: "dim", isActive: true }),
+      );
       const s2 = reducer(s1, cyclePreset("p1"));
       expect(s2.presets[0].mode).toBe("hide");
     });
 
     it("cycles hide → inactive", () => {
-      const s1 = reducer(undefined, addPreset({ ...makePreset("p1"), mode: "hide", isActive: true }));
+      const s1 = reducer(
+        undefined,
+        addPreset({ ...makePreset("p1"), mode: "hide", isActive: true }),
+      );
       const s2 = reducer(s1, cyclePreset("p1"));
       expect(s2.presets[0].isActive).toBe(false);
     });
@@ -253,11 +261,29 @@ describe("filterSlice", () => {
 
   describe("syncPresetsFromTab", () => {
     it("syncs presets preserving local active state", () => {
-      const s1 = reducer(undefined, addPreset({ ...makePreset("p1"), isActive: true }));
-      const s2 = reducer(s1, syncPresetsFromTab([
-        { id: "p1", label: "Updated P1", mode: "dim", color: "#ff0000", selector: { atoms: [], combiner: "" } },
-        { id: "p2", label: "New P2", mode: "hide", color: "#00ff00", selector: { atoms: [], combiner: "" } },
-      ]));
+      const s1 = reducer(
+        undefined,
+        addPreset({ ...makePreset("p1"), isActive: true }),
+      );
+      const s2 = reducer(
+        s1,
+        syncPresetsFromTab([
+          {
+            id: "p1",
+            label: "Updated P1",
+            mode: "dim",
+            color: "#ff0000",
+            selector: { atoms: [], combiner: "" },
+          },
+          {
+            id: "p2",
+            label: "New P2",
+            mode: "hide",
+            color: "#00ff00",
+            selector: { atoms: [], combiner: "" },
+          },
+        ]),
+      );
       expect(s2.presets).toHaveLength(2);
       expect(s2.presets[0].isActive).toBe(true);
       expect(s2.presets[0].label).toBe("Updated P1");
@@ -265,16 +291,28 @@ describe("filterSlice", () => {
     });
 
     it("new presets default to inactive", () => {
-      const s1 = reducer(undefined, syncPresetsFromTab([
-        { id: "new", label: "New", mode: "hide", color: "#aaa", selector: { atoms: [], combiner: "" } },
-      ]));
+      const s1 = reducer(
+        undefined,
+        syncPresetsFromTab([
+          {
+            id: "new",
+            label: "New",
+            mode: "hide",
+            color: "#aaa",
+            selector: { atoms: [], combiner: "" },
+          },
+        ]),
+      );
       expect(s1.presets[0].isActive).toBe(false);
     });
   });
 
   describe("setSelectionPreset", () => {
     it("adds a selection preset for given ids", () => {
-      const s1 = reducer(undefined, setSelectionPreset({ ids: ["a", "b"], color: "#ff0000" }));
+      const s1 = reducer(
+        undefined,
+        setSelectionPreset({ ids: ["a", "b"], color: "#ff0000" }),
+      );
       const sel = s1.presets.find((p) => p.id === SELECTION_PRESET_ID);
       expect(sel).toBeDefined();
       expect(sel?.mode).toBe("color");
@@ -282,21 +320,35 @@ describe("filterSlice", () => {
     });
 
     it("removes selection preset when ids is empty", () => {
-      const s1 = reducer(undefined, setSelectionPreset({ ids: ["a"], color: "#ff0000" }));
+      const s1 = reducer(
+        undefined,
+        setSelectionPreset({ ids: ["a"], color: "#ff0000" }),
+      );
       const s2 = reducer(s1, setSelectionPreset({ ids: [], color: "#ff0000" }));
-      expect(s2.presets.find((p) => p.id === SELECTION_PRESET_ID)).toBeUndefined();
+      expect(
+        s2.presets.find((p) => p.id === SELECTION_PRESET_ID),
+      ).toBeUndefined();
     });
 
     it("replaces existing selection preset", () => {
-      const s1 = reducer(undefined, setSelectionPreset({ ids: ["a"], color: "#ff0000" }));
-      const s2 = reducer(s1, setSelectionPreset({ ids: ["b"], color: "#0000ff" }));
+      const s1 = reducer(
+        undefined,
+        setSelectionPreset({ ids: ["a"], color: "#ff0000" }),
+      );
+      const s2 = reducer(
+        s1,
+        setSelectionPreset({ ids: ["b"], color: "#0000ff" }),
+      );
       const sels = s2.presets.filter((p) => p.id === SELECTION_PRESET_ID);
       expect(sels).toHaveLength(1);
       expect(sels[0].color).toBe("#0000ff");
     });
 
     it("handles single id without alternation pattern", () => {
-      const s1 = reducer(undefined, setSelectionPreset({ ids: ["myNode"], color: "#aaa" }));
+      const s1 = reducer(
+        undefined,
+        setSelectionPreset({ ids: ["myNode"], color: "#aaa" }),
+      );
       const sel = s1.presets.find((p) => p.id === SELECTION_PRESET_ID);
       expect(sel?.selector.atoms[0].path).toMatch(/myNode/);
     });
@@ -305,19 +357,64 @@ describe("filterSlice", () => {
   describe("restoreFilterState", () => {
     it("restores full filter state from payload", () => {
       const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const restored = reducer(s1, restoreFilterState({
-        presets: [makePreset("q1"), makePreset("q2")],
-        foldLevel: 3,
-        foldActive: true,
-        manuallyFolded: ["a.b"],
-        manuallyUnfolded: ["c.d"],
-      }));
+      const restored = reducer(
+        s1,
+        restoreFilterState({
+          presets: [makePreset("q1"), makePreset("q2")],
+          foldLevel: 3,
+          foldActive: true,
+          manuallyFolded: ["a.b"],
+          manuallyUnfolded: ["c.d"],
+        }),
+      );
       expect(restored.presets).toHaveLength(2);
       expect(restored.presets[0].id).toBe("q1");
       expect(restored.foldLevel).toBe(3);
       expect(restored.foldActive).toBe(true);
       expect(restored.manuallyFolded).toEqual(["a.b"]);
       expect(restored.manuallyUnfolded).toEqual(["c.d"]);
+    });
+  });
+
+  describe("preset mutation no-ops for unknown id", () => {
+    it("togglePresetActive does nothing for unknown id", () => {
+      const s1 = reducer(undefined, addPreset(makePreset("p1", true)));
+      const s2 = reducer(s1, togglePresetActive("unknown"));
+      expect(s2.presets[0].isActive).toBe(true);
+    });
+
+    it("setPresetMode does nothing for unknown id", () => {
+      const s1 = reducer(undefined, addPreset(makePreset("p1")));
+      const s2 = reducer(s1, setPresetMode({ id: "unknown", mode: "color" }));
+      expect(s2.presets[0].mode).toBe("hide");
+    });
+
+    it("setPresetColor does nothing for unknown id", () => {
+      const s1 = reducer(undefined, addPreset(makePreset("p1")));
+      const s2 = reducer(s1, setPresetColor({ id: "unknown", color: "#fff" }));
+      expect(s2.presets[0].color).toBe("#e05c5c");
+    });
+  });
+
+  describe("cyclePreset — inactive dim and hide start at color:true", () => {
+    it("activates inactive dim-mode preset → color:true", () => {
+      const s1 = reducer(
+        undefined,
+        addPreset({ ...makePreset("p1"), mode: "dim", isActive: false }),
+      );
+      const s2 = reducer(s1, cyclePreset("p1"));
+      expect(s2.presets[0].mode).toBe("color");
+      expect(s2.presets[0].isActive).toBe(true);
+    });
+
+    it("activates inactive hide-mode preset → color:true", () => {
+      const s1 = reducer(
+        undefined,
+        addPreset({ ...makePreset("p1"), mode: "hide", isActive: false }),
+      );
+      const s2 = reducer(s1, cyclePreset("p1"));
+      expect(s2.presets[0].mode).toBe("color");
+      expect(s2.presets[0].isActive).toBe(true);
     });
   });
 
