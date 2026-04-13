@@ -23,6 +23,7 @@ import { getCSSVariable } from "../../shared/utils";
 import { useExecution } from "../hooks/useExecution";
 import { getExecutionColorMap } from "../../application/ExecutionEngine";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
+import { computeElementSizes } from "./rendering/elementSizing";
 import { FilterResolver } from "../../domain/sync/FilterResolver";
 import {
   getSubtreeIds,
@@ -77,6 +78,11 @@ export function VisualCanvas() {
   const tickIntervalMs = useAppSelector((s) => s.execution.tickIntervalMs);
   const { colors } = useC7One();
   const isDark = detectIsDark(colors["--color-bg-base"]);
+  const elementSizes = useMemo(
+    () => computeElementSizes(model, viewState, zoom),
+    [model, viewState, zoom],
+  );
+
   const canvasColors = useMemo(() => ({
     accent: getCSSVariable("--color-accent"),
     fgPrimary: getCSSVariable("--color-fg-primary"),
@@ -601,6 +607,7 @@ export function VisualCanvas() {
       renderStyle,
       interactionMode === "readonly",
       getExecutionColorMap(execInstances, execColor),
+      elementSizes,
     );
 
     const cloneIds = new Set(execInstances.flatMap((i) => i.clonedElementIds));
