@@ -1,6 +1,24 @@
 import type { DiagramModel } from "../models/DiagramModel";
 import type { Element } from "../models/Element";
 import type { Relationship } from "../models/Relationship";
+
+function elementsEqual(a: Element, b: Element): boolean {
+  return (
+    a.type === b.type &&
+    a.foldState === b.foldState &&
+    a.childIds.length === b.childIds.length &&
+    a.childIds.every((id, i) => id === b.childIds[i])
+  );
+}
+
+function relationshipsEqual(a: Relationship, b: Relationship): boolean {
+  return (
+    a.source === b.source &&
+    a.target === b.target &&
+    a.type === b.type &&
+    a.label === b.label
+  );
+}
 export interface ModelDiff {
   addedElements: Element[];
   removedElementIds: string[];
@@ -18,10 +36,7 @@ export class ModelDiffer {
     Object.keys(newModel.elements).forEach((id) => {
       if (!oldModel.elements[id]) {
         addedElements.push(newModel.elements[id]);
-      } else if (
-        JSON.stringify(oldModel.elements[id]) !==
-        JSON.stringify(newModel.elements[id])
-      ) {
+      } else if (!elementsEqual(oldModel.elements[id], newModel.elements[id])) {
         modifiedElements.push(newModel.elements[id]);
       }
     });
@@ -44,9 +59,7 @@ export class ModelDiffer {
       .filter((r) => !newRelMap[r.id])
       .map((r) => r.id);
     const modifiedRelationships = Object.values(newRelMap).filter(
-      (r) =>
-        oldRelMap[r.id] &&
-        JSON.stringify(oldRelMap[r.id]) !== JSON.stringify(r),
+      (r) => oldRelMap[r.id] && !relationshipsEqual(oldRelMap[r.id], r),
     );
 
     return {
