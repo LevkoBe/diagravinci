@@ -8,6 +8,10 @@ import diffReducer from "./diffSlice";
 import executionReducer from "./executionSlice";
 import { SyncManager } from "../SyncManager";
 import { TabSyncManager } from "../TabSyncManager";
+import { Lexer } from "../../infrastructure/parser/Lexer";
+import { Parser } from "../../infrastructure/parser/Parser";
+import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
+import type { DiagramModel } from "../../domain/models/DiagramModel";
 import { loadState, loadStateAsync, saveState } from "./persistence";
 import {
   setRenderStyle,
@@ -57,7 +61,15 @@ store.subscribe(() => {
   }, AppConfig.history.SAVE_DEBOUNCE_MS);
 });
 
-export const syncManager = new SyncManager(store);
+const codeParser = {
+  parse: (code: string) => new Parser(new Lexer(code).tokenize()).parse(),
+};
+
+const codeGenerator = {
+  generate: (model: DiagramModel) => new CodeGenerator(model).generate(),
+};
+
+export const syncManager = new SyncManager(store, codeParser, codeGenerator);
 export const tabSyncManager = new TabSyncManager(store);
 
 export type RootState = ReturnType<typeof store.getState>;

@@ -2,11 +2,16 @@ import type { DiagramModel } from "../domain/models/DiagramModel";
 import type { ViewState } from "../domain/models/ViewState";
 import { ModelDiffer } from "../domain/sync/ModelDiffer";
 import { ViewStateMerger } from "../domain/sync/ViewStateMerger";
-import { CodeGenerator } from "../infrastructure/codegen/CodeGenerator";
-import { Lexer } from "../infrastructure/parser/Lexer";
-import { Parser } from "../infrastructure/parser/Parser";
 import { setCode, setModel, setViewState } from "./store/diagramSlice";
 import type { AppStore } from "./store/store";
+
+export interface ICodeParser {
+  parse(code: string): DiagramModel;
+}
+
+export interface ICodeGenerator {
+  generate(model: DiagramModel): string;
+}
 
 export type SyncSource = "code" | "vis" | "ai";
 export interface SyncEvent {
@@ -20,9 +25,13 @@ export interface SyncEvent {
 export class SyncManager {
   private listeners: Array<(event: SyncEvent) => void> = [];
   private store: AppStore;
+  private parser: ICodeParser;
+  private codeGenerator: ICodeGenerator;
 
-  constructor(store: AppStore) {
+  constructor(store: AppStore, parser: ICodeParser, codeGenerator: ICodeGenerator) {
     this.store = store;
+    this.parser = parser;
+    this.codeGenerator = codeGenerator;
   }
 
   subscribe(callback: (event: SyncEvent) => void): () => void {
@@ -34,8 +43,7 @@ export class SyncManager {
 
   syncFromCode(code: string): void {
     try {
-      const tokens = new Lexer(code).tokenize();
-      const newModel = new Parser(tokens).parse();
+      const newModel = this.parser.parse(code);
       const {
         model: currentModel,
         viewState: currentViewState,
@@ -86,7 +94,7 @@ export class SyncManager {
     const diff = ModelDiffer.diff(currentModel, updatedModel);
     if (ModelDiffer.isEmpty(diff)) return;
 
-    const code = new CodeGenerator(updatedModel).generate();
+    const code = this.codeGenerator.generate(updatedModel);
 
     this.store.dispatch(setModel(updatedModel));
 

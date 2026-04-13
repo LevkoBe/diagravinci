@@ -1,4 +1,3 @@
-import { GeminiService } from "../infrastructure/ai/GeminiService";
 import { ResponseValidator } from "../infrastructure/ai/ResponseValidator";
 import { buildContextAwareDiagramPrompt } from "../infrastructure/ai/PromptBuilder";
 import type { AIService } from "../infrastructure/ai/AIService";
@@ -7,8 +6,8 @@ import { store, syncManager } from "./store/store";
 export class AIOrchestrator {
   private service: AIService;
 
-  constructor(apiKey: string) {
-    this.service = new GeminiService(apiKey);
+  constructor(service: AIService) {
+    this.service = service;
   }
 
   async generateFromNaturalLanguage(

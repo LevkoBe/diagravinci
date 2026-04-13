@@ -9,9 +9,31 @@ import { RelationshipRenderer } from "./rendering/relationships/RelationshipRend
 import { SvgPathElementRenderer } from "./rendering/elements/SvgPathElementRenderer";
 import { SimpleRectElementRenderer } from "./rendering/elements/SimpleRectElementRenderer";
 import { PolygonElementRenderer } from "./rendering/elements/PolygonElementRenderer";
+import type { IElementRenderer } from "./rendering/elements/BaseElementRenderer";
 import type { RenderStyle } from "../../application/store/uiSlice";
 
 import { computeElementSizes } from "./rendering/elementSizing";
+
+function createElementRenderer(
+  renderStyle: RenderStyle,
+  element: Element,
+  path: string,
+  viewState: ViewState,
+  connectingFromId: string | null,
+  colors: Colors,
+  isNew: boolean,
+  isDimmed: boolean,
+  size: number,
+  zoom: number,
+  colorOverride: string | null,
+): IElementRenderer {
+  const args = [element, path, viewState, connectingFromId, colors, isNew, isDimmed, size, zoom, colorOverride] as const;
+  switch (renderStyle) {
+    case "rect": return new SimpleRectElementRenderer(...args);
+    case "polygon": return new PolygonElementRenderer(...args);
+    default: return new SvgPathElementRenderer(...args);
+  }
+}
 
 export class DiagramLayerRenderer {
   private readonly stage: Konva.Stage;
@@ -159,25 +181,10 @@ export class DiagramLayerRenderer {
     const isNew = !this.prevPaths.has(path);
     const size = this.getSize(path);
 
-    const args = [
-      element,
-      path,
-      this.viewState,
-      this.connectingFromId,
-      this.colors,
-      isNew,
-      isDimmed,
-      size,
-      this.zoom,
-      colorOverride,
-    ] as const;
-
-    const elementRenderer =
-      this.renderStyle === "rect"
-        ? new SimpleRectElementRenderer(...args)
-        : this.renderStyle === "polygon"
-          ? new PolygonElementRenderer(...args)
-          : new SvgPathElementRenderer(...args);
+    const elementRenderer = createElementRenderer(
+      this.renderStyle, element, path, this.viewState, this.connectingFromId,
+      this.colors, isNew, isDimmed, size, this.zoom, colorOverride,
+    );
 
     const renderResult = elementRenderer.render();
     if (!renderResult) return;

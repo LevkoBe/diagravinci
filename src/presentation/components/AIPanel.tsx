@@ -3,6 +3,7 @@ import { Bug, KeyRound, Lightbulb, Send, Trash2 } from "lucide-react";
 import { Button } from "@levkobe/c7one";
 import { DangerIconBtn } from "./DangerIconBtn";
 import { AIOrchestrator } from "../../application/AIOrchestrator";
+import { GeminiService } from "../../infrastructure/ai/GeminiService";
 import {
   clearApiKey,
   getApiKey,
@@ -56,7 +57,7 @@ export default function AIPanel() {
   const [useContext, setUseContext] = useState(false);
 
   const orchestrator = useMemo(
-    () => (apiKey ? new AIOrchestrator(apiKey) : null),
+    () => (apiKey ? new AIOrchestrator(new GeminiService(apiKey)) : null),
     [apiKey],
   );
 
