@@ -5,7 +5,7 @@ import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { ViewState } from "../../domain/models/ViewState";
 import type { Colors, RenderCallbacks } from "./rendering/types";
 import { ElementEventHandler } from "./rendering/elements/ElementEventHandler";
-import { RelationshipRenderer } from "./rendering/relationships/RelationshipRenderer";
+import { RelationshipRenderer, type ViewportRect, type GeometryCache } from "./rendering/relationships/RelationshipRenderer";
 import { SvgPathElementRenderer } from "./rendering/elements/SvgPathElementRenderer";
 import { SimpleRectElementRenderer } from "./rendering/elements/SimpleRectElementRenderer";
 import { PolygonElementRenderer } from "./rendering/elements/PolygonElementRenderer";
@@ -56,6 +56,7 @@ export class DiagramLayerRenderer {
 
   private readonly zoom: number;
   private readonly renderStyle: RenderStyle;
+  private readonly viewportRect: ViewportRect;
 
   private readonly isReadonly: boolean;
   private readonly executionColorMap: Record<string, string>;
@@ -73,6 +74,7 @@ export class DiagramLayerRenderer {
     isReadonly = false,
     executionColorMap: Record<string, string> = {},
     elementSizes?: ElementSizes,
+    geometryCache?: GeometryCache,
   ) {
     this.stage = stage;
     this.model = model;
@@ -93,11 +95,21 @@ export class DiagramLayerRenderer {
     this.hiddenSet = new Set([...viewState.hiddenPaths, ...zoomHidden]);
     this.dimmedSet = new Set([...viewState.dimmedPaths, ...zoomDimmed]);
 
+    const stagePos = stage.position();
+    this.viewportRect = {
+      x: -stagePos.x / zoom,
+      y: -stagePos.y / zoom,
+      w: stage.width() / zoom,
+      h: stage.height() / zoom,
+    };
+
     this.relationshipRenderer = new RelationshipRenderer(
       viewState,
       colors,
       this.hiddenSet,
       this.dimmedSet,
+      this.viewportRect,
+      geometryCache,
     );
   }
 
@@ -121,6 +133,19 @@ export class DiagramLayerRenderer {
     elementLayer.batchDraw();
   }
 
+  private isOffScreen(path: string): boolean {
+    const pos = this.viewState.positions[path];
+    if (!pos) return false;
+    const vp = this.viewportRect;
+    const half = (pos.size ?? 0) / 2;
+    return (
+      pos.position.x + half < vp.x ||
+      pos.position.x - half > vp.x + vp.w ||
+      pos.position.y + half < vp.y ||
+      pos.position.y - half > vp.y + vp.h
+    );
+  }
+
   private renderRecursive(
     element: Element,
     elementLayer: Konva.Layer,
@@ -128,31 +153,28 @@ export class DiagramLayerRenderer {
   ): void {
     if (this.hiddenSet.has(path)) return;
 
-    const isDimmed = this.dimmedSet.has(path);
+    const skipRender = this.isOffScreen(path);
 
-    const colorOverride =
-      this.executionColorMap[element.id] ??
-      this.viewState.coloredPaths?.[path] ??
-      null;
+    if (!skipRender) {
+      const isDimmed = this.dimmedSet.has(path);
+      const colorOverride =
+        this.executionColorMap[element.id] ??
+        this.viewState.coloredPaths?.[path] ??
+        null;
 
-    const elementGroup = this.renderElement(
-      element,
-      path,
-      isDimmed,
-      colorOverride,
-    );
-    if (!elementGroup) return;
-
-    elementLayer.add(elementGroup);
-
-    if (!this.prevPaths.has(path)) {
-      new Konva.Tween({
-        node: elementGroup,
-        duration: 0.25,
-        easing: Konva.Easings.EaseOut,
-        scaleX: 1,
-        scaleY: 1,
-      }).play();
+      const elementGroup = this.renderElement(element, path, isDimmed, colorOverride);
+      if (elementGroup) {
+        elementLayer.add(elementGroup);
+        if (!this.prevPaths.has(path)) {
+          new Konva.Tween({
+            node: elementGroup,
+            duration: 0.25,
+            easing: Konva.Easings.EaseOut,
+            scaleX: 1,
+            scaleY: 1,
+          }).play();
+        }
+      }
     }
 
     if (this.viewState.foldedPaths.includes(path)) return;
