@@ -24,6 +24,7 @@ import { useExecution } from "../hooks/useExecution";
 import { getExecutionColorMap } from "../../application/ExecutionEngine";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
 import { computeElementSizes } from "./rendering/elementSizing";
+import type { GeometryCache } from "./rendering/relationships/RelationshipRenderer";
 import { FilterResolver } from "../../domain/sync/FilterResolver";
 import {
   getSubtreeIds,
@@ -54,6 +55,7 @@ export function VisualCanvas() {
   const prevElementPositionsRef = useRef<Record<string, { x: number; y: number }>>({});
   const prevClonePositionsRef = useRef<Record<string, { x: number; y: number }>>({});
   const justDraggedPathsRef = useRef<Set<string>>(new Set());
+  const geometryCacheRef = useRef<GeometryCache>(new Map());
   const [zoom, setZoom] = useState(1);
 
   const dragSelectRef = useRef<{
@@ -612,6 +614,7 @@ export function VisualCanvas() {
       interactionMode === "readonly",
       getExecutionColorMap(execInstances, execColor),
       elementSizes,
+      geometryCacheRef.current,
     );
 
     const cloneIds = new Set(execInstances.flatMap((i) => i.clonedElementIds));

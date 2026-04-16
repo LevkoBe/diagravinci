@@ -742,6 +742,261 @@ describe("DiagramLayerRenderer", () => {
     });
   });
 
+  describe("Viewport Culling", () => {
+    function makeModelWithRoot(id: string): DiagramModel {
+      let model = createEmptyDiagram();
+      model = addElement(model, MockElementFactory.createElement(id, "object"));
+      model.root.childIds.push(id);
+      return model;
+    }
+
+    it("does not render element positioned far outside viewport", () => {
+      const model = makeModelWithRoot("a");
+
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 10000, 10000, 60)
+        .build();
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(),
+        model,
+        viewState,
+        null,
+        defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(),
+        1,
+      );
+      const relLayer = new Konva.Layer();
+      const elLayer = new Konva.Layer();
+      renderer.render(relLayer, elLayer);
+      expect(elLayer.getChildren().length).toBe(0);
+    });
+
+    it("renders element positioned inside the viewport", () => {
+      const model = makeModelWithRoot("a");
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .build();
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(),
+        model,
+        viewState,
+        null,
+        defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(),
+        1,
+      );
+      const relLayer = new Konva.Layer();
+      const elLayer = new Konva.Layer();
+      renderer.render(relLayer, elLayer);
+      expect(elLayer.getChildren().length).toBeGreaterThan(0);
+    });
+
+    it("still renders in-viewport child even when parent is off-screen", () => {
+      let model = createEmptyDiagram();
+      const parent = MockElementFactory.createElement("parent", "object");
+      const child = MockElementFactory.createElement("child", "object");
+      parent.childIds = ["child"];
+      model = addElement(model, parent);
+      model = addElement(model, child);
+      model.root.childIds.push("parent");
+
+      const viewState = new ViewStateBuilder()
+        .addElement("parent", 10000, 10000, 100)
+        .addElement("parent.child", 100, 100, 40)
+        .build();
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(),
+        model,
+        viewState,
+        null,
+        defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(),
+        1,
+      );
+      const relLayer = new Konva.Layer();
+      const elLayer = new Konva.Layer();
+      renderer.render(relLayer, elLayer);
+      expect(elLayer.getChildren().length).toBe(1);
+    });
+
+    it("renders exactly the on-screen subset from a mixed large diagram", () => {
+      const TOTAL = 100;
+      const VISIBLE = 5;
+
+      let model = createEmptyDiagram();
+      for (let i = 0; i < TOTAL; i++) {
+        const el = MockElementFactory.createElement(`e${i}`, "object");
+        model = addElement(model, el);
+        model.root.childIds.push(`e${i}`);
+      }
+
+      const builder = new ViewStateBuilder();
+      for (let i = 0; i < VISIBLE; i++) {
+        builder.addElement(`e${i}`, 100 + i * 100, 300, 60);
+      }
+      for (let i = VISIBLE; i < TOTAL; i++) {
+        builder.addElement(`e${i}`, 50000 + i * 70, 50000, 60);
+      }
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(),
+        model,
+        builder.build(),
+        null,
+        defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(),
+        1,
+      );
+      const relLayer = new Konva.Layer();
+      const elLayer = new Konva.Layer();
+      renderer.render(relLayer, elLayer);
+      expect(elLayer.getChildren().length).toBe(VISIBLE);
+    });
+
+    it("renders all elements when all are inside the viewport", () => {
+      const TOTAL = 10;
+      let model = createEmptyDiagram();
+      for (let i = 0; i < TOTAL; i++) {
+        const el = MockElementFactory.createElement(`e${i}`, "object");
+        model = addElement(model, el);
+        model.root.childIds.push(`e${i}`);
+      }
+
+      const builder = new ViewStateBuilder();
+
+      for (let i = 0; i < TOTAL; i++) {
+        builder.addElement(
+          `e${i}`,
+          100 + (i % 5) * 100,
+          150 + Math.floor(i / 5) * 200,
+          60,
+        );
+      }
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(),
+        model,
+        builder.build(),
+        null,
+        defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(),
+        1,
+      );
+      const relLayer = new Konva.Layer();
+      const elLayer = new Konva.Layer();
+      renderer.render(relLayer, elLayer);
+      expect(elLayer.getChildren().length).toBe(TOTAL);
+    });
+  });
+
+  describe("Performance Benchmark (node-count assertions)", () => {
+    it("culling reduces rendered node count vs full diagram", () => {
+      const TOTAL = 200;
+      const VISIBLE = 10;
+
+      let model = createEmptyDiagram();
+      for (let i = 0; i < TOTAL; i++) {
+        const el = MockElementFactory.createElement(`e${i}`, "object");
+        model = addElement(model, el);
+        model.root.childIds.push(`e${i}`);
+      }
+
+      const allOnScreen = new ViewStateBuilder();
+      const mostOffScreen = new ViewStateBuilder();
+
+      for (let i = 0; i < TOTAL; i++) {
+        allOnScreen.addElement(
+          `e${i}`,
+          100 + (i % 10) * 70,
+          100 + Math.floor(i / 10) * 70,
+          50,
+        );
+      }
+      for (let i = 0; i < VISIBLE; i++) {
+        mostOffScreen.addElement(`e${i}`, 100 + i * 70, 300, 50);
+      }
+      for (let i = VISIBLE; i < TOTAL; i++) {
+        mostOffScreen.addElement(`e${i}`, 50000 + i * 70, 50000, 50);
+      }
+
+      const makeRenderer = (vs: ViewState) =>
+        new DiagramLayerRenderer(
+          helper.getStage(),
+          model,
+          vs,
+          null,
+          defaultColors,
+          {
+            onClick: () => {},
+            onPositionChange: () => {},
+            onReparent: () => {},
+          },
+          new Set(),
+          1,
+        );
+
+      const relA = new Konva.Layer();
+      const elA = new Konva.Layer();
+      makeRenderer(allOnScreen.build()).render(relA, elA);
+
+      const relB = new Konva.Layer();
+      const elB = new Konva.Layer();
+      makeRenderer(mostOffScreen.build()).render(relB, elB);
+
+      expect(elB.getChildren().length).toBeLessThan(elA.getChildren().length);
+      expect(elB.getChildren().length).toBe(VISIBLE);
+    });
+
+    it("render time with mostly off-screen elements does not grow linearly with total count", () => {
+      const TOTAL = 500;
+      const VISIBLE = 5;
+
+      let model = createEmptyDiagram();
+      for (let i = 0; i < TOTAL; i++) {
+        const el = MockElementFactory.createElement(`e${i}`, "object");
+        model = addElement(model, el);
+        model.root.childIds.push(`e${i}`);
+      }
+
+      const builder = new ViewStateBuilder();
+      for (let i = 0; i < VISIBLE; i++) {
+        builder.addElement(`e${i}`, 100 + i * 70, 300, 50);
+      }
+      for (let i = VISIBLE; i < TOTAL; i++) {
+        builder.addElement(`e${i}`, 50000 + i * 70, 50000, 50);
+      }
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(),
+        model,
+        builder.build(),
+        null,
+        defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(),
+        1,
+      );
+
+      const t0 = performance.now();
+      const relLayer = new Konva.Layer();
+      const elLayer = new Konva.Layer();
+      renderer.render(relLayer, elLayer);
+      const elapsed = performance.now() - t0;
+
+      expect(elLayer.getChildren().length).toBe(VISIBLE);
+
+      expect(elapsed).toBeLessThan(500);
+    });
+  });
+
   describe("Contextmenu Callback", () => {
     it("calls onContextMenu when contextmenu event fires on a group", () => {
       let model: DiagramModel = createEmptyDiagram();
