@@ -1,4 +1,5 @@
 import type { DiagramModel } from "../../domain/models/DiagramModel";
+import type { FilterPreset } from "../../domain/models/Selector";
 import {
   createElement,
   type Element,
@@ -28,6 +29,12 @@ export class CodeGenerator {
 
   generate(): string {
     const lines: string[] = [];
+
+    for (const preset of (this.model.filterPresets ?? []))
+      lines.push(this.generateFilterPreset(preset));
+
+    if ((this.model.filterPresets ?? []).length > 0) lines.push("");
+
     const rootIdSet = new Set(this.model.root.childIds);
     const rootElements = Object.values(this.model.elements).filter((e) =>
       rootIdSet.has(e.id),
@@ -40,6 +47,15 @@ export class CodeGenerator {
       lines.push(this.generateRelationship(relationship));
 
     return lines.join("\n");
+  }
+
+  private generateFilterPreset(preset: FilterPreset): string {
+    const atom = preset.selector.atoms[0];
+    const parts = [`!selector`, `name=${preset.id}`];
+    if (atom?.path) parts.push(`path=${atom.path}`);
+    parts.push(`color=${preset.color}`);
+    parts.push(`mode=${preset.mode}`);
+    return parts.join("  ");
   }
 
   private getElementById(id: string): Element {
@@ -56,17 +72,18 @@ export class CodeGenerator {
     const wrapper = this.getWrapperFromType(element.type);
     const opening = wrapper[0];
     const closing = wrapper[1];
+    const flagSuffix = element.flags?.map((f) => `:${f}`).join("") ?? "";
 
     const hasContent = element.childIds.length > 0;
 
-    if (!hasContent) return `${indentation}${element.id}${opening}${closing}`;
+    if (!hasContent) return `${indentation}${element.id}${flagSuffix}${opening}${closing}`;
 
     const newAncestry = ancestry.tryAdd(element.id);
     if (!newAncestry)
-      return `${indentation}${element.id}${opening}${closing} # recursion`;
+      return `${indentation}${element.id}${flagSuffix}${opening}${closing} # recursion`;
 
     const lines: string[] = [];
-    lines.push(`${indentation}${element.id}${opening}`);
+    lines.push(`${indentation}${element.id}${flagSuffix}${opening}`);
 
     for (const id of element.childIds) {
       lines.push(
