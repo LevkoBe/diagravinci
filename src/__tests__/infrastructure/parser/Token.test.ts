@@ -20,8 +20,8 @@ describe("createToken", () => {
     expect(t.kind).toBe("x");
   });
 
-  it("assigns kind '=' for '=' type", () => {
-    expect(createToken("=", "=", 1, 1).kind).toBe("=");
+  it("assigns kind '!' for DIRECTIVE type", () => {
+    expect(createToken("DIRECTIVE", "selector name=warn", 1, 1).kind).toBe("!");
   });
 
   it("assigns kind '-' for partial relationship types (.., --)", () => {

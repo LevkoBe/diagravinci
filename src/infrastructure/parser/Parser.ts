@@ -21,6 +21,7 @@ import {
   type Relationship,
   createRelationship,
 } from "../../domain/models/Relationship";
+import type { FilterPreset, FilterMode } from "../../domain/models/Selector";
 
 const WRAPPERS: Record<
   OpeningWrapper,
@@ -33,6 +34,8 @@ const WRAPPERS: Record<
   ">": { close: ">", type: "flow", defaultChildType: "object" },
   "|": { close: "|", type: "state", defaultChildType: "object" },
 };
+
+const VALID_MODES: FilterMode[] = ["color", "dim", "hide"];
 
 export class Parser {
   private tokens: Token[];
@@ -89,6 +92,10 @@ export class Parser {
           lastEl = null;
           break;
         }
+        case "!": {
+          this.parseDirective(this.next()!.value);
+          break;
+        }
         case "x": {
           lastEl = this.parseElement(WRAPPERS[wrapper].defaultChildType);
 
@@ -126,7 +133,13 @@ export class Parser {
   }
 
   private parseElement = (defaultType?: ElementType): Element => {
-    return this.createElement(this.next()?.value, defaultType);
+    const el = this.createElement(this.next()?.value, defaultType);
+    while (this.peek()?.type === "FLAG") {
+      const flag = this.next()!.value;
+      if (!el.flags) el.flags = [];
+      if (!el.flags.includes(flag)) el.flags.push(flag);
+    }
+    return el;
   };
 
   private parseRelationship = (
@@ -160,6 +173,50 @@ export class Parser {
       label,
     );
   };
+
+  private parseDirective(raw: string): void {
+    const parts = raw.trim().split(/\s+/);
+    const type = parts[0];
+    if (type !== "selector") return;
+
+    const kvs: Record<string, string> = {};
+    for (let i = 1; i < parts.length; i++) {
+      const eq = parts[i].indexOf("=");
+      if (eq === -1) continue;
+      kvs[parts[i].slice(0, eq)] = parts[i].slice(eq + 1);
+    }
+
+    const name = kvs["name"];
+    if (!name) return;
+
+    const rawMode = kvs["mode"];
+    const mode: FilterMode = (VALID_MODES as string[]).includes(rawMode ?? "")
+      ? (rawMode as FilterMode)
+      : "color";
+
+    const preset: FilterPreset = {
+      id: name,
+      label: name,
+      selector: {
+        atoms: [
+          {
+            id: `${name}_atom`,
+            types: [],
+            path: kvs["path"] ?? "",
+            meta: { kind: "raw" },
+          },
+        ],
+        combiner: "1",
+      },
+      mode,
+      isActive: true,
+      color: kvs["color"] ?? "#888888",
+    };
+
+    if (!(this.model.filterPresets ?? []).some((p) => p.id === name)) {
+      (this.model.filterPresets ??= []).push(preset);
+    }
+  }
 
   private updateRelationship(id: string, newTarget: string) {
     const rel = this.model.relationships[id];

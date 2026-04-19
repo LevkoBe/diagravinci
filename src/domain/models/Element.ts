@@ -11,6 +11,7 @@ export interface Element {
   type: ElementType;
   foldState: FoldState;
   childIds: string[];
+  flags?: string[];
 }
 
 export function createElement(id: string, type: ElementType): Element {

@@ -15,14 +15,17 @@ export const RELATIONSHIPS = [
   "<|--",
   "<|..",
 ] as const;
-export const PROP_OPERATORS = ["="] as const;
+
 export const TOKEN_LITERALS = [
   ...RELATIONSHIPS,
   ...PARTIAL_RELATIONSHIPS,
   ...OPENING_WRAPPERS,
   ...CLOSING_WRAPPERS,
-  ...PROP_OPERATORS,
 ] as const;
+
+export const COMMENT_CHAR = "#";
+export const FLAG_CHAR = ":";
+export const DIRECTIVE_CHAR = "!";
 
 export type RelationshipType =
   | (typeof PARTIAL_RELATIONSHIPS)[number]
@@ -30,9 +33,14 @@ export type RelationshipType =
 export type OpeningWrapper = (typeof OPENING_WRAPPERS)[number];
 export type ClosingWrapper = (typeof CLOSING_WRAPPERS)[number];
 export type NameType = "IDENTIFIER";
-export type TokenKind = "-" | ">" | "{" | "}" | "x" | "=";
+export type TokenKind = "-" | ">" | "{" | "}" | "x" | "!";
 
-export type TokenType = (typeof TOKEN_LITERALS)[number] | NameType | "NEWLINE";
+export type TokenType =
+  | (typeof TOKEN_LITERALS)[number]
+  | NameType
+  | "NEWLINE"
+  | "FLAG"
+  | "DIRECTIVE";
 
 export interface Token {
   type: TokenType;
@@ -43,8 +51,8 @@ export interface Token {
 }
 
 const getKindByType = (type: TokenType): TokenKind =>
-  type === "="
-    ? "="
+  type === "DIRECTIVE"
+    ? "!"
     : /^(\.\.|--)$/.test(type)
       ? "-"
       : /\.\.|--/.test(type)

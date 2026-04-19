@@ -1,5 +1,6 @@
 import { createElement, type Element } from "./Element";
 import type { Relationship } from "./Relationship";
+import type { FilterPreset } from "./Selector";
 
 export interface DiagramMetadata {
   version: string;
@@ -12,6 +13,7 @@ export interface DiagramModel {
   elements: Record<string, Element>;
   relationships: Record<string, Relationship>;
   metadata: DiagramMetadata;
+  filterPresets?: FilterPreset[];
 }
 
 export function createEmptyDiagram(): DiagramModel {
@@ -20,6 +22,7 @@ export function createEmptyDiagram(): DiagramModel {
     root: createElement(Math.random().toString(36).substring(2, 11), "object"),
     elements: {},
     relationships: {},
+    filterPresets: [],
     metadata: {
       version: "1.0.0",
       created: now,

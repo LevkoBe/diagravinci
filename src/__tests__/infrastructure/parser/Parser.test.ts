@@ -609,12 +609,60 @@ describe("Parser edge cases", () => {
     return new Parser(tokens).parse();
   };
 
-  it("silently skips stray '=' tokens (unrecognised token default branch)", () => {
+  it("silently skips unknown characters like '=' between elements", () => {
     const model = parse("a = b");
 
     const ids = Object.keys(model.elements);
     expect(ids).toContain("a");
     expect(ids).toContain("b");
+  });
+
+  it("attaches a single flag to an element", () => {
+    const model = parse("player:warn");
+    const el = model.elements["player"];
+    expect(el).toBeDefined();
+    expect(el.flags).toEqual(["warn"]);
+  });
+
+  it("attaches multiple flags to an element", () => {
+    const model = parse("db:critical:dim");
+    const el = model.elements["db"];
+    expect(el.flags).toEqual(["critical", "dim"]);
+  });
+
+  it("flags do not create sibling elements", () => {
+    const model = parse("player:warn --> server");
+    const ids = Object.keys(model.elements);
+    expect(ids).not.toContain("warn");
+    expect(ids).toContain("player");
+    expect(ids).toContain("server");
+  });
+
+  it("parses !selector directive into model.filterPresets", () => {
+    const model = parse("!selector name=warn  path=*.db.*  color=#f00  mode=dim");
+    expect(model.filterPresets ?? []).toHaveLength(1);
+    const p = (model.filterPresets ?? [])[0];
+    expect(p.id).toBe("warn");
+    expect(p.color).toBe("#f00");
+    expect(p.mode).toBe("dim");
+    expect(p.selector.atoms[0].path).toBe("*.db.*");
+  });
+
+  it("ignores !directive with unknown type", () => {
+    const model = parse("!unknown foo=bar");
+    expect(model.filterPresets ?? []).toHaveLength(0);
+  });
+
+  it("ignores !selector directive missing name", () => {
+    const model = parse("!selector path=*.db.*");
+    expect(model.filterPresets ?? []).toHaveLength(0);
+  });
+
+  it("deduplicates !selector directives with same name", () => {
+    const model = parse("!selector name=warn color=#f00 mode=color\n!selector name=warn color=#0f0 mode=dim");
+    const presets = model.filterPresets ?? [];
+    expect(presets).toHaveLength(1);
+    expect(presets[0].color).toBe("#f00");
   });
 
   it("parses empty input without error", () => {
