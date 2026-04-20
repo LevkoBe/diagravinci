@@ -124,9 +124,10 @@ export class DiagramLayerRenderer {
 
     this.relationshipRenderer.render(relationshipLayer);
 
+    const visited = new Set<string>();
     this.model.root.childIds.forEach((id) => {
       const element = this.model.elements[id];
-      if (element) this.renderRecursive(element, elementLayer, id);
+      if (element) this.renderRecursive(element, elementLayer, id, visited);
     });
 
     relationshipLayer.batchDraw();
@@ -150,8 +151,10 @@ export class DiagramLayerRenderer {
     element: Element,
     elementLayer: Konva.Layer,
     path: string,
+    visited: Set<string>,
   ): void {
     if (this.hiddenSet.has(path)) return;
+    if (visited.has(element.id)) return;
 
     const skipRender = this.isOffScreen(path);
 
@@ -170,12 +173,14 @@ export class DiagramLayerRenderer {
 
     if (this.viewState.foldedPaths.includes(path)) return;
 
+    visited.add(element.id);
     element.childIds.forEach((childId) => {
       const child = this.model.elements[childId];
       if (child) {
-        this.renderRecursive(child, elementLayer, `${path}.${childId}`);
+        this.renderRecursive(child, elementLayer, `${path}.${childId}`, visited);
       }
     });
+    visited.delete(element.id);
   }
 
   private getSize(path: string): number {
