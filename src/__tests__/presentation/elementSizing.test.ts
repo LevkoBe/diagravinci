@@ -69,14 +69,16 @@ describe("computeElementSizes", () => {
 
   it("marks elements as zoom-hidden when screen size < MIN_SCREEN_PX", () => {
     const model = buildModel((m) => {
-      m.elements["a"] = createElement("a", "object");
+      m.elements["a"] = { ...createElement("a", "object"), childIds: ["b"] };
+      m.elements["b"] = createElement("b", "object");
       m.root.childIds.push("a");
     });
 
     const tinyZoom = MIN_SCREEN_PX / BASE_PX / 2;
     const viewState = createEmptyViewState();
     const result = computeElementSizes(model, viewState, tinyZoom);
-    expect(result.zoomHidden.has("a")).toBe(true);
+    expect(result.zoomHidden.has("a")).toBe(false);
+    expect(result.zoomHidden.has("a.b")).toBe(true);
   });
 
   it("marks elements as zoom-dimmed when screen size > MAX_SCREEN_PX", () => {
@@ -105,14 +107,15 @@ describe("computeElementSizes", () => {
   it("skips children when parent is zoom-hidden", () => {
     const model = buildModel((m) => {
       m.elements["a"] = { ...createElement("a", "object"), childIds: ["b"] };
-      m.elements["b"] = createElement("b", "object");
+      m.elements["b"] = { ...createElement("b", "object"), childIds: ["c"] };
+      m.elements["c"] = createElement("c", "object");
       m.root.childIds.push("a");
     });
     const tinyZoom = MIN_SCREEN_PX / BASE_PX / 2;
     const viewState = createEmptyViewState();
     const result = computeElementSizes(model, viewState, tinyZoom);
-
-    expect(result.pixelSizes.has("a.b")).toBe(false);
+    expect(result.zoomHidden.has("a.b")).toBe(true);
+    expect(result.pixelSizes.has("a.b.c")).toBe(false);
   });
 
   it("handles recursive elements gracefully", () => {
