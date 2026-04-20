@@ -165,17 +165,6 @@ export class DiagramLayerRenderer {
       const elementGroup = this.renderElement(element, path, isDimmed, colorOverride);
       if (elementGroup) {
         elementLayer.add(elementGroup);
-        if (!this.prevPaths.has(path)) {
-          requestAnimationFrame(() => {
-            new Konva.Tween({
-              node: elementGroup,
-              duration: 0.25,
-              easing: Konva.Easings.EaseOut,
-              scaleX: 1,
-              scaleY: 1,
-            }).play();
-          });
-        }
       }
     }
 
