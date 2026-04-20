@@ -51,7 +51,13 @@ export class SyncManager {
       } = this.store.getState().diagram;
 
       const diff = ModelDiffer.diff(currentModel, newModel);
-      if (ModelDiffer.isEmpty(diff)) {
+      const presetsChanged =
+        JSON.stringify(currentModel.filterPresets ?? []) !==
+        JSON.stringify(newModel.filterPresets ?? []);
+      const atomsChanged =
+        JSON.stringify(currentModel.atoms ?? []) !==
+        JSON.stringify(newModel.atoms ?? []);
+      if (ModelDiffer.isEmpty(diff) && !presetsChanged && !atomsChanged) {
         this.store.dispatch(setCode(code));
         return;
       }

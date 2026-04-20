@@ -2,9 +2,8 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type {
   FilterMode,
   FilterPreset,
-  SelectorAtom,
 } from "../../domain/models/Selector";
-import { SELECTION_PRESET_ID } from "../../domain/models/Selector";
+import { SELECTION_PRESET_ID, emptySelector } from "../../domain/models/Selector";
 
 function escapeForRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -16,16 +15,11 @@ function buildSelectionPreset(ids: string[], color: string): FilterPreset {
     ids.length === 1
       ? `(^|\\.)${escaped[0]}$`
       : `(^|\\.)(${escaped.join("|")})$`;
-  const atom: SelectorAtom = {
-    id: "sel_atom",
-    types: [],
-    path: pattern,
-    meta: { kind: "raw" },
-  };
   return {
     id: SELECTION_PRESET_ID,
     label: "Selection",
-    selector: { atoms: [atom], combiner: "1" },
+    selector: emptySelector(),
+    selectionPattern: pattern,
     mode: "color",
     isActive: true,
     color,

@@ -46,9 +46,22 @@ export class Lexer {
         continue;
       }
 
-      if (char === FLAG_CHAR && /[a-zA-Z_]/.test(this.input[this.i + 1] ?? "")) {
-        this.advance();
-        tokens.push(this.readFlagIdentifier());
+      if (char === FLAG_CHAR) {
+        const next = this.input[this.i + 1] ?? "";
+        if (next === '"') {
+          this.advance(); // skip ':'
+          tokens.push(this.readQuoted("FLAG"));
+          continue;
+        }
+        if (/[a-zA-Z_]/.test(next)) {
+          this.advance();
+          tokens.push(this.readFlagIdentifier());
+          continue;
+        }
+      }
+
+      if (char === '"') {
+        tokens.push(this.readQuoted("IDENTIFIER"));
         continue;
       }
 
@@ -68,6 +81,18 @@ export class Lexer {
     }
 
     return tokens;
+  }
+
+  private readQuoted(type: "IDENTIFIER" | "FLAG"): Token {
+    const start = { row: this.row, col: this.col };
+    this.advance(); // skip opening "
+    const chars: string[] = [];
+    while (this.peek() !== '"' && this.peek() !== "" && this.peek() !== "\n") {
+      chars.push(this.peek());
+      this.advance();
+    }
+    if (this.peek() === '"') this.advance(); // skip closing "
+    return createToken(type, chars.join(""), start.row, start.col);
   }
 
   private readIdentifier(): Token {
@@ -103,7 +128,12 @@ export class Lexer {
       this.advance();
     }
 
-    return createToken("DIRECTIVE", chars.join("").trim(), start.row, start.col);
+    return createToken(
+      "DIRECTIVE",
+      chars.join("").trim(),
+      start.row,
+      start.col,
+    );
   }
 
   private skipComment(): void {

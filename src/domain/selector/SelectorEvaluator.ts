@@ -1,15 +1,9 @@
-import type {
-  Selector,
-  SelectorAtom,
-  ElementTypeKey,
-} from "../models/Selector";
+import type { Selector, SelectorAtom } from "../models/Selector";
 
-type TK =
-  | { k: "num"; v: number }
-  | { k: "and" | "or" | "xor" | "not" | "lp" | "rp" };
+type CombTK = { k: "id"; v: string } | { k: "+" | "&" | "-" | "lp" | "rp" };
 
-function lex(expr: string): TK[] {
-  const out: TK[] = [];
+function lexCombiner(expr: string): CombTK[] {
+  const out: CombTK[] = [];
   let i = 0;
   while (i < expr.length) {
     const ch = expr[i];
@@ -27,34 +21,39 @@ function lex(expr: string): TK[] {
       i++;
       continue;
     }
-    if (/\d/.test(ch)) {
-      let n = "";
-      while (i < expr.length && /\d/.test(expr[i])) n += expr[i++];
-      out.push({ k: "num", v: +n });
+    if (ch === "+") {
+      out.push({ k: "+" });
+      i++;
       continue;
     }
-    let matched = false;
-    for (const k of ["xor", "and", "not", "or"] as string[]) {
-      if (expr.startsWith(k, i) && !/\w/.test(expr[i + k.length] ?? "")) {
-        out.push({ k } as TK);
-        i += k.length;
-        matched = true;
-        break;
-      }
+    if (ch === "&") {
+      out.push({ k: "&" });
+      i++;
+      continue;
     }
-    if (!matched) i++;
+    if (ch === "-") {
+      out.push({ k: "-" });
+      i++;
+      continue;
+    }
+    if (/[a-zA-Z0-9_]/.test(ch)) {
+      let id = "";
+      while (i < expr.length && /[a-zA-Z0-9_]/.test(expr[i])) id += expr[i++];
+      out.push({ k: "id", v: id });
+      continue;
+    }
+    i++;
   }
   return out;
 }
 
 class CombinerParser {
   private i = 0;
-  private tks: TK[];
-  private r: boolean[];
-
-  constructor(tks: TK[], r: boolean[]) {
+  private tks: CombTK[];
+  private results: Map<string, boolean>;
+  constructor(tks: CombTK[], results: Map<string, boolean>) {
     this.tks = tks;
-    this.r = r;
+    this.results = results;
   }
 
   parse(): boolean {
@@ -63,26 +62,26 @@ class CombinerParser {
 
   private parseOr(): boolean {
     let v = this.parseAnd();
-    while (this.peek()?.k === "or" || this.peek()?.k === "xor") {
-      const op = this.advance()!;
-      const right = this.parseAnd();
-      v = op.k === "xor" ? v !== right : v || right;
+    while (this.peek()?.k === "+") {
+      this.advance();
+      const rhs = this.parseAnd();
+      v = v || rhs;
     }
     return v;
   }
 
   private parseAnd(): boolean {
     let v = this.parseNot();
-    while (this.peek()?.k === "and") {
+    while (this.peek()?.k === "&") {
       this.advance();
-      const right = this.parseNot();
-      v = v && right;
+      const rhs = this.parseNot();
+      v = v && rhs;
     }
     return v;
   }
 
   private parseNot(): boolean {
-    if (this.peek()?.k === "not") {
+    if (this.peek()?.k === "-") {
       this.advance();
       return !this.parseNot();
     }
@@ -92,9 +91,9 @@ class CombinerParser {
   private parseAtom(): boolean {
     const t = this.peek();
     if (!t) return false;
-    if (t.k === "num" && "v" in t) {
+    if (t.k === "id") {
       this.advance();
-      return this.r[(t as { k: "num"; v: number }).v - 1] ?? false;
+      return this.results.get(t.v) ?? false;
     }
     if (t.k === "lp") {
       this.advance();
@@ -113,33 +112,88 @@ class CombinerParser {
   }
 }
 
-export function matchesAtom(
-  atom: SelectorAtom,
+const KNOWN_SUFFIXES = ["name", "level"] as const;
+
+function matchPatternValue(
+  suffix: string,
+  value: string,
   path: string,
-  type: string,
+  depth: number,
 ): boolean {
-  if (atom.types.length > 0 && !atom.types.includes(type as ElementTypeKey))
-    return false;
-  const pat = !atom.path || atom.path === "*" ? ".*" : atom.path;
+  if (suffix === "name") {
+    const name = path.split(".").at(-1) ?? path;
+    try {
+      return new RegExp(value).test(name);
+    } catch {
+      return false;
+    }
+  }
+  if (suffix === "level") {
+    const dash = value.indexOf("-");
+    const min = parseInt(dash === -1 ? value : value.slice(0, dash), 10);
+    const max = dash === -1 ? min : parseInt(value.slice(dash + 1), 10);
+    return depth >= min && depth <= max;
+  }
+
   try {
-    return new RegExp(pat).test(path);
+    return new RegExp(value).test(path);
   } catch {
     return false;
   }
 }
 
+export function matchesAtom(
+  atom: SelectorAtom,
+  path: string,
+  elementType: string,
+): boolean {
+  const depth = path.split(".").length;
+
+  for (const [key, value] of Object.entries(atom.patterns)) {
+    const underIdx = key.lastIndexOf("_");
+    let type: string;
+    let suffix: string;
+
+    if (underIdx > 0) {
+      const potentialSuffix = key.slice(underIdx + 1);
+      if ((KNOWN_SUFFIXES as readonly string[]).includes(potentialSuffix)) {
+        type = key.slice(0, underIdx);
+        suffix = potentialSuffix;
+      } else {
+        type = key;
+        suffix = "path";
+      }
+    } else {
+      type = key;
+      suffix = "path";
+    }
+
+    if (type !== "all" && type !== elementType) continue;
+    if (matchPatternValue(suffix, value, path, depth)) return true;
+  }
+
+  return false;
+}
+
 export function evaluateSelector(
   selector: Selector,
   path: string,
-  type: string,
+  elementType: string,
+  globalAtoms: SelectorAtom[],
 ): boolean {
-  if (selector.atoms.length === 0) return true;
-  const results = selector.atoms.map((a) => matchesAtom(a, path, type));
-  const expr =
-    selector.combiner.trim() || results.map((_, i) => i + 1).join(" or ");
+  const combiner = selector.combiner.trim();
+  if (!combiner) return false;
+
+  const results = new Map<string, boolean>();
+  for (const atom of globalAtoms) {
+    const result = matchesAtom(atom, path, elementType);
+    results.set(atom.id, result);
+    if (atom.name) results.set(atom.name, result);
+  }
+
   try {
-    return new CombinerParser(lex(expr), results).parse();
+    return new CombinerParser(lexCombiner(combiner), results).parse();
   } catch {
-    return true;
+    return false;
   }
 }

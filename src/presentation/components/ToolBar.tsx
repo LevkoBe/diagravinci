@@ -41,11 +41,13 @@ import {
 import { AppConfig } from "../../config/appConfig";
 import {
   Button,
+  Modal,
   SettingsModalButton,
   useC7One,
   detectIsDark,
   useWindowContext,
 } from "@levkobe/c7one";
+import { FiltersPanel } from "./FilterModal";
 import {
   parchmentTheme,
   diagraVinciDark,
@@ -284,6 +286,7 @@ export function ToolBar() {
   const { colors, setColors, injectTokens } = useC7One();
   const isDark = detectIsDark(colors["--color-bg-base"]);
   const { tree, moveDivider } = useWindowContext();
+  const [selectorModalOpen, setSelectorModalOpen] = useState(false);
 
   const toolbarInnerRef = useRef<HTMLDivElement>(null);
   const [toolbarWidth, setToolbarWidth] = useState(9999);
@@ -693,7 +696,7 @@ export function ToolBar() {
   const selectBtns = (
     <>
       <div className="relative">
-        <Btn title="Selector presets" active={activePresetCount > 0}>
+        <Btn title="Selector presets" active={activePresetCount > 0} onClick={() => setSelectorModalOpen(true)}>
           <ListFilter size={15} />
         </Btn>
         {activePresetCount > 0 && (
@@ -1252,6 +1255,12 @@ export function ToolBar() {
           </PillOpenContext.Provider>
         )}
       </div>
+
+      <Modal open={selectorModalOpen} onOpenChange={setSelectorModalOpen}>
+        <Modal.Content className="w-130 h-160 p-0 overflow-hidden">
+          <FiltersPanel />
+        </Modal.Content>
+      </Modal>
     </>
   );
 }

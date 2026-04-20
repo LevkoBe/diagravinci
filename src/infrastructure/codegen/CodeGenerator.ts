@@ -1,5 +1,5 @@
 import type { DiagramModel } from "../../domain/models/DiagramModel";
-import type { FilterPreset } from "../../domain/models/Selector";
+import type { FilterPreset, SelectorAtom } from "../../domain/models/Selector";
 import {
   createElement,
   type Element,
@@ -30,10 +30,17 @@ export class CodeGenerator {
   generate(): string {
     const lines: string[] = [];
 
-    for (const preset of (this.model.filterPresets ?? []))
+    for (const atom of this.model.atoms ?? [])
+      lines.push(this.generateAtom(atom));
+
+    for (const preset of this.model.filterPresets ?? [])
       lines.push(this.generateFilterPreset(preset));
 
-    if ((this.model.filterPresets ?? []).length > 0) lines.push("");
+    if (
+      (this.model.atoms ?? []).length > 0 ||
+      (this.model.filterPresets ?? []).length > 0
+    )
+      lines.push("");
 
     const rootIdSet = new Set(this.model.root.childIds);
     const rootElements = Object.values(this.model.elements).filter((e) =>
@@ -49,12 +56,25 @@ export class CodeGenerator {
     return lines.join("\n");
   }
 
+  private generateAtom(atom: SelectorAtom): string {
+    const parts = [`!atom`, `id=${atom.id}`];
+    if (atom.name) parts.push(`name=${atom.name}`);
+    for (const [key, value] of Object.entries(atom.patterns)) {
+      const v = /\s/.test(value) ? `"${value}"` : value;
+      parts.push(`${key}=${v}`);
+    }
+    return parts.join("  ");
+  }
+
   private generateFilterPreset(preset: FilterPreset): string {
-    const atom = preset.selector.atoms[0];
     const parts = [`!selector`, `name=${preset.id}`];
-    if (atom?.path) parts.push(`path=${atom.path}`);
     parts.push(`color=${preset.color}`);
     parts.push(`mode=${preset.mode}`);
+    if (preset.selector.combiner) {
+      const c = preset.selector.combiner;
+      const v = /\s/.test(c) ? `"${c}"` : c;
+      parts.push(`combiner=${v}`);
+    }
     return parts.join("  ");
   }
 
@@ -76,7 +96,8 @@ export class CodeGenerator {
 
     const hasContent = element.childIds.length > 0;
 
-    if (!hasContent) return `${indentation}${element.id}${flagSuffix}${opening}${closing}`;
+    if (!hasContent)
+      return `${indentation}${element.id}${flagSuffix}${opening}${closing}`;
 
     const newAncestry = ancestry.tryAdd(element.id);
     if (!newAncestry)

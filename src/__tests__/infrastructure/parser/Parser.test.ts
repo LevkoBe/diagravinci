@@ -638,14 +638,17 @@ describe("Parser edge cases", () => {
     expect(ids).toContain("server");
   });
 
-  it("parses !selector directive into model.filterPresets", () => {
-    const model = parse("!selector name=warn  path=*.db.*  color=#f00  mode=dim");
+  it("parses !atom and !selector directives", () => {
+    const code = "!atom  id=1  all=*.db.*\n!selector  name=warn  color=#f00  mode=dim  combiner=1";
+    const model = parse(code);
+    expect(model.atoms ?? []).toHaveLength(1);
+    expect((model.atoms ?? [])[0].patterns["all"]).toBe("*.db.*");
     expect(model.filterPresets ?? []).toHaveLength(1);
     const p = (model.filterPresets ?? [])[0];
     expect(p.id).toBe("warn");
     expect(p.color).toBe("#f00");
     expect(p.mode).toBe("dim");
-    expect(p.selector.atoms[0].path).toBe("*.db.*");
+    expect(p.selector.combiner).toBe("1");
   });
 
   it("ignores !directive with unknown type", () => {

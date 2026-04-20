@@ -21,7 +21,11 @@ import {
   type Relationship,
   createRelationship,
 } from "../../domain/models/Relationship";
-import type { FilterPreset, FilterMode } from "../../domain/models/Selector";
+import type {
+  FilterPreset,
+  FilterMode,
+  SelectorAtom,
+} from "../../domain/models/Selector";
 
 const WRAPPERS: Record<
   OpeningWrapper,
@@ -36,6 +40,39 @@ const WRAPPERS: Record<
 };
 
 const VALID_MODES: FilterMode[] = ["color", "dim", "hide"];
+
+function splitDirective(raw: string): string[] {
+  const parts: string[] = [];
+  let cur = "";
+  let inQuote = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch === '"') {
+      inQuote = !inQuote;
+      continue;
+    }
+    if (!inQuote && /\s/.test(ch)) {
+      if (cur) {
+        parts.push(cur);
+        cur = "";
+      }
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur) parts.push(cur);
+  return parts;
+}
+
+function parseKVs(parts: string[], startIdx: number): Record<string, string> {
+  const kvs: Record<string, string> = {};
+  for (let i = startIdx; i < parts.length; i++) {
+    const eq = parts[i].indexOf("=");
+    if (eq === -1) continue;
+    kvs[parts[i].slice(0, eq)] = parts[i].slice(eq + 1);
+  }
+  return kvs;
+}
 
 export class Parser {
   private tokens: Token[];
@@ -68,7 +105,13 @@ export class Parser {
       switch (this.peek()?.kind) {
         case "}":
           if (this.peek()?.type === "|") {
-            lastEl = this.parseOpeningWrapper(parent, lastRel, lastEl, depth, "|");
+            lastEl = this.parseOpeningWrapper(
+              parent,
+              lastRel,
+              lastEl,
+              depth,
+              "|",
+            );
             lastRel = null;
             break;
           }
@@ -175,17 +218,31 @@ export class Parser {
   };
 
   private parseDirective(raw: string): void {
-    const parts = raw.trim().split(/\s+/);
+    const parts = splitDirective(raw.trim());
     const type = parts[0];
-    if (type !== "selector") return;
+    if (type === "atom") this.parseAtomDirective(parts);
+    else if (type === "selector") this.parseSelectorDirective(parts);
+  }
 
-    const kvs: Record<string, string> = {};
-    for (let i = 1; i < parts.length; i++) {
-      const eq = parts[i].indexOf("=");
-      if (eq === -1) continue;
-      kvs[parts[i].slice(0, eq)] = parts[i].slice(eq + 1);
+  private parseAtomDirective(parts: string[]): void {
+    const kvs = parseKVs(parts, 1);
+    const id = kvs["id"];
+    if (!id) return;
+
+    const { id: _id, name, ...patternKvs } = kvs;
+    const atom: SelectorAtom = {
+      id,
+      ...(name ? { name } : {}),
+      patterns: patternKvs,
+    };
+
+    if (!(this.model.atoms ?? []).some((a) => a.id === id)) {
+      (this.model.atoms ??= []).push(atom);
     }
+  }
 
+  private parseSelectorDirective(parts: string[]): void {
+    const kvs = parseKVs(parts, 1);
     const name = kvs["name"];
     if (!name) return;
 
@@ -197,17 +254,7 @@ export class Parser {
     const preset: FilterPreset = {
       id: name,
       label: name,
-      selector: {
-        atoms: [
-          {
-            id: `${name}_atom`,
-            types: [],
-            path: kvs["path"] ?? "",
-            meta: { kind: "raw" },
-          },
-        ],
-        combiner: "1",
-      },
+      selector: { combiner: kvs["combiner"] ?? "" },
       mode,
       isActive: true,
       color: kvs["color"] ?? "#888888",
