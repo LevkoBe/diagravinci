@@ -166,13 +166,15 @@ export class DiagramLayerRenderer {
       if (elementGroup) {
         elementLayer.add(elementGroup);
         if (!this.prevPaths.has(path)) {
-          new Konva.Tween({
-            node: elementGroup,
-            duration: 0.25,
-            easing: Konva.Easings.EaseOut,
-            scaleX: 1,
-            scaleY: 1,
-          }).play();
+          requestAnimationFrame(() => {
+            new Konva.Tween({
+              node: elementGroup,
+              duration: 0.25,
+              easing: Konva.Easings.EaseOut,
+              scaleX: 1,
+              scaleY: 1,
+            }).play();
+          });
         }
       }
     }
