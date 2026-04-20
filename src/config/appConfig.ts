@@ -25,7 +25,7 @@ export const AppConfig = {
     DEFAULT_INTERACTION_MODE: "select" as const,
     DEFAULT_ELEMENT_TYPE: "object" as const,
     DEFAULT_RELATIONSHIP_TYPE: "-->" as const,
-    DEFAULT_RENDER_STYLE: "svg" as const,
+    DEFAULT_RENDER_STYLE: "polygon" as const,
     COLOR_PALETTE: [
       "#e05c5c",
       "#e07a2f",
