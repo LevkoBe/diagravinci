@@ -29,13 +29,14 @@ export function createEmbedStore(
 
   store.dispatch(setInteractionMode("readonly"));
 
+  const canvasSize = {
+    width: AppConfig.canvas.DEFAULT_WIDTH,
+    height: AppConfig.canvas.DEFAULT_HEIGHT,
+  };
+
   if (diagramCode) {
     try {
       const model = new Parser(new Lexer(diagramCode).tokenize()).parse();
-      const canvasSize = {
-        width: AppConfig.canvas.DEFAULT_WIDTH,
-        height: AppConfig.canvas.DEFAULT_HEIGHT,
-      };
       const viewState = {
         ...ViewStateMerger.merge(createEmptyViewState(), model, canvasSize),
         viewMode,
@@ -44,8 +45,10 @@ export function createEmbedStore(
       store.dispatch(setViewState(viewState));
       store.dispatch(setCode(diagramCode));
     } catch {
-      // bad DSL — start with empty diagram
+      store.dispatch(setViewState({ ...createEmptyViewState(), viewMode }));
     }
+  } else {
+    store.dispatch(setViewState({ ...createEmptyViewState(), viewMode }));
   }
 
   return store;

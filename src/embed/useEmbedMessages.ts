@@ -28,11 +28,10 @@ export function useEmbedMessages() {
           width: AppConfig.canvas.DEFAULT_WIDTH,
           height: AppConfig.canvas.DEFAULT_HEIGHT,
         };
-        const newViewState = ViewStateMerger.merge(
-          viewStateRef.current,
-          model,
-          canvasSize,
-        );
+        const newViewState = {
+          ...ViewStateMerger.merge(viewStateRef.current, model, canvasSize),
+          viewMode: viewStateRef.current.viewMode,
+        };
         dispatch(setModel(model));
         dispatch(setViewState(newViewState));
         dispatch(setCode(diagram));
