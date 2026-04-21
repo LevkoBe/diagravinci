@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
 import reducer, {
-  openFilterModal,
-  closeFilterModal,
-  setActiveModalPreset,
   addPreset,
   updatePreset,
   removePreset,
@@ -39,36 +36,11 @@ describe("filterSlice", () => {
   it("has correct initial state", () => {
     const state = reducer(undefined, { type: "@@INIT" });
     expect(state.presets).toEqual([]);
-    expect(state.isModalOpen).toBe(false);
     expect(state.foldLevel).toBe(1);
     expect(state.foldActive).toBe(false);
     expect(state.manuallyFolded).toEqual([]);
     expect(state.manuallyUnfolded).toEqual([]);
     expect(state._rev).toBe(0);
-  });
-
-  describe("modal actions", () => {
-    it("openFilterModal sets isModalOpen to true", () => {
-      const state = reducer(undefined, openFilterModal());
-      expect(state.isModalOpen).toBe(true);
-    });
-
-    it("closeFilterModal sets isModalOpen to false", () => {
-      const s1 = reducer(undefined, openFilterModal());
-      const s2 = reducer(s1, closeFilterModal());
-      expect(s2.isModalOpen).toBe(false);
-    });
-
-    it("setActiveModalPreset updates activeModalPresetId", () => {
-      const state = reducer(undefined, setActiveModalPreset("p1"));
-      expect(state.activeModalPresetId).toBe("p1");
-    });
-
-    it("setActiveModalPreset can set null", () => {
-      const s1 = reducer(undefined, setActiveModalPreset("p1"));
-      const s2 = reducer(s1, setActiveModalPreset(null));
-      expect(s2.activeModalPresetId).toBeNull();
-    });
   });
 
   describe("preset CRUD", () => {
@@ -92,20 +64,10 @@ describe("filterSlice", () => {
       expect(s2.presets).toHaveLength(1);
     });
 
-    it("removePreset removes preset and clears activeModalPresetId if it matches", () => {
+    it("removePreset removes the preset", () => {
       const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, setActiveModalPreset("p1"));
-      const s3 = reducer(s2, removePreset("p1"));
-      expect(s3.presets).toHaveLength(0);
-      expect(s3.activeModalPresetId).toBeNull();
-    });
-
-    it("removePreset does not change activeModalPresetId for other presets", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, addPreset(makePreset("p2")));
-      const s3 = reducer(s2, setActiveModalPreset("p2"));
-      const s4 = reducer(s3, removePreset("p1"));
-      expect(s4.activeModalPresetId).toBe("p2");
+      const s2 = reducer(s1, removePreset("p1"));
+      expect(s2.presets).toHaveLength(0);
     });
 
     it("togglePresetActive flips isActive", () => {

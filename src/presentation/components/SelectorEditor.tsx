@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Plus, Check, Pencil, Trash2, X, RotateCcw } from "lucide-react";
+import { DangerIconBtn } from "./DangerIconBtn";
 import type {
   Selector,
   SelectorAtom,
@@ -129,15 +130,15 @@ function AtomRow({
         "flex items-center gap-2 px-2 py-1.5 rounded-md border text-sm",
         isEditing
           ? "border-accent/70 bg-accent/8"
-          : "border-fg-ternary/30 bg-bg-secondary/50",
+          : "border-border/30 bg-bg-elevated/50",
       ].join(" ")}
     >
-      <span className="text-[10px] font-bold text-fg-ternary/60 w-4 select-none shrink-0">
+      <span className="text-[10px] font-bold text-fg-disabled/60 w-4 select-none shrink-0">
         {index}
       </span>
       <div className="flex items-center gap-0.5 shrink-0">
         {atom.types.length === 0 ? (
-          <span className="text-[10px] text-fg-ternary/50 italic">all</span>
+          <span className="text-[10px] text-fg-disabled/50 italic">all</span>
         ) : (
           atom.types.map((t) => (
             <span key={t} className="opacity-70 flex items-center" title={t}>
@@ -146,19 +147,15 @@ function AtomRow({
           ))
         )}
       </div>
-      <code className="flex-1 text-[11px] truncate text-fg-secondary font-mono">
+      <code className="flex-1 text-[11px] truncate text-fg-muted font-mono">
         {presetLabel}
       </code>
       <button title="Edit" onClick={onEdit} className="btn-icon p-1!">
         <Pencil size={11} />
       </button>
-      <button
-        title="Delete"
-        onClick={onDelete}
-        className="btn-icon danger p-1!"
-      >
+      <DangerIconBtn title="Delete" onClick={onDelete} className="p-1!">
         <Trash2 size={11} />
-      </button>
+      </DangerIconBtn>
     </div>
   );
 }
@@ -242,13 +239,13 @@ export function SelectorEditor({ selector, onChange }: SelectorEditorProps) {
             if (e.key === "Escape") cancelEdit();
           }}
           placeholder="element name substring"
-          className="flex-1 bg-bg-secondary/60 border border-fg-ternary/30 rounded-md px-2 py-1 text-xs font-mono text-fg-primary placeholder:text-fg-ternary/40 focus:outline-none focus:border-accent/60"
+          className="flex-1 bg-bg-elevated/60 border border-border/30 rounded-md px-2 py-1 text-xs font-mono text-fg-primary placeholder:text-fg-disabled/40 focus:outline-none focus:border-accent/60"
         />
       );
     if (draft.preset === "level")
       return (
         <div className="flex items-center gap-1.5 flex-1">
-          <span className="text-[10px] text-fg-ternary/60">lvl</span>
+          <span className="text-[10px] text-fg-disabled/60">lvl</span>
           <input
             type="number"
             min={1}
@@ -256,9 +253,9 @@ export function SelectorEditor({ selector, onChange }: SelectorEditorProps) {
             onChange={(e) =>
               setDraft((d) => ({ ...d, levelMin: +e.target.value }))
             }
-            className="w-12 bg-bg-secondary/60 border border-fg-ternary/30 rounded px-1.5 py-1 text-xs font-mono text-center focus:outline-none focus:border-accent/60"
+            className="w-12 bg-bg-elevated/60 border border-border/30 rounded px-1.5 py-1 text-xs font-mono text-center focus:outline-none focus:border-accent/60"
           />
-          <span className="text-[10px] text-fg-ternary/60">–</span>
+          <span className="text-[10px] text-fg-disabled/60">–</span>
           <input
             type="number"
             min={draft.levelMin}
@@ -269,7 +266,7 @@ export function SelectorEditor({ selector, onChange }: SelectorEditorProps) {
                 levelMax: Math.max(d.levelMin, +e.target.value),
               }))
             }
-            className="w-12 bg-bg-secondary/60 border border-fg-ternary/30 rounded px-1.5 py-1 text-xs font-mono text-center focus:outline-none focus:border-accent/60"
+            className="w-12 bg-bg-elevated/60 border border-border/30 rounded px-1.5 py-1 text-xs font-mono text-center focus:outline-none focus:border-accent/60"
           />
         </div>
       );
@@ -284,7 +281,7 @@ export function SelectorEditor({ selector, onChange }: SelectorEditorProps) {
           if (e.key === "Escape") cancelEdit();
         }}
         placeholder="regex  (e.g. .*foo.*, empty = all)"
-        className="flex-1 bg-bg-secondary/60 border border-fg-ternary/30 rounded-md px-2 py-1 text-xs font-mono text-fg-primary placeholder:text-fg-ternary/40 focus:outline-none focus:border-accent/60"
+        className="flex-1 bg-bg-elevated/60 border border-border/30 rounded-md px-2 py-1 text-xs font-mono text-fg-primary placeholder:text-fg-disabled/40 focus:outline-none focus:border-accent/60"
       />
     );
   };
@@ -296,13 +293,13 @@ export function SelectorEditor({ selector, onChange }: SelectorEditorProps) {
 
   return (
     <div className="flex flex-col gap-0">
-      <div className="px-4 pt-4 pb-3 border-b border-fg-ternary/20">
+      <div className="px-4 pt-4 pb-3 border-b border-border/20">
         <p className="text-[10px] font-bold text-accent/70 tracking-widest uppercase mb-2 select-none">
           {editingId ? "Edit Atom" : "Add Atom"}
         </p>
 
         <div className="flex items-center gap-1 mb-2">
-          <span className="text-[10px] text-fg-ternary/60 w-10 select-none">
+          <span className="text-[10px] text-fg-disabled/60 w-10 select-none">
             Types
           </span>
           {ELEMENT_TYPES.map((type) => (
@@ -332,7 +329,7 @@ export function SelectorEditor({ selector, onChange }: SelectorEditorProps) {
         </div>
 
         <div className="flex items-center gap-1 mb-2">
-          <span className="text-[10px] text-fg-ternary/60 w-10 select-none">
+          <span className="text-[10px] text-fg-disabled/60 w-10 select-none">
             Preset
           </span>
           {PRESETS.map((p) => (
@@ -352,7 +349,7 @@ export function SelectorEditor({ selector, onChange }: SelectorEditorProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-fg-ternary/60 w-10 select-none shrink-0">
+          <span className="text-[10px] text-fg-disabled/60 w-10 select-none shrink-0">
             {draft.preset === "name"
               ? "Name"
               : draft.preset === "level"
@@ -395,12 +392,12 @@ export function SelectorEditor({ selector, onChange }: SelectorEditorProps) {
         </div>
       </div>
 
-      <div className="px-4 pt-3 pb-3 border-b border-fg-ternary/20">
+      <div className="px-4 pt-3 pb-3 border-b border-border/20">
         <p className="text-[10px] font-bold text-accent/70 tracking-widest uppercase mb-2 select-none">
           Atoms
         </p>
         {selector.atoms.length === 0 ? (
-          <p className="text-[11px] text-fg-ternary/50 italic py-1">
+          <p className="text-[11px] text-fg-disabled/50 italic py-1">
             No atoms yet — add one above.
           </p>
         ) : (
@@ -436,14 +433,14 @@ export function SelectorEditor({ selector, onChange }: SelectorEditorProps) {
           )}
         </div>
         {selector.atoms.length > 0 && (
-          <p className="text-[10px] text-fg-ternary/50 mb-1.5 font-mono">
+          <p className="text-[10px] text-fg-disabled/50 mb-1.5 font-mono">
             {selector.atoms.map((_, i) => (
               <span key={i} className="text-accent/70 mr-1">
                 {i + 1}
               </span>
             ))}
             ·{" "}
-            <span className="text-fg-secondary">
+            <span className="text-fg-muted">
               and · or · xor · not · ( )
             </span>
           </p>
@@ -458,7 +455,7 @@ export function SelectorEditor({ selector, onChange }: SelectorEditorProps) {
               ? "Add atoms above first"
               : "e.g.  1  ·  1 or 2  ·  (1 xor 2) and not 3"
           }
-          className="w-full bg-bg-secondary/60 border border-fg-ternary/30 rounded-md px-2.5 py-1.5 text-xs font-mono text-fg-primary placeholder:text-fg-ternary/40 focus:outline-none focus:border-accent/60 disabled:opacity-40"
+          className="w-full bg-bg-elevated/60 border border-border/30 rounded-md px-2.5 py-1.5 text-xs font-mono text-fg-primary placeholder:text-fg-disabled/40 focus:outline-none focus:border-accent/60 disabled:opacity-40"
         />
       </div>
     </div>

@@ -1,28 +1,9 @@
 @import url("https://fonts.googleapis.com/css2?family=Aleo:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap");
+@import "@levkobe/c7one/styles";
 @import "tailwindcss";
 
-@variant dark (&:where(.dark, .dark *));
-
 @theme {
-  --color-bg-primary: #e9cc8c;
-  --color-bg-secondary: #d9bd7a;
-  --color-bg-ternary: #f2dda8;
-  --color-fg-primary: #4a3821;
-  --color-fg-secondary: #726a63;
-  --color-fg-ternary: #978d84;
-  --color-accent: #a06527;
-  --color-danger: #b41e1e;
-
-  --color-state-selected: #3773d5;
-  --color-state-child: #c47835;
-  --color-state-parent: #6b8e4e;
-  --color-state-anchored: #8b6b9d;
-  --color-state-secondary: #5b7c9e;
-
   --font-sans: "Aleo", ui-serif, Georgia, serif;
-
-  --shadow-parchment: 0 2px 8px rgba(106, 89, 76, 0.15);
-  --shadow-parchment-lg: 0 4px 16px rgba(106, 89, 76, 0.2);
 }
 
 @layer base {
@@ -34,31 +15,11 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-color: var(--color-bg-primary);
+    background-color: var(--color-bg-base);
     color: var(--color-fg-primary);
     transition:
       background-color 200ms,
       color 200ms;
-  }
-
-  .dark body {
-    --color-bg-primary: #0b0d10;
-    --color-bg-secondary: #151820;
-    --color-bg-ternary: #1f2329;
-    --color-fg-primary: #e8f2ff;
-    --color-fg-secondary: #8b98ab;
-    --color-fg-ternary: #5a6478;
-    --color-accent: #4a9eff;
-    --color-danger: #ff4d4d;
-    --color-state-selected: #ffb84d;
-    --color-state-child: #ff8c42;
-    --color-state-parent: #6fcf97;
-    --color-state-anchored: #bb6bd9;
-    --color-state-secondary: #4a9eff;
-    --shadow-parchment: 0 0 10px rgba(74, 158, 255, 0.15);
-    --shadow-parchment-lg: 0 0 20px rgba(74, 158, 255, 0.3);
-    background-color: var(--color-bg-primary);
-    color: var(--color-fg-primary);
   }
 
   ::-webkit-scrollbar {
@@ -66,10 +27,10 @@
     height: 0.5rem;
   }
   ::-webkit-scrollbar-track {
-    background-color: var(--color-bg-secondary);
+    background-color: var(--color-bg-elevated);
   }
   ::-webkit-scrollbar-thumb {
-    background-color: var(--color-fg-secondary);
+    background-color: var(--color-fg-disabled);
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
@@ -85,9 +46,9 @@
     width: 2.25rem;
     height: 2.25rem;
     border-radius: 9999px;
-    border: 1px solid var(--color-fg-ternary);
-    color: var(--color-fg-secondary);
-    background: color-mix(in srgb, var(--color-fg-ternary) 15%, transparent);
+    border: 1px solid var(--color-border);
+    color: var(--color-fg-muted);
+    background: color-mix(in srgb, var(--color-border) 15%, transparent);
     cursor: pointer;
     transition:
       border-color 150ms,
@@ -96,7 +57,7 @@
     flex-shrink: 0;
   }
   .btn-icon:hover {
-    border-color: var(--color-fg-secondary);
+    border-color: var(--color-fg-muted);
     color: var(--color-fg-primary);
   }
   .btn-icon.active {
@@ -105,9 +66,9 @@
     color: var(--color-accent);
   }
   .btn-icon.danger {
-    border-color: var(--color-danger);
-    background: color-mix(in srgb, var(--color-danger) 15%, transparent);
-    color: var(--color-danger);
+    border-color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 15%, transparent);
+    color: var(--color-error);
   }
 
   .toolbar-pill {

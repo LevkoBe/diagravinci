@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Trash2, ChevronRight, Check, X } from "lucide-react";
+import { DangerIconBtn } from "./DangerIconBtn";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { syncManager } from "../../application/store/store";
 import {
@@ -20,7 +21,7 @@ export function PropertiesPanel() {
 
   if (!selectedId) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-fg-ternary select-none p-6">
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-fg-disabled select-none p-6">
         <div className="text-3xl opacity-40">◎</div>
         <div className="text-xs text-center leading-relaxed">
           Select an element
@@ -129,13 +130,13 @@ function PropertiesPanelContent({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-fg-ternary/40 flex items-start justify-between gap-2 shrink-0">
+      <div className="px-4 py-3 border-b border-border/40 flex items-start justify-between gap-2 shrink-0">
         <div className="min-w-0 flex-1">
           {editingName ? (
             <div className="flex items-center gap-1">
               <input
                 autoFocus
-                className="flex-1 min-w-0 text-sm font-semibold bg-bg-secondary border border-accent/60 rounded px-1.5 py-0.5 text-fg-primary outline-none"
+                className="flex-1 min-w-0 text-sm font-semibold bg-bg-elevated border border-accent/60 rounded px-1.5 py-0.5 text-fg-primary outline-none"
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -170,16 +171,16 @@ function PropertiesPanelContent({
               {selectedId}
             </button>
           )}
-          <div className="text-xs text-fg-secondary mt-0.5">{element.type}</div>
+          <div className="text-xs text-fg-muted mt-0.5">{element.type}</div>
         </div>
-        <button
-          className="btn-icon danger shrink-0 mt-0.5"
-          style={{ width: "1.75rem", height: "1.75rem" }}
+        <DangerIconBtn
           title="Delete element"
           onClick={handleDelete}
+          className="shrink-0 mt-0.5"
+          style={{ width: "1.75rem", height: "1.75rem" }}
         >
           <Trash2 size={13} />
-        </button>
+        </DangerIconBtn>
       </div>
 
       {/* Multi-select indicator */}
@@ -198,7 +199,7 @@ function PropertiesPanelContent({
               ↺ recursive
             </span>
           )}
-          <span className="px-2 py-0.5 rounded-full text-[10px] border border-fg-ternary/50 bg-fg-ternary/10 text-fg-secondary">
+          <span className="px-2 py-0.5 rounded-full text-[10px] border border-border/50 bg-fg-ternary/10 text-fg-muted">
             {element.foldState}
           </span>
         </div>
@@ -221,7 +222,7 @@ function PropertiesPanelContent({
             {paths.map((p) => (
               <div
                 key={p}
-                className="font-mono text-[11px] text-fg-secondary break-all bg-bg-ternary/50 rounded px-2 py-1"
+                className="font-mono text-[11px] text-fg-muted break-all bg-bg-overlay/50 rounded px-2 py-1"
               >
                 {p}
               </div>
@@ -237,7 +238,7 @@ function PropertiesPanelContent({
               return (
                 <button
                   key={childId}
-                  className="w-full flex items-center justify-between gap-1 px-2 py-1.5 rounded bg-bg-ternary/40 hover:bg-accent/10 hover:text-accent text-left transition-colors"
+                  className="w-full flex items-center justify-between gap-1 px-2 py-1.5 rounded bg-bg-overlay/40 hover:bg-accent/10 hover:text-accent text-left transition-colors"
                   onClick={() => {
                     dispatch(setSelectedElement(childId));
                   }}
@@ -245,11 +246,11 @@ function PropertiesPanelContent({
                   <span className="text-xs truncate">{childId}</span>
                   <div className="flex items-center gap-1 shrink-0">
                     {child && (
-                      <span className="text-[10px] text-fg-ternary">
+                      <span className="text-[10px] text-fg-disabled">
                         {child.type}
                       </span>
                     )}
-                    <ChevronRight size={11} className="text-fg-ternary" />
+                    <ChevronRight size={11} className="text-fg-disabled" />
                   </div>
                 </button>
               );
@@ -348,7 +349,7 @@ function PanelSection({
 }) {
   return (
     <div>
-      <div className="text-[10px] text-fg-ternary uppercase tracking-widest mb-1.5 font-medium">
+      <div className="text-[10px] text-fg-disabled uppercase tracking-widest mb-1.5 font-medium">
         {label}
       </div>
       <div className="flex flex-col gap-1">{children}</div>
@@ -359,7 +360,7 @@ function PanelSection({
 function DataRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-[11px] text-fg-secondary">{label}</span>
+      <span className="text-[11px] text-fg-muted">{label}</span>
       <span className="text-[11px] font-mono text-fg-primary">{value}</span>
     </div>
   );
@@ -380,16 +381,16 @@ function RelRow({
 }) {
   return (
     <button
-      className="w-full flex items-center gap-2 px-2 py-1.5 rounded bg-bg-ternary/40 hover:bg-accent/10 hover:text-accent text-left transition-colors"
+      className="w-full flex items-center gap-2 px-2 py-1.5 rounded bg-bg-overlay/40 hover:bg-accent/10 hover:text-accent text-left transition-colors"
       onClick={onNavigate}
     >
       <span
-        className={`text-[10px] font-mono shrink-0 ${dir === "out" ? "text-accent" : "text-fg-secondary"}`}
+        className={`text-[10px] font-mono shrink-0 ${dir === "out" ? "text-accent" : "text-fg-muted"}`}
       >
         {dir === "out" ? "→" : "←"}
       </span>
       <span className="text-xs truncate">{peerId}</span>
-      <span className="text-[10px] text-fg-ternary shrink-0 ml-auto">
+      <span className="text-[10px] text-fg-disabled shrink-0 ml-auto">
         {type}
         {label ? ` · ${label}` : ""}
       </span>

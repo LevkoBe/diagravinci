@@ -8,7 +8,6 @@ const DB_NAME = "diagravinci_db";
 const DB_VERSION = 1;
 const STORE_NAME = "kv";
 const STATE_KEY = "diagravinci_state";
-const SPLITTER_KEY = "diagravinci_splitter_width";
 
 type PersistedFilter = Pick<
   FilterState,
@@ -16,7 +15,6 @@ type PersistedFilter = Pick<
 >;
 
 type PersistedState = {
-  theme: { isDark: boolean };
   ui: Pick<
     UIState,
     | "renderStyle"
@@ -35,7 +33,6 @@ type HydratedState = Omit<PersistedState, "filter" | "diagram" | "ui"> & {
 };
 
 type AppState = {
-  theme: { isDark: boolean };
   ui: UIState;
   filter: FilterState;
   diagram: {
@@ -123,8 +120,6 @@ function hydratePersistedState(parsed: PersistedState): HydratedState {
     filter: {
       ...parsed.filter,
       presets,
-      isModalOpen: false,
-      activeModalPresetId: null,
       _rev: 0,
     },
     diagram: {
@@ -164,7 +159,6 @@ export async function loadStateAsync(): Promise<HydratedState | undefined> {
 
 export function saveState(state: AppState): void {
   const persisted: PersistedState = {
-    theme: { isDark: state.theme.isDark },
     ui: {
       renderStyle: state.ui.renderStyle,
       interactionMode: state.ui.interactionMode,
@@ -197,21 +191,10 @@ export function saveState(state: AppState): void {
   }
 }
 
+// loadSplitterWidth / saveSplitterWidth are no longer needed now that
+// App.tsx uses DynamicPanelRoot with its own storageKey persistence.
+// Kept here as no-ops to avoid breaking any residual imports.
 export function loadSplitterWidth(defaultWidth: number): number {
-  try {
-    const raw = localStorage.getItem(SPLITTER_KEY);
-    if (raw === null) return defaultWidth;
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultWidth;
-  } catch {
-    return defaultWidth;
-  }
+  return defaultWidth;
 }
-
-export function saveSplitterWidth(width: number): void {
-  try {
-    localStorage.setItem(SPLITTER_KEY, String(width));
-  } catch {
-    // Silently ignore
-  }
-}
+export function saveSplitterWidth(_width: number): void {}

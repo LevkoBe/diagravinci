@@ -17,8 +17,8 @@ export default function ApiKeySetup({ onKeySet }: { onKeySet: (key: string) => v
   };
 
   return (
-    <div className="w-full h-full flex flex-col border-l-2 border-fg-ternary/60 bg-bg-primary">
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b-2 border-fg-ternary/60">
+    <div className="w-full h-full flex flex-col bg-bg-base">
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b-2 border-border/60">
         <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-accent/50 bg-accent/6">
           <span className="text-[9px] font-bold text-accent/70 tracking-widest uppercase mr-1 select-none">
             AI
@@ -30,7 +30,7 @@ export default function ApiKeySetup({ onKeySet }: { onKeySet: (key: string) => v
       <div className="flex-1 flex flex-col justify-center px-6 gap-5">
         <div className="space-y-2">
           <p className="text-sm font-medium text-fg-primary">Gemini API key required</p>
-          <p className="text-xs text-fg-secondary leading-relaxed">
+          <p className="text-xs text-fg-muted leading-relaxed">
             AI features use the Google Gemini API. Your key is stored in your
             browser only and sent directly to Google — it never touches any
             server we operate.
@@ -53,9 +53,9 @@ export default function ApiKeySetup({ onKeySet }: { onKeySet: (key: string) => v
             onChange={(e) => { setValue(e.target.value); setError(""); }}
             onKeyDown={(e) => e.key === "Enter" && save()}
             placeholder="AIza…"
-            className="w-full bg-bg-secondary border border-fg-ternary/40 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-accent/60"
+            className="w-full bg-bg-elevated border border-border/40 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-accent/60"
           />
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-xs text-error">{error}</p>}
           <button
             onClick={save}
             className="w-full px-3 py-2 rounded-md bg-accent/15 border border-accent/40 text-sm text-accent hover:bg-accent/25 transition-colors"

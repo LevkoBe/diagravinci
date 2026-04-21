@@ -10,8 +10,6 @@ import type { FilterPreset } from "../../domain/models/Selector";
 function makeFilterState(overrides: Partial<FilterState> = {}): FilterState {
   return {
     presets: [],
-    isModalOpen: false,
-    activeModalPresetId: null,
     foldLevel: 1,
     foldActive: false,
     manuallyFolded: [],

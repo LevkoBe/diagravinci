@@ -34,8 +34,6 @@ function buildSelectionPreset(ids: string[], color: string): FilterPreset {
 
 interface FilterState {
   presets: FilterPreset[];
-  isModalOpen: boolean;
-  activeModalPresetId: string | null;
   foldLevel: number;
   foldActive: boolean;
   manuallyFolded: string[];
@@ -45,8 +43,6 @@ interface FilterState {
 
 const initialState: FilterState = {
   presets: [],
-  isModalOpen: false,
-  activeModalPresetId: null,
   foldLevel: 1,
   foldActive: false,
   manuallyFolded: [],
@@ -58,16 +54,6 @@ const filterSlice = createSlice({
   name: "filter",
   initialState,
   reducers: {
-    openFilterModal(state) {
-      state.isModalOpen = true;
-    },
-    closeFilterModal(state) {
-      state.isModalOpen = false;
-    },
-    setActiveModalPreset(state, { payload }: PayloadAction<string | null>) {
-      state.activeModalPresetId = payload;
-    },
-
     addPreset(state, { payload }: PayloadAction<FilterPreset>) {
       state.presets.push(payload);
       state._rev++;
@@ -79,7 +65,6 @@ const filterSlice = createSlice({
     },
     removePreset(state, { payload: id }: PayloadAction<string>) {
       state.presets = state.presets.filter((p) => p.id !== id);
-      if (state.activeModalPresetId === id) state.activeModalPresetId = null;
       state._rev++;
     },
     togglePresetActive(state, { payload: id }: PayloadAction<string>) {
@@ -228,9 +213,6 @@ const filterSlice = createSlice({
 });
 
 export const {
-  openFilterModal,
-  closeFilterModal,
-  setActiveModalPreset,
   addPreset,
   updatePreset,
   removePreset,

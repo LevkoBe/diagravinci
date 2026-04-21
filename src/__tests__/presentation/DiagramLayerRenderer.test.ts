@@ -14,7 +14,7 @@ import {
 import { createRelationship } from "../../domain/models/Relationship";
 import type { ViewState } from "../../domain/models/ViewState";
 import { DiagramLayerRenderer } from "../../presentation/components/DiagramLayerRenderer";
-import type { Colors } from "../../presentation/components/rendering/types";
+import type { Colors, RenderCallbacks } from "../../presentation/components/rendering/types";
 
 describe("DiagramLayerRenderer", () => {
   let helper: KonvaTestHelper;
@@ -661,6 +661,252 @@ describe("DiagramLayerRenderer", () => {
       group.fire("contextmenu", { type: "contextmenu", evt: mockEvt, target: group, currentTarget: group, cancelBubble: false, pointerId: 0 });
 
       expect(onContextMenu).toHaveBeenCalledWith("a", "a");
+    });
+  });
+
+  // ── Helper shared by the event-handler tests below ──────────────────────────
+  function fireEvent(
+    group: Konva.Group,
+    type: string,
+    extra: Record<string, unknown> = {},
+  ) {
+    group.fire(type, {
+      type,
+      evt: new MouseEvent(type),
+      target: group,
+      currentTarget: group,
+      cancelBubble: false,
+      pointerId: 0,
+      ...extra,
+    });
+  }
+
+  function makeRenderer(
+    model: DiagramModel,
+    viewState: ViewState,
+    callbacks: Partial<RenderCallbacks> = {},
+    isReadonly = false,
+  ) {
+    return new DiagramLayerRenderer(
+      helper.getStage(),
+      model,
+      viewState,
+      null,
+      defaultColors,
+      {
+        onClick: () => {},
+        onPositionChange: () => {},
+        onReparent: () => {},
+        ...callbacks,
+      },
+      new Set(),
+      1,
+      "svg",
+      isReadonly,
+    );
+  }
+
+  describe("Non-readonly event handler coverage (lines 216-223, 249-346)", () => {
+    it("mouseenter / mouseleave invoke setHovered", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      model = addElement(model, MockElementFactory.createElement("a", "object"));
+      model.root.childIds.push("a");
+      const viewState = new ViewStateBuilder().addElement("a", 100, 100, 60).build();
+
+      const renderer = makeRenderer(model, viewState);
+      const rel = new Konva.Layer();
+      const el = new Konva.Layer();
+      renderer.render(rel, el);
+
+      const group = el.getChildren()[0] as Konva.Group;
+      expect(() => {
+        fireEvent(group, "mouseenter");
+        fireEvent(group, "mouseleave");
+      }).not.toThrow();
+    });
+
+    it("click invokes onClick callback", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      model = addElement(model, MockElementFactory.createElement("a", "object"));
+      model.root.childIds.push("a");
+      const viewState = new ViewStateBuilder().addElement("a", 100, 100, 60).build();
+
+      const onClick = vi.fn();
+      const renderer = makeRenderer(model, viewState, { onClick });
+      const rel = new Konva.Layer();
+      const el = new Konva.Layer();
+      renderer.render(rel, el);
+
+      const group = el.getChildren()[0] as Konva.Group;
+      fireEvent(group, "click", {
+        evt: Object.assign(new MouseEvent("click"), { shiftKey: false, ctrlKey: false, metaKey: false }),
+      });
+      expect(onClick).toHaveBeenCalledWith("a", false, false);
+    });
+
+    it("dragmove without pointer triggers updateRelationshipLines / updateChildRelationshipLines", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      const parent = MockElementFactory.createElement("parent", "object");
+      const child = MockElementFactory.createElement("child", "object");
+      parent.childIds = ["child"];
+      model = addElement(model, parent);
+      model = addElement(model, child);
+      model.root.childIds.push("parent");
+
+      const viewState: ViewState = {
+        ...new ViewStateBuilder()
+          .addElement("parent", 100, 100, 100)
+          .addElement("parent.child", 130, 130, 40)
+          .build(),
+        hiddenPaths: [],
+        dimmedPaths: [],
+        foldedPaths: [],
+        coloredPaths: {},
+      };
+
+      const renderer = makeRenderer(model, viewState);
+      const rel = new Konva.Layer();
+      const el = new Konva.Layer();
+      renderer.render(rel, el);
+
+      const group = el.getChildren()[0] as Konva.Group;
+      expect(() => fireEvent(group, "dragmove")).not.toThrow();
+    });
+
+    it("dragmove with pointer triggers findHoveredPath (hit and skip branches)", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      // "a" is dragged; "b" sits at the same spot → hit; hidden "c" → skipped
+      model = addElement(model, MockElementFactory.createElement("a", "object"));
+      model = addElement(model, MockElementFactory.createElement("b", "object"));
+      model = addElement(model, MockElementFactory.createElement("c", "object"));
+      model.root.childIds.push("a", "b", "c");
+
+      const viewState: ViewState = {
+        ...new ViewStateBuilder()
+          .addElement("a", 100, 100, 60)
+          .addElement("b", 100, 100, 60)
+          .addElement("c", 100, 100, 60)
+          .build(),
+        hiddenPaths: ["c"],
+        dimmedPaths: [],
+        foldedPaths: [],
+        coloredPaths: {},
+      };
+
+      vi.spyOn(helper.getStage(), "getPointerPosition").mockReturnValue({ x: 100, y: 100 });
+
+      const renderer = makeRenderer(model, viewState);
+      const rel = new Konva.Layer();
+      const el = new Konva.Layer();
+      renderer.render(rel, el);
+
+      const group = el.getChildren()[0] as Konva.Group;
+      expect(() => fireEvent(group, "dragmove")).not.toThrow();
+
+      vi.restoreAllMocks();
+    });
+
+    it("dragend triggers onPositionChange, updateChildPositions, findNewParentPath, getRootId", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      const parent = MockElementFactory.createElement("parent", "object");
+      const child = MockElementFactory.createElement("child", "object");
+      parent.childIds = ["child"];
+      model = addElement(model, parent);
+      model = addElement(model, child);
+      model.root.childIds.push("parent");
+
+      const viewState: ViewState = {
+        ...new ViewStateBuilder()
+          .addElement("parent", 100, 100, 100)
+          .addElement("parent.child", 130, 130, 40)
+          .build(),
+        hiddenPaths: [],
+        dimmedPaths: [],
+        foldedPaths: [],
+        coloredPaths: {},
+      };
+
+      const onPositionChange = vi.fn();
+      const renderer = makeRenderer(model, viewState, { onPositionChange });
+      const rel = new Konva.Layer();
+      const el = new Konva.Layer();
+      renderer.render(rel, el);
+
+      const group = el.getChildren()[0] as Konva.Group;
+      expect(() => fireEvent(group, "dragend")).not.toThrow();
+      expect(onPositionChange).toHaveBeenCalled();
+    });
+
+    it("dragend on top-level element uses getRootId as fallback parent", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      model = addElement(model, MockElementFactory.createElement("a", "object"));
+      model.root.childIds.push("a");
+      const viewState = new ViewStateBuilder().addElement("a", 100, 100, 60).build();
+
+      const renderer = makeRenderer(model, viewState);
+      const rel = new Konva.Layer();
+      const el = new Konva.Layer();
+      renderer.render(rel, el);
+
+      const group = el.getChildren()[0] as Konva.Group;
+      expect(() => fireEvent(group, "dragend")).not.toThrow();
+    });
+
+    it("dragend covers findNewParentPath hit branch (element inside another)", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      // "a" is dragged; "container" is at the same position with large size → captured as parent
+      model = addElement(model, MockElementFactory.createElement("a", "object"));
+      model = addElement(model, MockElementFactory.createElement("container", "object"));
+      model.root.childIds.push("a", "container");
+
+      const viewState: ViewState = {
+        ...new ViewStateBuilder()
+          .addElement("a", 100, 100, 60)
+          .addElement("container", 100, 100, 200) // large → will capture "a"
+          .build(),
+        hiddenPaths: [],
+        dimmedPaths: [],
+        foldedPaths: [],
+        coloredPaths: {},
+      };
+
+      const renderer = makeRenderer(model, viewState);
+      const rel = new Konva.Layer();
+      const el = new Konva.Layer();
+      renderer.render(rel, el);
+
+      const group = el.getChildren()[0] as Konva.Group;
+      expect(() => fireEvent(group, "dragend")).not.toThrow();
+    });
+
+    it("dragend with hidden child covers updateChildPositions else-if-delta branch", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      const parent = MockElementFactory.createElement("parent", "object");
+      const child = MockElementFactory.createElement("child", "object");
+      parent.childIds = ["child"];
+      model = addElement(model, parent);
+      model = addElement(model, child);
+      model.root.childIds.push("parent");
+
+      const viewState: ViewState = {
+        ...new ViewStateBuilder()
+          .addElement("parent", 100, 100, 100)
+          .addElement("parent.child", 130, 130, 40)
+          .build(),
+        // child is hidden → not in groupMap, but still in positions → delta branch
+        hiddenPaths: ["parent.child"],
+        dimmedPaths: [],
+        foldedPaths: [],
+        coloredPaths: {},
+      };
+
+      const renderer = makeRenderer(model, viewState);
+      const rel = new Konva.Layer();
+      const el = new Konva.Layer();
+      renderer.render(rel, el);
+
+      const group = el.getChildren()[0] as Konva.Group;
+      expect(() => fireEvent(group, "dragend")).not.toThrow();
     });
   });
 });
