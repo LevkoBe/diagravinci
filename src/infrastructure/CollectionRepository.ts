@@ -8,7 +8,7 @@ import {
   EXECUTION_COLLECTION_ID,
   SELECTOR_SHOWCASE_COLLECTION,
   SELECTOR_SHOWCASE_COLLECTION_ID,
-  STRESS_COLLECTION,
+  // STRESS_COLLECTION,
   STRESS_COLLECTION_ID,
 } from "../domain/models/TemplateCollection";
 import type { DiagramTemplate } from "../domain/models/DiagramTemplate";
@@ -37,7 +37,7 @@ export const CollectionRepository = {
   getAll(): TemplateCollection[] {
     return [
       BUILT_IN_COLLECTION,
-      STRESS_COLLECTION,
+      // STRESS_COLLECTION,
       EDGE_CASES_COLLECTION,
       SELECTOR_SHOWCASE_COLLECTION,
       EXECUTION_COLLECTION,
@@ -65,7 +65,8 @@ export const CollectionRepository = {
       id === EDGE_CASES_COLLECTION_ID ||
       id === SELECTOR_SHOWCASE_COLLECTION_ID ||
       id === EXECUTION_COLLECTION_ID
-    ) return;
+    )
+      return;
     const collections = loadUserCollections().filter((c) => c.id !== id);
     saveUserCollections(collections);
   },
@@ -77,7 +78,8 @@ export const CollectionRepository = {
       collectionId === EDGE_CASES_COLLECTION_ID ||
       collectionId === SELECTOR_SHOWCASE_COLLECTION_ID ||
       collectionId === EXECUTION_COLLECTION_ID
-    ) return;
+    )
+      return;
     const collections = loadUserCollections();
     const col = collections.find((c) => c.id === collectionId);
     if (!col) return;
@@ -92,7 +94,8 @@ export const CollectionRepository = {
       collectionId === EDGE_CASES_COLLECTION_ID ||
       collectionId === SELECTOR_SHOWCASE_COLLECTION_ID ||
       collectionId === EXECUTION_COLLECTION_ID
-    ) return;
+    )
+      return;
     const collections = loadUserCollections();
     const col = collections.find((c) => c.id === collectionId);
     if (!col) return;

@@ -7,5 +7,6 @@ export interface LayoutAlgorithm {
     model: DiagramModel,
     canvasSize: { width: number; height: number },
     previousViewState?: ViewState,
+    preservePositions?: boolean,
   ): ViewState;
 }

@@ -83,7 +83,7 @@ export class SyncManager {
     }
   }
 
-  syncFromVis(updatedModel: DiagramModel): void {
+  syncFromVis(updatedModel: DiagramModel, preservePositions = false): void {
     const {
       model: currentModel,
       viewState: currentViewState,
@@ -97,6 +97,7 @@ export class SyncManager {
       currentViewState,
       updatedModel,
       canvasSize,
+      preservePositions,
     );
     this.store.dispatch(setViewState(newViewState));
 
