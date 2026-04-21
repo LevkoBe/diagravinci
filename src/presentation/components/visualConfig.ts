@@ -37,6 +37,9 @@ export const VConfig = {
     STROKE_EXP: 0.4,
 
     CONTAINER_BG_OPACITY: 0.3,
+
+    CHAR_WIDTH_RATIO: 0.6,
+    LABEL_TARGET_WIDTH_RATIO: 0.8,
   },
 
   decorations: {
@@ -46,6 +49,10 @@ export const VConfig = {
     RECURSIVE_RING_OFFSET: 5,
     RECURSIVE_RING_DASH: [5, 4] as number[],
     RECURSIVE_RING_WIDTH: 2,
+
+    RECURSIVE_TEXT_OFFSET: 16,
+    RECURSIVE_TEXT_X_RATIO: 0.18,
+    RECURSIVE_TEXT_SIZE_RATIO: 0.28,
 
     CONNECTING_RING_OFFSET: 8,
 
@@ -72,6 +79,9 @@ export const VConfig = {
     REL_LABEL_OFFSET: 12,
 
     DECORATION_STROKE_WIDTH: 1.5,
+
+    ANIM_TICK_RATIO: 0.8,
+    ANIM_MAX_DURATION: 0.6,
   },
 
   shapes: {

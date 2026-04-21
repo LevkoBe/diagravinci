@@ -53,9 +53,10 @@ A few things that no other diagramming tool does together:
 ### Element Types
 
 - **Object `{}`** — classes, entities, components
-- **State `[]`** — state machines, lifecycle stages, collections
+- **Collection `[]`** — arrays, lists, grouped containers
+- **State `||`** — state machine nodes, lifecycle stages
 - **Function `()`** — operations, methods, processes
-- **Flow `>>`** — data pipelines, I/O
+- **Flow `>>`** — data pipelines, I/O stages
 - **Choice `<>`** — conditional paths, decision branches
 
 ### Relationship Types
@@ -74,6 +75,7 @@ A few things that no other diagramming tool does together:
 - **Circular** — radial arrangement weighted by connectivity; best for peer networks and cyclic graphs
 - **Timeline** — left-to-right columns by execution depth; best for workflows and state machines
 - **Pipeline** — three-lane source / process / sink; best for ETL and data flows
+- **Execute** — step-by-step execution simulation; tokens traverse the diagram following relationships; supports `gen` spawning, `round_robin` routing, `choice` branching, and `function` cloning
 - **Basic** — recursive container positioning; default fallback
 
 ### Rendering Styles
@@ -136,6 +138,17 @@ A few things that no other diagramming tool does together:
 - **Export collection** — download a collection as a ZIP file
 - **Import collection** — load a collection from a ZIP file
 - **Template search** — filter templates by name, description, or tags
+
+### Execution Simulation
+
+- **Execute layout** — switch any diagram to live execution mode; tokens flow through elements step by step
+- **Token propagation** — tokens move along relationships, carrying animated state through the diagram
+- **gen elements** — periodically spawn new tokens; configurable by `gen` label on the element
+- **round_robin routing** — distribute tokens across multiple outgoing relationships in rotation
+- **choice branching** — tokens fork at `<>` choice elements and follow all matching paths
+- **function cloning** — tokens entering `()` elements trigger cloned sub-processes
+- **Tick controls** — play, pause, step, and reset execution; configurable tick interval
+- **Execution color** — active tokens highlighted with a distinct color across the canvas
 
 ### File Operations
 
@@ -212,11 +225,12 @@ A few things that no other diagramming tool does together:
 ### Element Types
 
 ```
-name{}      # object  — class, entity, component
-name[]      # state   — state machine node, collection
-name()      # function — operation, process
->name>      # flow    — pipeline stage, I/O
-<name>      # choice  — branch, decision point
+name{}      # object     — class, entity, component
+name[]      # collection — array, list, grouped container
+|name|      # state      — state machine node, lifecycle stage
+name()      # function   — operation, process
+>name>      # flow       — pipeline stage, I/O
+<name>      # choice     — branch, decision point
 name        # bare name defaults to object
 ```
 
@@ -298,11 +312,12 @@ The free Gemini 2.5 Flash Lite tier allows 15 requests per minute and 1 million 
 ### Scripts
 
 ```bash
-npm run dev       # development server
-npm run build     # production build (TypeScript + Vite)
-npm run preview   # preview production build locally
-npm run test      # run test suite (Vitest)
-npm run lint      # ESLint
+npm run dev            # development server
+npm run build          # production build (TypeScript + Vite)
+npm run preview        # preview production build locally
+npm run test           # run test suite (Vitest)
+npm run test:coverage  # run tests with v8 coverage report
+npm run lint           # ESLint
 ```
 
 ---
@@ -320,7 +335,7 @@ Infrastructure Parser, CodeGenerator, Gemini client, Storage, TemplateRepository
 
 **Bidirectional sync** works through a single Redux store as the source of truth. Both the code editor and the visual canvas are views of the same model. Changes from either side go through `SyncManager`, which parses or regenerates code, recalculates layout for new elements, merges positions for unchanged ones, and broadcasts the updated state.
 
-**Layout** is computed by interchangeable strategy classes (`HierarchicalLayout`, `CircularLayout`, `TimelineLayout`, `PipelineLayout`, `BasicLayout`) all extending a `BaseLayout` that handles recursive container positioning and size calculation.
+**Layout** is computed by interchangeable strategy classes (`HierarchicalLayout`, `CircularLayout`, `TimelineLayout`, `PipelineLayout`, `ExecuteLayout`, `BasicLayout`) all extending a `BaseLayout` that handles recursive container positioning and size calculation. `ExecuteLayout` is driven by `ExecutionEngine`, which computes token movement deltas step by step and applies them to a live copy of the model.
 
 **Filtering** uses a selector system: atoms match elements by path, name, level, or type; atoms are combined with boolean operators evaluated by `SelectorEvaluator`; resolved visibility lists (`hiddenPaths`, `dimmedPaths`, `coloredPaths`, `foldedPaths`) are stored in `ViewState` and applied at render time.
 
@@ -345,8 +360,11 @@ Infrastructure Parser, CodeGenerator, Gemini client, Storage, TemplateRepository
 ## Testing
 
 ```bash
-npm run test
+npm run test           # run all tests
+npm run test:coverage  # run with v8 coverage report
 ```
+
+26 test suites, 600+ tests covering domain models, layout algorithms, parser/lexer, filter resolution, execution engine, Redux slices, and React components.
 
 Tests run automatically on every pull request via GitHub Actions before merge.
 

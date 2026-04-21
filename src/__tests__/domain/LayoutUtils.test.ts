@@ -85,6 +85,14 @@ describe("flattenElements", () => {
     expect(flat).toHaveLength(1);
     expect(flat[0].element.id).toBe("a");
   });
+
+  it("skips missing root-level elements (root.childIds references unknown id)", () => {
+    const model = buildModel((m) => {
+      m.root.childIds.push("ghost");
+    });
+    const flat = flattenElements(model);
+    expect(flat).toHaveLength(0);
+  });
 });
 
 describe("layoutWeight", () => {
@@ -114,6 +122,17 @@ describe("layoutWeight", () => {
 
     const w = layoutWeight(model.elements["a"], model);
     expect(w).toBeGreaterThanOrEqual(1);
+  });
+
+  it("treats missing child element in childIds as weight 0", () => {
+    const model = buildModel((m) => {
+      m.elements["a"] = {
+        ...createElement("a", "object"),
+        childIds: ["ghost"],
+      };
+    });
+
+    expect(layoutWeight(model.elements["a"], model)).toBe(1);
   });
 });
 

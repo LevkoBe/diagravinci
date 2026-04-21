@@ -6,7 +6,6 @@ import {
   ViewStateBuilder,
   KonvaTestHelper,
 } from "../utils";
-import type { Position } from "../../domain/models/Element";
 import { SvgPathElementRenderer } from "../../presentation/components/rendering/elements/SvgPathElementRenderer";
 import { PolygonElementRenderer } from "../../presentation/components/rendering/elements/PolygonElementRenderer";
 import { SimpleRectElementRenderer } from "../../presentation/components/rendering/elements/SimpleRectElementRenderer";
@@ -139,9 +138,8 @@ describe("ElementRenderer", () => {
       expect(result?.group.y()).toBe(150);
     });
 
-    it("should offset local position relative to parent", () => {
+    it("uses absolute world coordinates — group placed at element's own position", () => {
       const element = MockElementFactory.createElement("b", "object");
-      const parentPos: Position = { x: 100, y: 100 };
       const viewState = new ViewStateBuilder()
         .addElement("b", 150, 150, 60, false)
         .build();
@@ -158,10 +156,10 @@ describe("ElementRenderer", () => {
         1,
       );
 
-      const result = renderer.render(parentPos);
+      const result = renderer.render();
 
-      expect(result?.group.x()).toBe(50);
-      expect(result?.group.y()).toBe(50);
+      expect(result?.group.x()).toBe(150);
+      expect(result?.group.y()).toBe(150);
     });
   });
 
@@ -604,7 +602,14 @@ describe("ElementRenderer", () => {
   });
 
   describe("PolygonElementRenderer", () => {
-    const types = ["object", "state", "function", "flow", "choice", "other"] as const;
+    const types = [
+      "object",
+      "state",
+      "function",
+      "flow",
+      "choice",
+      "other",
+    ] as const;
     for (const type of types) {
       it(`renders ${type} element as a group with a shape`, () => {
         const element = MockElementFactory.createElement("x", type as "object");
@@ -612,7 +617,15 @@ describe("ElementRenderer", () => {
           .addElement("x", 100, 100, 60, false)
           .build();
         const renderer = new PolygonElementRenderer(
-          element, "x", viewState, null, defaultColors, false, false, 60, 1,
+          element,
+          "x",
+          viewState,
+          null,
+          defaultColors,
+          false,
+          false,
+          60,
+          1,
         );
         const result = renderer.render();
         expect(result).toBeDefined();
@@ -625,7 +638,15 @@ describe("ElementRenderer", () => {
       const element = MockElementFactory.createElement("x", "object");
       const viewState = new ViewStateBuilder().build();
       const renderer = new PolygonElementRenderer(
-        element, "x", viewState, null, defaultColors, false, false, 60, 1,
+        element,
+        "x",
+        viewState,
+        null,
+        defaultColors,
+        false,
+        false,
+        60,
+        1,
       );
       expect(renderer.render()).toBeUndefined();
     });
@@ -636,7 +657,15 @@ describe("ElementRenderer", () => {
         .addElement("x", 100, 100, 60, false)
         .build();
       const renderer = new PolygonElementRenderer(
-        element, "x", viewState, null, defaultColors, false, true, 60, 1,
+        element,
+        "x",
+        viewState,
+        null,
+        defaultColors,
+        false,
+        true,
+        60,
+        1,
       );
       const result = renderer.render();
       expect(result).toBeDefined();
@@ -648,7 +677,16 @@ describe("ElementRenderer", () => {
         .addElement("x", 100, 100, 60, false)
         .build();
       const renderer = new PolygonElementRenderer(
-        element, "x", viewState, null, defaultColors, false, false, 60, 1, "#custom",
+        element,
+        "x",
+        viewState,
+        null,
+        defaultColors,
+        false,
+        false,
+        60,
+        1,
+        "#custom",
       );
       const result = renderer.render();
       expect(result).toBeDefined();
@@ -656,7 +694,14 @@ describe("ElementRenderer", () => {
   });
 
   describe("SimpleRectElementRenderer", () => {
-    const types = ["object", "state", "function", "flow", "choice", "other"] as const;
+    const types = [
+      "object",
+      "state",
+      "function",
+      "flow",
+      "choice",
+      "other",
+    ] as const;
     for (const type of types) {
       it(`renders ${type} element as a rect group`, () => {
         const element = MockElementFactory.createElement("x", type as "object");
@@ -664,12 +709,22 @@ describe("ElementRenderer", () => {
           .addElement("x", 100, 100, 60, false)
           .build();
         const renderer = new SimpleRectElementRenderer(
-          element, "x", viewState, null, defaultColors, false, false, 60, 1,
+          element,
+          "x",
+          viewState,
+          null,
+          defaultColors,
+          false,
+          false,
+          60,
+          1,
         );
         const result = renderer.render();
         expect(result).toBeDefined();
         expect(result?.group).toBeInstanceOf(Konva.Group);
-        const rects = result?.group.getChildren().filter((c) => c instanceof Konva.Rect);
+        const rects = result?.group
+          .getChildren()
+          .filter((c) => c instanceof Konva.Rect);
         expect(rects?.length).toBeGreaterThan(0);
       });
     }
@@ -678,7 +733,15 @@ describe("ElementRenderer", () => {
       const element = MockElementFactory.createElement("x", "object");
       const viewState = new ViewStateBuilder().build();
       const renderer = new SimpleRectElementRenderer(
-        element, "x", viewState, null, defaultColors, false, false, 60, 1,
+        element,
+        "x",
+        viewState,
+        null,
+        defaultColors,
+        false,
+        false,
+        60,
+        1,
       );
       expect(renderer.render()).toBeUndefined();
     });
@@ -689,10 +752,21 @@ describe("ElementRenderer", () => {
         .addElement("x", 100, 100, 60, false)
         .build();
       const renderer = new SimpleRectElementRenderer(
-        element, "x", viewState, null, defaultColors, false, false, 60, 1,
+        element,
+        "x",
+        viewState,
+        null,
+        defaultColors,
+        false,
+        false,
+        60,
+        1,
       );
       const result = renderer.render();
-      expect(() => { result?.onHoverIn(); result?.onHoverOut(); }).not.toThrow();
+      expect(() => {
+        result?.onHoverIn();
+        result?.onHoverOut();
+      }).not.toThrow();
     });
   });
 
@@ -707,6 +781,7 @@ describe("ElementRenderer", () => {
         findHoveredPath,
         updateRelationshipLines,
         updateChildRelationshipLines,
+        moveChildGroups: () => {},
       };
       const stage = helper.getStage();
       const handler = new ElementEventHandler(
@@ -803,8 +878,10 @@ describe("ElementRenderer", () => {
 
       const result = renderer.render();
       expect(result).toBeDefined();
-      // Icon element skips the text label path
-      const textShapes = result?.group.getChildren().filter((c) => c instanceof Konva.Text);
+
+      const textShapes = result?.group
+        .getChildren()
+        .filter((c) => c instanceof Konva.Text);
       expect(textShapes?.length).toBe(0);
     });
 
@@ -821,7 +898,7 @@ describe("ElementRenderer", () => {
         null,
         defaultColors,
         false,
-        true, // isDimmed
+        true,
         100,
         1,
       );
@@ -831,8 +908,10 @@ describe("ElementRenderer", () => {
     });
 
     it("falls through to text label when icon name is not found", () => {
-      // _not_a_real_icon_ — no matching lucide icon, falls through to text
-      const element = MockElementFactory.createElement("_not_a_real_icon_", "object");
+      const element = MockElementFactory.createElement(
+        "_not_a_real_icon_",
+        "object",
+      );
       const viewState = new ViewStateBuilder()
         .addElement("_not_a_real_icon_", 100, 100, 60, false)
         .build();
@@ -851,8 +930,10 @@ describe("ElementRenderer", () => {
 
       const result = renderer.render();
       expect(result).toBeDefined();
-      // Falls through to text label since no icon matches
-      const textShapes = result?.group.getChildren().filter((c) => c instanceof Konva.Text);
+
+      const textShapes = result?.group
+        .getChildren()
+        .filter((c) => c instanceof Konva.Text);
       expect(textShapes?.length).toBeGreaterThan(0);
     });
   });

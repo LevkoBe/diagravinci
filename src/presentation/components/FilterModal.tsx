@@ -27,18 +27,11 @@ import {
 } from "../../domain/models/Selector";
 import { SelectorEditor } from "./SelectorEditor";
 
+import { AppConfig } from "../../config/appConfig";
+
 const MODE_CYCLE: FilterMode[] = ["color", "dim", "hide"];
 
-const PALETTE = [
-  "#e05c5c",
-  "#e07a2f",
-  "#d4a017",
-  "#5cb85c",
-  "#2f9ee0",
-  "#7b5ce0",
-  "#d45cb8",
-  "#5ce0c8",
-];
+const PALETTE = AppConfig.ui.COLOR_PALETTE;
 
 function randomColor(): string {
   return PALETTE[Math.floor(Math.random() * PALETTE.length)];
@@ -91,7 +84,6 @@ function PresetRow({
           : "border-border/30 bg-bg-elevated/40 hover:bg-bg-elevated/70",
       ].join(" ")}
     >
-      {/* Reorder */}
       <div className="flex flex-col shrink-0">
         <button
           onClick={(e) => {
@@ -117,7 +109,6 @@ function PresetRow({
         </button>
       </div>
 
-      {/* Active toggle */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -137,7 +128,6 @@ function PresetRow({
         )}
       </button>
 
-      {/* Color dot */}
       <div
         className="shrink-0 w-3.5 h-3.5 rounded-full border border-black/20"
         style={{ background: preset.color }}
@@ -148,7 +138,6 @@ function PresetRow({
         {preset.label}
       </span>
 
-      {/* Mode cycle button */}
       <button
         onClick={(e) => {
           e.stopPropagation();

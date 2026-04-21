@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Konva from "konva";
 import { useC7One, detectIsDark } from "@levkobe/c7one";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
@@ -20,13 +20,22 @@ import { toggleElementFold } from "../../application/store/filterSlice";
 import { acceptDiffId } from "../../application/store/diffSlice";
 import { syncManager, store } from "../../application/store/store";
 import { getCSSVariable } from "../../shared/utils";
+import { useExecution } from "../hooks/useExecution";
+import { getExecutionColorMap } from "../../application/ExecutionEngine";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
+import { computeElementSizes } from "./rendering/elementSizing";
+import type { GeometryCache } from "./rendering/relationships/RelationshipRenderer";
 import { FilterResolver } from "../../domain/sync/FilterResolver";
-import type { DiagramModel } from "../../domain/models/DiagramModel";
+import {
+  getSubtreeIds,
+  type DiagramModel,
+} from "../../domain/models/DiagramModel";
 import type { Element, ElementType } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
 import type { Position } from "../../domain/models/Element";
 import { AppConfig } from "../../config/appConfig";
+import { VConfig } from "./visualConfig";
+import { lightStateTokens, darkStateTokens } from "../../themes";
 
 function hexToRgba(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -36,20 +45,6 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function getSubtreeIds(model: DiagramModel, rootId: string): string[] {
-  const result: string[] = [];
-  const queue = [rootId];
-  const visited = new Set<string>();
-  while (queue.length > 0) {
-    const id = queue.shift()!;
-    if (visited.has(id)) continue;
-    visited.add(id);
-    result.push(id);
-    model.elements[id]?.childIds.forEach((c) => queue.push(c));
-  }
-  return result;
-}
-
 export function VisualCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
@@ -57,6 +52,10 @@ export function VisualCanvas() {
   const elementLayerRef = useRef<Konva.Layer | null>(null);
   const selectionLayerRef = useRef<Konva.Layer | null>(null);
   const prevPathsRef = useRef<Set<string>>(new Set());
+  const prevElementPositionsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const prevClonePositionsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const justDraggedPathsRef = useRef<Set<string>>(new Set());
+  const geometryCacheRef = useRef<GeometryCache>(new Map());
   const [zoom, setZoom] = useState(1);
 
   const dragSelectRef = useRef<{
@@ -75,8 +74,28 @@ export function VisualCanvas() {
   const viewState = useAppSelector((s) => s.diagram.viewState);
   const filterState = useAppSelector((s) => s.filter);
   const diffState = useAppSelector((s) => s.diff);
+
+  const spawnOriginsRef = useExecution();
+  const execInstances = useAppSelector((s) => s.execution.instances);
+  const execColor = useAppSelector((s) => s.execution.executionColor);
+  const tickIntervalMs = useAppSelector((s) => s.execution.tickIntervalMs);
   const { colors } = useC7One();
   const isDark = detectIsDark(colors["--color-bg-base"]);
+  const elementSizes = useMemo(
+    () => computeElementSizes(model, viewState, zoom),
+    [model, viewState, zoom],
+  );
+
+  const canvasColors = useMemo(() => {
+    const stateTokens = detectIsDark(colors["--color-bg-base"]) ? darkStateTokens : lightStateTokens;
+    return {
+      accent: colors["--color-accent"],
+      fgPrimary: colors["--color-fg-primary"],
+      selected: stateTokens["--color-state-selected"],
+      bgSecondary: colors["--color-bg-elevated"],
+      relationship: colors["--color-fg-muted"],
+    };
+  }, [colors]);
   const {
     interactionMode,
     activeElementType,
@@ -191,7 +210,11 @@ export function VisualCanvas() {
         const { ZOOM_MIN, ZOOM_MAX, ZOOM_STEP_FACTOR } = AppConfig.canvas;
         const newScale = Math.max(
           ZOOM_MIN,
-          Math.min(ZOOM_MAX, oldScale * (direction > 0 ? ZOOM_STEP_FACTOR : 1 / ZOOM_STEP_FACTOR)),
+          Math.min(
+            ZOOM_MAX,
+            oldScale *
+              (direction > 0 ? ZOOM_STEP_FACTOR : 1 / ZOOM_STEP_FACTOR),
+          ),
         );
         stage.scale({ x: newScale, y: newScale });
         stage.position({
@@ -272,7 +295,10 @@ export function VisualCanvas() {
       const dx = pointer.x - startScreen.x;
       const dy = pointer.y - startScreen.y;
 
-      if (!dragSelectRef.current.active && Math.hypot(dx, dy) > AppConfig.canvas.DRAG_SELECT_THRESHOLD_PX) {
+      if (
+        !dragSelectRef.current.active &&
+        Math.hypot(dx, dy) > AppConfig.canvas.DRAG_SELECT_THRESHOLD_PX
+      ) {
         dragSelectRef.current.active = true;
         const ws = toWorld(startScreen.x, startScreen.y);
         const wc = toWorld(pointer.x, pointer.y);
@@ -285,7 +311,10 @@ export function VisualCanvas() {
           stroke: selColor,
           strokeWidth: 1 / stageScale,
           dash: AppConfig.canvas.SELECTION_RECT_DASH.map((v) => v / stageScale),
-          fill: hexToRgba(selColor, AppConfig.canvas.SELECTION_RECT_FILL_OPACITY),
+          fill: hexToRgba(
+            selColor,
+            AppConfig.canvas.SELECTION_RECT_FILL_OPACITY,
+          ),
           listening: false,
         });
         selectionLayer.add(rect);
@@ -366,7 +395,9 @@ export function VisualCanvas() {
         : containerRef.current!.getBoundingClientRect();
       stageRef.current.width(width);
       stageRef.current.height(height);
-      dispatch(setCanvasSize({ width: Math.round(width), height: Math.round(height) }));
+      dispatch(
+        setCanvasSize({ width: Math.round(width), height: Math.round(height) }),
+      );
     };
     handleResize();
     const ro = new ResizeObserver(handleResize);
@@ -430,17 +461,14 @@ export function VisualCanvas() {
       viewState,
       connectingFromId,
       {
-        accent: getCSSVariable("--color-accent"),
-        fgPrimary: getCSSVariable("--color-fg-primary"),
-        selected: getCSSVariable("--color-state-selected"),
-        bgSecondary: getCSSVariable("--color-bg-elevated"),
-        relationship: getCSSVariable("--color-fg-muted"),
+        ...canvasColors,
       },
       {
         onPositionChange: (id, worldPos) => {
-          if (worldPos)
+          if (worldPos) {
+            justDraggedPathsRef.current.add(id);
             dispatch(updateElementPositionInView({ id, position: worldPos }));
-          else syncManager.syncFromVis(model);
+          } else syncManager.syncFromVis(model);
         },
         onReparent: (elementId, oldParentPath, newParentPath) => {
           const updatedModel = applyReparent(
@@ -537,7 +565,10 @@ export function VisualCanvas() {
             }
           } else {
             if (shiftKey) {
-              const subtreeIds = getSubtreeIds(modelRef.current, elementId);
+              const subtreeIds = getSubtreeIds(
+                elementId,
+                modelRef.current.elements,
+              );
               const currentIds = store.getState().ui.selectedElementIds;
               const currentSet = new Set(currentIds);
               const allSelected = subtreeIds.every((id) => currentSet.has(id));
@@ -581,22 +612,100 @@ export function VisualCanvas() {
       zoom,
       renderStyle,
       interactionMode === "readonly",
+      getExecutionColorMap(execInstances, execColor),
+      elementSizes,
+      geometryCacheRef.current,
     );
 
+    const cloneIds = new Set(execInstances.flatMap((i) => i.clonedElementIds));
+
     renderer.render(relationshipLayerRef.current, elementLayerRef.current);
+
+    if (cloneIds.size > 0) {
+      const groupMap = renderer.getGroupMap();
+      const prevClonePositions = prevClonePositionsRef.current;
+      const animDuration = Math.min((tickIntervalMs / 1000) * VConfig.rendering.ANIM_TICK_RATIO, VConfig.rendering.ANIM_MAX_DURATION);
+
+      for (const [path, posEntry] of Object.entries(viewState.positions)) {
+        const elementId = path.split(".").at(-1)!;
+        if (!cloneIds.has(elementId)) continue;
+        if (justDraggedPathsRef.current.has(path)) continue;
+
+        const oldPos = prevClonePositions[elementId];
+        if (!oldPos) {
+          const spawnPos = spawnOriginsRef.current.get(elementId);
+          if (spawnPos) {
+            const group = groupMap.get(path);
+            if (group) {
+              const newPos = posEntry.position;
+              group.x(spawnPos.x);
+              group.y(spawnPos.y);
+              new Konva.Tween({
+                node: group,
+                x: newPos.x,
+                y: newPos.y,
+                duration: animDuration,
+                easing: Konva.Easings.EaseInOut,
+              }).play();
+            }
+          }
+          continue;
+        }
+
+        const newPos = posEntry.position;
+        if (oldPos.x === newPos.x && oldPos.y === newPos.y) continue;
+
+        const group = groupMap.get(path);
+        if (!group) continue;
+
+        group.x(oldPos.x);
+        group.y(oldPos.y);
+        new Konva.Tween({
+          node: group,
+          x: newPos.x,
+          y: newPos.y,
+          duration: animDuration,
+          easing: Konva.Easings.EaseInOut,
+        }).play();
+      }
+    }
+    justDraggedPathsRef.current.clear();
+
+    const newClonePositions: Record<string, { x: number; y: number }> = {};
+    for (const [path, posEntry] of Object.entries(viewState.positions)) {
+      const elementId = path.split(".").at(-1)!;
+      if (cloneIds.has(elementId)) {
+        newClonePositions[elementId] = posEntry.position;
+      }
+    }
+    prevClonePositionsRef.current = newClonePositions;
+
+    prevElementPositionsRef.current = Object.fromEntries(
+      Object.entries(viewState.positions).map(([k, v]) => [k, v.position]),
+    );
     prevPathsRef.current = new Set(Object.keys(viewState.positions));
   }, [
     model,
     viewState,
     connectingFromId,
-    isDark,
+    canvasColors,
     zoom,
     renderStyle,
     interactionMode,
     dispatch,
+    execInstances,
+    execColor,
+    tickIntervalMs,
+    spawnOriginsRef,
+    elementSizes,
   ]);
 
-  return <div ref={containerRef} className="w-full h-full bg-bg-base overflow-hidden" />;
+  return (
+    <div
+      ref={containerRef}
+      className="w-full h-full bg-bg-base overflow-hidden"
+    />
+  );
 }
 
 function createNewElement(

@@ -1,10 +1,12 @@
+import type { ViewState } from "./ViewState";
+
 export interface DiagramTemplate {
   id: string;
   name: string;
   description: string;
   tags: string[];
 
-  preferredView: "circular" | "hierarchical" | "timeline" | "pipeline";
+  preferredView: ViewState["viewMode"];
 
   code: string;
 }
@@ -178,6 +180,80 @@ Processing --> Success
 Processing --> Failure
 Failure --> Idle
 Success --> Idle`,
+  },
+];
+
+function generateStarDsl(spokeCount: number): string {
+  const spokes = Array.from(
+    { length: spokeCount },
+    (_, i) => `Node${String(i + 1).padStart(3, "0")}`,
+  );
+  const rels = spokes.map((s) => `Hub --> ${s}`);
+  return ["Hub", ...spokes, "", ...rels].join("\n");
+}
+
+function generateChainDsl(nodeCount: number): string {
+  const nodes = Array.from(
+    { length: nodeCount },
+    (_, i) => `Step${String(i + 1).padStart(3, "0")}`,
+  );
+  const rels: string[] = [];
+  for (let i = 0; i < nodes.length - 1; i++)
+    rels.push(`${nodes[i]} --> ${nodes[i + 1]}`);
+
+  for (let i = 0; i < nodes.length - 5; i += 10)
+    rels.push(`${nodes[i]} ..> ${nodes[i + 5]}`);
+  return [...nodes, "", ...rels].join("\n");
+}
+
+function generateClusterDsl(clusters: number, perCluster: number): string {
+  const lines: string[] = [];
+  const clusterNames: string[] = [];
+  for (let c = 0; c < clusters; c++) {
+    const name = `Cluster${String(c + 1).padStart(2, "0")}`;
+    clusterNames.push(name);
+    const children = Array.from(
+      { length: perCluster },
+      (_, i) => `  Node${String(c * perCluster + i + 1).padStart(3, "0")}`,
+    );
+    lines.push(`${name}{`, ...children, `}`);
+  }
+  lines.push("");
+  for (let c = 0; c < clusterNames.length - 1; c++) {
+    lines.push(`${clusterNames[c]} --> ${clusterNames[c + 1]}`);
+    if (c + 2 < clusterNames.length)
+      lines.push(`${clusterNames[c]} ..> ${clusterNames[c + 2]}`);
+  }
+  return lines.join("\n");
+}
+
+export const STRESS_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "stress-star",
+    name: "Stress: Star Network (200 nodes)",
+    description:
+      "1 hub connected to 200 spoke nodes — tests flat large-scale rendering and lazy connection culling",
+    tags: ["stress", "performance", "test"],
+    preferredView: "circular",
+    code: generateStarDsl(200),
+  },
+  {
+    id: "stress-chain",
+    name: "Stress: Linear Chain (300 nodes)",
+    description:
+      "300 nodes in a sequential chain with skip connections — tests viewport culling along a wide diagram",
+    tags: ["stress", "performance", "test"],
+    preferredView: "pipeline",
+    code: generateChainDsl(300),
+  },
+  {
+    id: "stress-clusters",
+    name: "Stress: Clustered Groups (12×20 = 240 nodes)",
+    description:
+      "12 clusters of 20 nodes each, with inter-cluster edges — tests hierarchical culling and connection density",
+    tags: ["stress", "performance", "test"],
+    preferredView: "hierarchical",
+    code: generateClusterDsl(12, 20),
   },
 ];
 

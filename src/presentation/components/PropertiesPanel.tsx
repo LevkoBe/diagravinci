@@ -129,7 +129,6 @@ function PropertiesPanelContent({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
       <div className="px-4 py-3 border-b border-border/40 flex items-start justify-between gap-2 shrink-0">
         <div className="min-w-0 flex-1">
           {editingName ? (
@@ -183,16 +182,13 @@ function PropertiesPanelContent({
         </DangerIconBtn>
       </div>
 
-      {/* Multi-select indicator */}
       {selectedIds.length > 1 && (
         <div className="px-4 py-1.5 bg-accent/10 border-b border-accent/20 text-[11px] text-accent">
           {selectedIds.length} selected · showing last
         </div>
       )}
 
-      {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-4">
-        {/* Badges */}
         <div className="flex flex-wrap gap-1.5">
           {primaryPos?.isRecursive && (
             <span className="px-2 py-0.5 rounded-full text-[10px] border border-orange-500/40 bg-orange-500/10 text-orange-500">
@@ -204,7 +200,6 @@ function PropertiesPanelContent({
           </span>
         </div>
 
-        {/* Position */}
         {primaryPos && (
           <PanelSection label="Position">
             <div className="grid grid-cols-2 gap-x-3 gap-y-1">
@@ -216,7 +211,6 @@ function PropertiesPanelContent({
           </PanelSection>
         )}
 
-        {/* Path */}
         {paths.length > 0 && (
           <PanelSection label="Path">
             {paths.map((p) => (
@@ -230,7 +224,6 @@ function PropertiesPanelContent({
           </PanelSection>
         )}
 
-        {/* Children */}
         {element.childIds.length > 0 && (
           <PanelSection label={`Children (${element.childIds.length})`}>
             {element.childIds.map((childId) => {
@@ -258,7 +251,6 @@ function PropertiesPanelContent({
           </PanelSection>
         )}
 
-        {/* Relationships */}
         {(outgoing.length > 0 || incoming.length > 0) && (
           <PanelSection label="Relationships">
             {outgoing.map((r) => (

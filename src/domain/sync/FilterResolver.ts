@@ -20,12 +20,15 @@ function matchesPreset(
   preset: FilterPreset,
   model: DiagramModel,
 ): boolean {
-  if (preset.selector.atoms.length === 0) return false;
-
   const elementId = path.split(".").at(-1)!;
   const element = model.elements[elementId];
-  const type = element?.type ?? "";
 
+  // Flag-based match: element explicitly tagged with this preset's id
+  if (element?.flags?.includes(preset.id)) return true;
+
+  // Selector-based match: path/type pattern
+  if (preset.selector.atoms.length === 0) return false;
+  const type = element?.type ?? "";
   return evaluateSelector(preset.selector, path, type);
 }
 
@@ -46,7 +49,12 @@ export class FilterResolver {
     const foldedSet = new Set<string>();
     const coloredMap = new Map<string, string>();
 
-    for (const preset of filterState.presets) {
+    // Code-declared presets (always active, not togglable per-session)
+    const modelPresets = (model.filterPresets ?? []).map((p) => ({ ...p, isActive: true }));
+    // Session presets (UI-created, have their own isActive)
+    const allPresets = [...modelPresets, ...filterState.presets];
+
+    for (const preset of allPresets) {
       if (!preset.isActive) continue;
 
       if (preset.mode === "color") {
@@ -70,11 +78,13 @@ export class FilterResolver {
       }
     }
 
+    const manuallyUnfoldedSet = new Set(filterState.manuallyUnfolded);
+
     if (filterState.foldActive) {
       for (const path of allPaths) {
         if (
           pathDepth(path) === filterState.foldLevel &&
-          !filterState.manuallyUnfolded.includes(path)
+          !manuallyUnfoldedSet.has(path)
         ) {
           foldedSet.add(path);
         }
@@ -83,7 +93,7 @@ export class FilterResolver {
 
     for (const path of filterState.manuallyFolded) {
       if (!positions[path]) continue;
-      if (filterState.manuallyUnfolded.includes(path)) continue;
+      if (manuallyUnfoldedSet.has(path)) continue;
       foldedSet.add(path);
     }
 

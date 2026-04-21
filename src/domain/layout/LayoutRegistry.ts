@@ -4,6 +4,7 @@ import CircularLayout from "./CircularLayout";
 import { HierarchicalLayout } from "./HierarchicalLayout";
 import { TimelineLayout } from "./TimelineLayout";
 import { PipelineLayout } from "./PipelineLayout";
+import { ExecuteLayout } from "./ExecuteLayout";
 
 type ViewMode = ViewState["viewMode"];
 
@@ -13,6 +14,7 @@ const registry: Record<ViewMode, LayoutAlgorithm> = {
   hierarchical: new HierarchicalLayout(),
   timeline: new TimelineLayout(),
   pipeline: new PipelineLayout(),
+  execute: new ExecuteLayout(),
 };
 
 export function getLayout(viewMode: ViewMode): LayoutAlgorithm {

@@ -5,13 +5,35 @@ import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { ViewState } from "../../domain/models/ViewState";
 import type { Colors, RenderCallbacks } from "./rendering/types";
 import { ElementEventHandler } from "./rendering/elements/ElementEventHandler";
-import { RelationshipRenderer } from "./rendering/relationships/RelationshipRenderer";
+import { RelationshipRenderer, type ViewportRect, type GeometryCache } from "./rendering/relationships/RelationshipRenderer";
 import { SvgPathElementRenderer } from "./rendering/elements/SvgPathElementRenderer";
 import { SimpleRectElementRenderer } from "./rendering/elements/SimpleRectElementRenderer";
 import { PolygonElementRenderer } from "./rendering/elements/PolygonElementRenderer";
+import type { IElementRenderer } from "./rendering/elements/BaseElementRenderer";
 import type { RenderStyle } from "../../application/store/uiSlice";
 
-import { computeElementSizes } from "./rendering/elementSizing";
+import { computeElementSizes, type ElementSizes } from "./rendering/elementSizing";
+
+function createElementRenderer(
+  renderStyle: RenderStyle,
+  element: Element,
+  path: string,
+  viewState: ViewState,
+  connectingFromId: string | null,
+  colors: Colors,
+  isNew: boolean,
+  isDimmed: boolean,
+  size: number,
+  zoom: number,
+  colorOverride: string | null,
+): IElementRenderer {
+  const args = [element, path, viewState, connectingFromId, colors, isNew, isDimmed, size, zoom, colorOverride] as const;
+  switch (renderStyle) {
+    case "rect": return new SimpleRectElementRenderer(...args);
+    case "polygon": return new PolygonElementRenderer(...args);
+    default: return new SvgPathElementRenderer(...args);
+  }
+}
 
 export class DiagramLayerRenderer {
   private readonly stage: Konva.Stage;
@@ -34,8 +56,10 @@ export class DiagramLayerRenderer {
 
   private readonly zoom: number;
   private readonly renderStyle: RenderStyle;
+  private readonly viewportRect: ViewportRect;
 
   private readonly isReadonly: boolean;
+  private readonly executionColorMap: Record<string, string>;
 
   constructor(
     stage: Konva.Stage,
@@ -48,6 +72,9 @@ export class DiagramLayerRenderer {
     zoom: number,
     renderStyle: RenderStyle = "polygon",
     isReadonly = false,
+    executionColorMap: Record<string, string> = {},
+    elementSizes?: ElementSizes,
+    geometryCache?: GeometryCache,
   ) {
     this.stage = stage;
     this.model = model;
@@ -59,22 +86,30 @@ export class DiagramLayerRenderer {
     this.zoom = zoom;
     this.renderStyle = renderStyle;
     this.isReadonly = isReadonly;
+    this.executionColorMap = executionColorMap;
 
-    const { pixelSizes, zoomHidden, zoomDimmed } = computeElementSizes(
-      model,
-      this.viewState,
-      zoom,
-    );
+    const { pixelSizes, zoomHidden, zoomDimmed } =
+      elementSizes ?? computeElementSizes(model, this.viewState, zoom);
     this.pixelSizes = pixelSizes;
 
     this.hiddenSet = new Set([...viewState.hiddenPaths, ...zoomHidden]);
     this.dimmedSet = new Set([...viewState.dimmedPaths, ...zoomDimmed]);
+
+    const stagePos = stage.position();
+    this.viewportRect = {
+      x: -stagePos.x / zoom,
+      y: -stagePos.y / zoom,
+      w: stage.width() / zoom,
+      h: stage.height() / zoom,
+    };
 
     this.relationshipRenderer = new RelationshipRenderer(
       viewState,
       colors,
       this.hiddenSet,
       this.dimmedSet,
+      this.viewportRect,
+      geometryCache,
     );
   }
 
@@ -89,64 +124,63 @@ export class DiagramLayerRenderer {
 
     this.relationshipRenderer.render(relationshipLayer);
 
+    const visited = new Set<string>();
     this.model.root.childIds.forEach((id) => {
       const element = this.model.elements[id];
-      if (element) this.renderRecursive(element, elementLayer, id);
+      if (element) this.renderRecursive(element, elementLayer, id, visited);
     });
 
     relationshipLayer.batchDraw();
     elementLayer.batchDraw();
   }
 
+  private isOffScreen(path: string): boolean {
+    const pos = this.viewState.positions[path];
+    if (!pos) return false;
+    const vp = this.viewportRect;
+    const half = (pos.size ?? 0) / 2;
+    return (
+      pos.position.x + half < vp.x ||
+      pos.position.x - half > vp.x + vp.w ||
+      pos.position.y + half < vp.y ||
+      pos.position.y - half > vp.y + vp.h
+    );
+  }
+
   private renderRecursive(
     element: Element,
-    parentGroup: Konva.Group | Konva.Layer,
+    elementLayer: Konva.Layer,
     path: string,
-    parentPos?: { x: number; y: number },
+    visited: Set<string>,
   ): void {
     if (this.hiddenSet.has(path)) return;
+    if (visited.has(element.id)) return;
 
-    const isDimmed = this.dimmedSet.has(path);
+    const skipRender = this.isOffScreen(path);
 
-    const colorOverride = this.viewState.coloredPaths?.[path] ?? null;
+    if (!skipRender) {
+      const isDimmed = this.dimmedSet.has(path);
+      const colorOverride =
+        this.executionColorMap[element.id] ??
+        this.viewState.coloredPaths?.[path] ??
+        null;
 
-    const elementGroup = this.renderElement(
-      element,
-      path,
-      parentPos,
-      isDimmed,
-      colorOverride,
-    );
-    if (!elementGroup) return;
-
-    parentGroup.add(elementGroup);
-
-    if (!this.prevPaths.has(path)) {
-      new Konva.Tween({
-        node: elementGroup,
-        duration: 0.25,
-        easing: Konva.Easings.EaseOut,
-        scaleX: 1,
-        scaleY: 1,
-      }).play();
+      const elementGroup = this.renderElement(element, path, isDimmed, colorOverride);
+      if (elementGroup) {
+        elementLayer.add(elementGroup);
+      }
     }
 
     if (this.viewState.foldedPaths.includes(path)) return;
 
-    const pos = this.viewState.positions[path];
-    if (!pos) return;
-
+    visited.add(element.id);
     element.childIds.forEach((childId) => {
       const child = this.model.elements[childId];
       if (child) {
-        this.renderRecursive(
-          child,
-          elementGroup,
-          `${path}.${childId}`,
-          pos.position,
-        );
+        this.renderRecursive(child, elementLayer, `${path}.${childId}`, visited);
       }
     });
+    visited.delete(element.id);
   }
 
   private getSize(path: string): number {
@@ -157,34 +191,18 @@ export class DiagramLayerRenderer {
   private renderElement(
     element: Element,
     path: string,
-    parentPos?: { x: number; y: number },
     isDimmed = false,
     colorOverride: string | null = null,
   ): Konva.Group | undefined {
     const isNew = !this.prevPaths.has(path);
     const size = this.getSize(path);
 
-    const args = [
-      element,
-      path,
-      this.viewState,
-      this.connectingFromId,
-      this.colors,
-      isNew,
-      isDimmed,
-      size,
-      this.zoom,
-      colorOverride,
-    ] as const;
+    const elementRenderer = createElementRenderer(
+      this.renderStyle, element, path, this.viewState, this.connectingFromId,
+      this.colors, isNew, isDimmed, size, this.zoom, colorOverride,
+    );
 
-    const elementRenderer =
-      this.renderStyle === "rect"
-        ? new SimpleRectElementRenderer(...args)
-        : this.renderStyle === "polygon"
-          ? new PolygonElementRenderer(...args)
-          : new SvgPathElementRenderer(...args);
-
-    const renderResult = elementRenderer.render(parentPos);
+    const renderResult = elementRenderer.render();
     if (!renderResult) return;
 
     const { group, onHoverIn, onHoverOut } = renderResult;
@@ -214,11 +232,12 @@ export class DiagramLayerRenderer {
         onPositionChange: this.callbacks.onPositionChange,
         onReparent: this.callbacks.onReparent,
         setHovered: (p) => this.setHovered(p),
-        findHoveredPath: (id, pos) => this.findHoveredPath(id, pos),
-        findNewParentPath: (p, pos) => this.findNewParentPath(p, pos),
+        findHoveredPath: (id, pos) => this.findBestPath(id, pos, null),
+        findNewParentPath: (p, pos) => this.findBestPath(p, pos, null) ?? this.model.root.id,
         updateRelationshipLines: (p) => this.updateRelationshipLines(p),
         updateChildRelationshipLines: (p) =>
           this.updateChildRelationshipLines(p),
+        moveChildGroups: (p) => this.moveChildGroupsForDrag(p),
         updateChildPositions: (p) => this.updateChildPositions(p),
         getRootId: () => this.model.root.id,
       },
@@ -238,6 +257,10 @@ export class DiagramLayerRenderer {
     return group;
   }
 
+  getGroupMap(): Map<string, Konva.Group> {
+    return this.groupMap;
+  }
+
   private setHovered(path: string | null): void {
     if (path === this.hoveredPath) return;
     if (this.hoveredPath) this.hoverOut.get(this.hoveredPath)?.();
@@ -251,9 +274,38 @@ export class DiagramLayerRenderer {
     );
   }
 
+  private forEachChildPath(parentPath: string, fn: (path: string) => void): void {
+    const prefix = parentPath + ".";
+    for (const p of Object.keys(this.viewState.positions)) {
+      if (p.startsWith(prefix)) fn(p);
+    }
+  }
+
   private updateChildRelationshipLines(parentPath: string): void {
-    Object.keys(this.viewState.positions).forEach((p) => {
-      if (p.startsWith(parentPath + ".")) this.updateRelationshipLines(p);
+    this.forEachChildPath(parentPath, (p) => this.updateRelationshipLines(p));
+  }
+
+  private moveChildGroupsForDrag(parentPath: string): void {
+    const parentGroup = this.groupMap.get(parentPath);
+    const storedParentPos = this.viewState.positions[parentPath]?.position;
+    if (!parentGroup || !storedParentPos) return;
+
+    const newParentPos = screenToWorld(
+      parentGroup.getAbsolutePosition(),
+      this.stage,
+    );
+    const delta = {
+      x: newParentPos.x - storedParentPos.x,
+      y: newParentPos.y - storedParentPos.y,
+    };
+
+    this.forEachChildPath(parentPath, (p) => {
+      const childGroup = this.groupMap.get(p);
+      const storedChildPos = this.viewState.positions[p]?.position;
+      if (childGroup && storedChildPos) {
+        childGroup.x(storedChildPos.x + delta.x);
+        childGroup.y(storedChildPos.y + delta.y);
+      }
     });
   }
 
@@ -272,8 +324,7 @@ export class DiagramLayerRenderer {
       };
     }
 
-    Object.keys(this.viewState.positions).forEach((p) => {
-      if (!p.startsWith(parentPath + ".")) return;
+    this.forEachChildPath(parentPath, (p) => {
       const childGroup = this.groupMap.get(p);
       if (childGroup) {
         this.callbacks.onPositionChange(
@@ -298,15 +349,16 @@ export class DiagramLayerRenderer {
     return this.viewState.positions[path]?.position ?? null;
   }
 
-  private findHoveredPath(
-    draggedElementId: string,
+  private findBestPath(
+    draggedKey: string,
     worldCenter: { x: number; y: number },
+    fallback: string | null,
   ): string | null {
     let bestPath: string | null = null;
     let bestSize = Infinity;
 
     for (const [path, pos] of Object.entries(this.viewState.positions)) {
-      if (path.startsWith(draggedElementId)) continue;
+      if (path.startsWith(draggedKey)) continue;
       if (this.hiddenSet.has(path)) continue;
 
       const size = this.getSize(path);
@@ -319,30 +371,6 @@ export class DiagramLayerRenderer {
       }
     }
 
-    return bestPath;
-  }
-
-  private findNewParentPath(
-    draggedElementPath: string,
-    worldCenter: { x: number; y: number },
-  ): string {
-    let bestPath: string | null = null;
-    let bestSize = Infinity;
-
-    for (const [path, pos] of Object.entries(this.viewState.positions)) {
-      if (path.startsWith(draggedElementPath)) continue;
-      if (this.hiddenSet.has(path)) continue;
-
-      const size = this.getSize(path);
-      const dx = worldCenter.x - pos.position.x;
-      const dy = worldCenter.y - pos.position.y;
-
-      if (Math.hypot(dx, dy) <= size / 2 && size < bestSize) {
-        bestSize = size;
-        bestPath = path;
-      }
-    }
-
-    return bestPath ?? this.model.root.id;
+    return bestPath ?? fallback;
   }
 }

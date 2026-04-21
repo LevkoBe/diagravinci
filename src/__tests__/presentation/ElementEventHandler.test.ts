@@ -164,11 +164,10 @@ describe("ElementEventHandler", () => {
         updateRelationshipLines: vi.fn(),
         updateChildRelationshipLines: vi.fn(),
         updateChildPositions: vi.fn(),
+        moveChildGroups: vi.fn(),
         getRootId: vi.fn().mockReturnValue("root"),
       };
 
-      // path = "old-parent.child" → oldParentPath = "old-parent"
-      // findNewParentPath returns "new-parent" → reparent is triggered
       const handler = new ElementEventHandler(
         { id: "child", path: "old-parent.child" },
         "old-parent.child",
@@ -187,7 +186,11 @@ describe("ElementEventHandler", () => {
         pointerId: 0,
       } as unknown as Konva.KonvaEventObject<DragEvent>);
 
-      expect(onReparent).toHaveBeenCalledWith("child", "old-parent", "new-parent");
+      expect(onReparent).toHaveBeenCalledWith(
+        "child",
+        "old-parent",
+        "new-parent",
+      );
     });
 
     it("does not call onReparent when parent is unchanged", () => {
@@ -202,6 +205,7 @@ describe("ElementEventHandler", () => {
         updateRelationshipLines: vi.fn(),
         updateChildRelationshipLines: vi.fn(),
         updateChildPositions: vi.fn(),
+        moveChildGroups: vi.fn(),
         getRootId: vi.fn().mockReturnValue("root"),
       };
 

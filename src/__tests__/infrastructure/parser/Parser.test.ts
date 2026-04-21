@@ -29,7 +29,7 @@ describe("Parser", () => {
     expect(Object.values(model.elements).length).toBe(1);
     const elem = Array.from(Object.values(model.elements))[0];
     expect(elem.id).toBe("players");
-    expect(elem.type).toBe("state");
+    expect(elem.type).toBe("collection");
   });
 
   it("should parse element with properties", () => {
@@ -60,7 +60,7 @@ describe("Parser", () => {
 
     expect(nick.type).toBe("object");
     expect(health.type).toBe("object");
-    expect(items.type).toBe("state");
+    expect(items.type).toBe("collection");
     expect(walk.type).toBe("function");
     expect(decide.type).toBe("choice");
   });
@@ -75,7 +75,7 @@ describe("Parser", () => {
     expect(player.childIds).toContain(username.id);
     expect(player.childIds).toContain(password.id);
     expect(player.id).toBe("players");
-    expect(player.type).toBe("state");
+    expect(player.type).toBe("collection");
   });
 
   it("should parse a few elements", () => {
@@ -115,9 +115,9 @@ describe("Parser", () => {
     expect(play.childIds).toContain(fight.id);
     expect(start.childIds).toContain(step1.id);
     expect(start.childIds).toContain(step2.id);
-    expect(play.type).toBe("state");
-    expect(walk.type).toBe("state");
-    expect(fight.type).toBe("state");
+    expect(play.type).toBe("collection");
+    expect(walk.type).toBe("object");
+    expect(fight.type).toBe("object");
     expect(start.type).toBe("function");
     expect(step1.type).toBe("function");
     expect(step2.type).toBe("function");
@@ -465,8 +465,8 @@ describe("Parser", () => {
       f,
     ] = Array.from(Object.values(model.elements));
     expect(a.type).toBe("object");
-    expect(anon1.type).toBe("state");
-    expect(a1.type).toBe("state");
+    expect(anon1.type).toBe("collection");
+    expect(a1.type).toBe("object");
     expect(b.type).toBe("object");
     expect(anon2.type).toBe("object");
     expect(b1.type).toBe("object");
@@ -560,7 +560,7 @@ describe("Parser", () => {
     expect(f.childIds).toContain(d.id);
     expect(a.type).toBe("function");
     expect(b.type).toBe("object");
-    expect(c.type).toBe("state");
+    expect(c.type).toBe("object");
     expect(d.type).toBe("choice");
   });
 
@@ -600,5 +600,83 @@ describe("Parser", () => {
     expect(b.childIds).toContain(b.id);
     expect(c.childIds).toHaveLength(1);
     expect(c.childIds).toContain(a.id);
+  });
+});
+
+describe("Parser edge cases", () => {
+  const parse = (input: string) => {
+    const tokens = new Lexer(input).tokenize();
+    return new Parser(tokens).parse();
+  };
+
+  it("silently skips unknown characters like '=' between elements", () => {
+    const model = parse("a = b");
+
+    const ids = Object.keys(model.elements);
+    expect(ids).toContain("a");
+    expect(ids).toContain("b");
+  });
+
+  it("attaches a single flag to an element", () => {
+    const model = parse("player:warn");
+    const el = model.elements["player"];
+    expect(el).toBeDefined();
+    expect(el.flags).toEqual(["warn"]);
+  });
+
+  it("attaches multiple flags to an element", () => {
+    const model = parse("db:critical:dim");
+    const el = model.elements["db"];
+    expect(el.flags).toEqual(["critical", "dim"]);
+  });
+
+  it("flags do not create sibling elements", () => {
+    const model = parse("player:warn --> server");
+    const ids = Object.keys(model.elements);
+    expect(ids).not.toContain("warn");
+    expect(ids).toContain("player");
+    expect(ids).toContain("server");
+  });
+
+  it("parses !selector directive into model.filterPresets", () => {
+    const model = parse("!selector name=warn  path=*.db.*  color=#f00  mode=dim");
+    expect(model.filterPresets ?? []).toHaveLength(1);
+    const p = (model.filterPresets ?? [])[0];
+    expect(p.id).toBe("warn");
+    expect(p.color).toBe("#f00");
+    expect(p.mode).toBe("dim");
+    expect(p.selector.atoms[0].path).toBe("*.db.*");
+  });
+
+  it("ignores !directive with unknown type", () => {
+    const model = parse("!unknown foo=bar");
+    expect(model.filterPresets ?? []).toHaveLength(0);
+  });
+
+  it("ignores !selector directive missing name", () => {
+    const model = parse("!selector path=*.db.*");
+    expect(model.filterPresets ?? []).toHaveLength(0);
+  });
+
+  it("deduplicates !selector directives with same name", () => {
+    const model = parse("!selector name=warn color=#f00 mode=color\n!selector name=warn color=#0f0 mode=dim");
+    const presets = model.filterPresets ?? [];
+    expect(presets).toHaveLength(1);
+    expect(presets[0].color).toBe("#f00");
+  });
+
+  it("parses empty input without error", () => {
+    const model = parse("");
+    expect(Object.keys(model.elements)).toHaveLength(0);
+  });
+
+  it("parses redundant closing wrapper without error", () => {
+    expect(() => parse("a } b")).not.toThrow();
+  });
+
+  it("throws when nesting depth exceeds MAX_NESTING_DEPTH", () => {
+    const depth = 1002;
+    const open = "a" + "{a".repeat(depth);
+    expect(() => parse(open)).toThrow("Maximum parser nesting depth exceeded");
   });
 });

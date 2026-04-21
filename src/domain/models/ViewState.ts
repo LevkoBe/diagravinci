@@ -20,7 +20,7 @@ export interface PositionedRelationship {
 export interface ViewState {
   positions: Record<string, PositionedElement>;
   relationships: PositionedRelationship[];
-  viewMode: "basic" | "hierarchical" | "timeline" | "pipeline" | "circular";
+  viewMode: "basic" | "hierarchical" | "timeline" | "pipeline" | "circular" | "execute";
   zoom: number;
   pan: Position;
   hiddenPaths: string[];
@@ -48,15 +48,17 @@ export function updateElementPosition(
   elementId: string,
   position: Position,
 ): ViewState {
+  const existing = viewState.positions[elementId];
+  if (existing && existing.position.x === position.x && existing.position.y === position.y) {
+    return viewState;
+  }
   return {
     ...viewState,
     positions: {
       ...viewState.positions,
-      [elementId]: {
-        ...viewState.positions[elementId],
-        id: elementId,
-        position,
-      },
+      [elementId]: existing
+        ? { ...existing, position }
+        : { id: elementId, position, size: 0, value: 0 },
     },
   };
 }

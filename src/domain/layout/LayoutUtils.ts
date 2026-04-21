@@ -34,15 +34,19 @@ export function layoutWeight(
   element: Element,
   model: DiagramModel,
   visited: Set<string> = new Set(),
+  memo: Map<string, number> = new Map(),
 ): number {
   if (visited.has(element.id)) return 1;
-  const next = new Set([...visited, element.id]);
-  return (
+  if (memo.has(element.id)) return memo.get(element.id)!;
+  visited.add(element.id);
+  const weight =
     element.childIds.reduce((sum, id) => {
       const child = model.elements[id];
-      return sum + (child ? layoutWeight(child, model, next) : 0);
-    }, 0) + 1
-  );
+      return sum + (child ? layoutWeight(child, model, visited, memo) : 0);
+    }, 0) + 1;
+  visited.delete(element.id);
+  memo.set(element.id, weight);
+  return weight;
 }
 
 export function makePositioned(

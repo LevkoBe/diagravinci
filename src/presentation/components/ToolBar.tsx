@@ -33,7 +33,12 @@ import {
   Redo2,
   GitCompare,
   CheckCheck,
+  Play,
+  Pause,
+  RotateCcw,
+  StepForward,
 } from "lucide-react";
+import { AppConfig } from "../../config/appConfig";
 import {
   Button,
   SettingsModalButton,
@@ -74,6 +79,14 @@ import {
   clearAllRemoved,
   clearDiff,
 } from "../../application/store/diffSlice";
+import {
+  startExecution,
+  pauseExecution,
+  resetExecution,
+  tickAdvance,
+  setMaterialize,
+} from "../../application/store/executionSlice";
+import { computeExecutionStep, applyDeltaToModel, buildCleanedModel } from "../../application/ExecutionEngine";
 import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 import { Lexer } from "../../infrastructure/parser/Lexer";
 import { Parser } from "../../infrastructure/parser/Parser";
@@ -82,11 +95,13 @@ import { ViewStateMerger } from "../../domain/sync/ViewStateMerger";
 import { ELEMENT_SVGS } from "../ElementConfigs";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
 import type { Element } from "../../domain/models/Element";
+import type { ViewState } from "../../domain/models/ViewState";
 import { useUndoRedo } from "../hooks/useUndoRedo";
-import { store } from "../../application/store/store";
+import { store, syncManager } from "../../application/store/store";
 
 const ELEMENT_TYPES = [
   { type: "object" },
+  { type: "collection" },
   { type: "state" },
   { type: "function" },
   { type: "flow" },
@@ -146,7 +161,6 @@ function Pill({
   const [open, setOpen] = useState(false);
   const isOpen = forceOpen || open;
 
-  // Compact mode: no label, no animation, buttons always visible.
   if (compact) {
     return (
       <div className="flex items-center px-2 py-1 rounded-full border border-accent/50 bg-accent/6 gap-0.5 shrink-0">
@@ -164,7 +178,6 @@ function Pill({
       onMouseEnter={() => !forceOpen && setOpen(true)}
       onMouseLeave={() => !forceOpen && setOpen(false)}
     >
-      {/* Label + active indicators — slide away as buttons appear */}
       <div
         className={`${slide} ${isOpen ? "grid-cols-[0fr]" : "grid-cols-[1fr]"}`}
       >
@@ -183,7 +196,6 @@ function Pill({
         </div>
       </div>
 
-      {/* Buttons — slide in as label disappears */}
       <div
         className={`${slide} ${isOpen ? "grid-cols-[1fr]" : "grid-cols-[0fr]"}`}
       >
@@ -276,9 +288,6 @@ export function ToolBar() {
   const toolbarInnerRef = useRef<HTMLDivElement>(null);
   const [toolbarWidth, setToolbarWidth] = useState(9999);
   const [toolbarHeight, setToolbarHeight] = useState(48);
-  // Track the last computed target height (px). The loop guard is: if the
-  // target hasn't changed, moveDivider already set it — skip. If zoom or
-  // content changes, the target changes and we fire exactly once more.
   const lastNeededHRef = useRef<number>(0);
 
   useEffect(() => {
@@ -292,27 +301,20 @@ export function ToolBar() {
     return () => ro.disconnect();
   }, []);
 
-  // Snap toolbar window height to its content. Runs whenever the toolbar's
-  // measured size changes (mount, zoom, window resize, content change).
-  // Loop safety: moveDivider triggers a resize → toolbarHeight changes → this
-  // effect re-runs → computes the same neededWindowH → early return.
   useEffect(() => {
-    // In panel / wrap mode the toolbar should fill available space — skip.
     if (toolbarWidth / Math.max(toolbarHeight, 1) <= 2) return;
 
     const contentArea = toolbarInnerRef.current;
     if (!contentArea) return;
 
     const contentAreaH = contentArea.getBoundingClientRect().height;
-    if (contentAreaH < 4) return; // not yet painted
+    if (contentAreaH < 4) return;
 
-    // firstElementChild.offsetHeight = intrinsic content height, unclipped.
     const firstChild = contentArea.firstElementChild as HTMLElement | null;
     if (!firstChild) return;
     const intrinsicH = firstChild.offsetHeight;
     if (intrinsicH < 4) return;
 
-    // Walk up to find the ancestor that includes the window title bar.
     let windowEl: HTMLElement | null = contentArea.parentElement;
     while (windowEl) {
       if (windowEl.getBoundingClientRect().height > contentAreaH + 4) break;
@@ -323,7 +325,6 @@ export function ToolBar() {
     const titleBarH = windowEl.getBoundingClientRect().height - contentAreaH;
     const neededWindowH = Math.round(intrinsicH + titleBarH + 4);
 
-    // Same target as last call → moveDivider already positioned correctly.
     if (Math.abs(neededWindowH - lastNeededHRef.current) < 2) return;
     lastNeededHRef.current = neededWindowH;
 
@@ -344,13 +345,6 @@ export function ToolBar() {
     if (parentGroup) moveDivider(parentGroup.id, 0, pct);
   }, [toolbarWidth, toolbarHeight, tree, moveDivider]);
 
-  // Layout modes based on aspect ratio:
-  //   aspect > 2  → wide bar: horizontal scrollable pill row
-  //   aspect ≤ 2  → panel: compact pills wrap to fill space
-  // Within wide-bar mode:
-  //   < 380px  → hamburger menu only
-  //   380–720px → compact pills, scrollable row
-  //   > 720px  → full animated pills, scrollable (no flex-wrap to prevent oscillation)
   const isWideBar = toolbarWidth / Math.max(toolbarHeight, 1) > 2;
   const isMobile = isWideBar && toolbarWidth < 380;
   const isCompact = isWideBar && !isMobile && toolbarWidth < 720;
@@ -366,6 +360,52 @@ export function ToolBar() {
   const { presets, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
     useAppSelector((s) => s.filter);
   const diffState = useAppSelector((s) => s.diff);
+  const execState = useAppSelector((s) => s.execution);
+  const isExecuteMode = viewMode === "execute";
+
+  const prevViewModeRef = useRef<ViewState["viewMode"]>(viewMode);
+
+  const cleanupAndReset = () => {
+    if (!execState.materialize && execState.instances.length > 0) {
+      const { model: currentModel } = store.getState().diagram;
+      const cleanedModel = buildCleanedModel(currentModel, execState.instances);
+      syncManager.syncFromVis(cleanedModel);
+    }
+    dispatch(resetExecution());
+  };
+
+  const handleToggleExecute = () => {
+    if (isExecuteMode) {
+      cleanupAndReset();
+      dispatch(setViewMode(prevViewModeRef.current));
+    } else {
+      prevViewModeRef.current = viewMode;
+      dispatch(setViewMode("execute"));
+    }
+  };
+
+  const handleExecuteStep = () => {
+    const state = store.getState();
+    const { instances, tickCount, nextInstanceId, executionColor } =
+      state.execution;
+    const { model: currentModel, viewState: currentViewState } = state.diagram;
+    const result = computeExecutionStep(
+      currentModel,
+      currentViewState,
+      instances,
+      tickCount,
+      nextInstanceId,
+      executionColor,
+    );
+    const newModel = applyDeltaToModel(currentModel, result.delta);
+    syncManager.syncFromVis(newModel);
+    dispatch(
+      tickAdvance({
+        nextInstances: result.nextInstances,
+        nextInstanceId: result.nextInstanceId,
+      }),
+    );
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
   const updateCodeInputRef = useRef<HTMLInputElement>(null);
@@ -791,6 +831,63 @@ export function ToolBar() {
     </>
   );
 
+  const execBtns = (
+    <>
+      <Btn
+        title="Toggle execute mode"
+        active={isExecuteMode}
+        onClick={handleToggleExecute}
+      >
+        <Play size={15} />
+      </Btn>
+      {isExecuteMode && (
+        <>
+          <Btn
+            title="Run"
+            active={execState.status === "running"}
+            onClick={() => dispatch(startExecution())}
+            disabled={execState.status === "running"}
+          >
+            <Play size={15} />
+          </Btn>
+          <Btn
+            title="Pause"
+            active={execState.status === "paused"}
+            onClick={() => dispatch(pauseExecution())}
+            disabled={execState.status !== "running"}
+          >
+            <Pause size={15} />
+          </Btn>
+          <Btn
+            title="Step (one tick)"
+            onClick={handleExecuteStep}
+            disabled={execState.status === "running"}
+          >
+            <StepForward size={15} />
+          </Btn>
+          <Btn
+            title="Reset"
+            onClick={cleanupAndReset}
+            disabled={execState.status === "stopped" && execState.tickCount === 0}
+          >
+            <RotateCcw size={15} />
+          </Btn>
+          <Btn
+            title={
+              execState.materialize
+                ? "Keep generated elements: on"
+                : "Keep generated elements: off"
+            }
+            active={execState.materialize}
+            onClick={() => dispatch(setMaterialize(!execState.materialize))}
+          >
+            <CheckCheck size={15} />
+          </Btn>
+        </>
+      )}
+    </>
+  );
+
   const styleBtns = (
     [
       { value: "svg", title: "SVG paths", icon: <Spline size={15} /> },
@@ -877,10 +974,10 @@ export function ToolBar() {
         {diffState.active && (
           <div className="flex items-center gap-3 px-4 py-1.5 bg-bg-elevated/60 border-b border-border/20 text-xs shrink-0">
             <span className="font-semibold text-fg-muted">Diff view</span>
-            <span style={{ color: "#4caf50" }} className="font-medium">
+            <span style={{ color: AppConfig.canvas.DIFF_ADDED_COLOR }} className="font-medium">
               +{diffState.addedIds.length} added
             </span>
-            <span style={{ color: "#ef5350" }} className="font-medium">
+            <span style={{ color: AppConfig.canvas.DIFF_REMOVED_COLOR }} className="font-medium">
               -{diffState.removedIds.length} removed
             </span>
             <span className="text-fg-disabled/60">
@@ -891,7 +988,7 @@ export function ToolBar() {
                 onClick={handleAcceptAllAdded}
                 disabled={diffState.addedIds.length === 0}
                 className="flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium transition-colors disabled:opacity-30"
-                style={{ borderColor: "#4caf50", color: "#4caf50" }}
+                style={{ borderColor: AppConfig.canvas.DIFF_ADDED_COLOR, color: AppConfig.canvas.DIFF_ADDED_COLOR }}
                 title="Accept all added (remove green highlights)"
               >
                 <CheckCheck size={11} />
@@ -901,7 +998,7 @@ export function ToolBar() {
                 onClick={handleAcceptAllRemoved}
                 disabled={diffState.removedIds.length === 0}
                 className="flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium transition-colors disabled:opacity-30"
-                style={{ borderColor: "#ef5350", color: "#ef5350" }}
+                style={{ borderColor: AppConfig.canvas.DIFF_REMOVED_COLOR, color: AppConfig.canvas.DIFF_REMOVED_COLOR }}
                 title="Accept all removed (delete from diagram)"
               >
                 <CheckCheck size={11} />
@@ -918,7 +1015,6 @@ export function ToolBar() {
           </div>
         )}
         {!isWideBar ? (
-          /* ── Panel / wrap layout — compact pills wrap to fill space ── */
           <div className="flex flex-wrap gap-2 p-3 justify-center content-start overflow-y-auto flex-1">
             <Pill label="Create" compact>
               {createBtns}
@@ -941,6 +1037,9 @@ export function ToolBar() {
             <Pill label="Layout" compact>
               {layoutBtns}
             </Pill>
+            <Pill label="Run" compact>
+              {execBtns}
+            </Pill>
             <Pill label="Style" compact>
               {styleBtns}
             </Pill>
@@ -949,7 +1048,6 @@ export function ToolBar() {
             </Pill>
           </div>
         ) : isMobile ? (
-          /* ── Hamburger trigger ────────────────────────────────────────── */
           <div className="flex items-center px-4 py-2">
             <Btn
               title="Toggle menu"
@@ -960,7 +1058,6 @@ export function ToolBar() {
             </Btn>
           </div>
         ) : (
-          /* ── Full / compact pill row — overflow scrolls, never wraps ─── */
           <div
             className={`w-full flex items-center gap-2 px-4 py-2.5 overflow-x-auto flex-nowrap ${isCompact ? "" : "justify-around"}`}
           >
@@ -1084,6 +1181,7 @@ export function ToolBar() {
                         hierarchical: <TreePine size={15} />,
                         timeline: <ArrowRightLeft size={15} />,
                         pipeline: <Workflow size={15} />,
+                        execute: <Play size={15} />,
                       }[viewMode]
                     }
                   </ActiveIndicator>
@@ -1091,6 +1189,24 @@ export function ToolBar() {
               }
             >
               {layoutBtns}
+            </Pill>
+            <Divider />
+            <Pill
+              label="Run"
+              compact={isCompact}
+              activeSlot={
+                !isCompact && isExecuteMode ? (
+                  <ActiveIndicator title={execState.status}>
+                    {execState.status === "running" ? (
+                      <Play size={15} />
+                    ) : (
+                      <Pause size={15} />
+                    )}
+                  </ActiveIndicator>
+                ) : undefined
+              }
+            >
+              {execBtns}
             </Pill>
             <Divider />
             <Pill
@@ -1119,7 +1235,6 @@ export function ToolBar() {
           </div>
         )}
 
-        {/* Hamburger expanded panel */}
         {isMobile && mobileOpen && (
           <PillOpenContext.Provider value={true}>
             <div className="flex flex-wrap justify-around gap-2 px-4 py-3">
@@ -1130,6 +1245,7 @@ export function ToolBar() {
               <Pill label="Project">{projectBtns}</Pill>
               <Pill label="Code">{codeBtns}</Pill>
               <Pill label="Layout">{layoutBtns}</Pill>
+              <Pill label="Run">{execBtns}</Pill>
               <Pill label="Style">{styleBtns}</Pill>
               <Pill label="View">{viewBtns}</Pill>
             </div>

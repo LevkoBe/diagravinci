@@ -21,7 +21,7 @@ describe("uiSlice", () => {
     expect(state.connectingFromId).toBeNull();
     expect(state.selectedElementIds).toEqual([]);
     expect(state.zoomCommand).toBeNull();
-    expect(state.renderStyle).toBe("svg");
+    expect(state.renderStyle).toBe("polygon");
   });
 
   describe("setInteractionMode", () => {

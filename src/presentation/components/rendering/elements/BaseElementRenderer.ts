@@ -12,7 +12,7 @@ const dc = VConfig.decorations;
 const ANONYMOUS_PREFIX = AppConfig.parser.ANONYMOUS_ID_PREFIX + "_";
 
 export interface IElementRenderer {
-  render(parentPos?: { x: number; y: number }): ElementRenderResult | undefined;
+  render(): ElementRenderResult | undefined;
 }
 
 export abstract class BaseElementRenderer implements IElementRenderer {
@@ -54,28 +54,37 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     this.colorOverride = colorOverride;
   }
 
-  abstract render(parentPos?: {
-    x: number;
-    y: number;
-  }): ElementRenderResult | undefined;
+  protected abstract addElementShape(group: Konva.Group): Konva.Shape;
+
+  render(): ElementRenderResult | undefined {
+    const pos = this.viewState.positions[this.path];
+    if (!pos) return;
+
+    const group = this.createElementGroup();
+    const shapeNode = this.addElementShape(group);
+    this.addLabel(group);
+    this.addDecorationsIfNeeded(group);
+
+    const { onHoverIn, onHoverOut } = this.createHoverCallbacks(
+      group,
+      shapeNode,
+      shapeNode.strokeWidth(),
+    );
+
+    return { group, onHoverIn, onHoverOut };
+  }
 
   protected resolveStroke(): string {
     return this.colorOverride || this.colors.accent;
   }
 
-  protected createElementGroup(parentPos?: {
-    x: number;
-    y: number;
-  }): Konva.Group {
+  protected createElementGroup(): Konva.Group {
     const pos = this.viewState.positions[this.path];
     if (!pos) throw new Error("Position not found");
 
-    const localX = parentPos ? pos.position.x - parentPos.x : pos.position.x;
-    const localY = parentPos ? pos.position.y - parentPos.y : pos.position.y;
-
     const group = new Konva.Group({
-      x: localX,
-      y: localY,
+      x: pos.position.x,
+      y: pos.position.y,
       draggable: true,
       scaleX: this.isNew ? 0 : 1,
       scaleY: this.isNew ? 0 : 1,
@@ -110,7 +119,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       : (rawId ?? this.element.type.toUpperCase());
     const maxWidth = this.size * ec.LABEL_WIDTH_RATIO;
     const zoomFactor = Math.max(this.zoom, 0.01);
-    const heuristicFont = (maxWidth * 0.8) / (labelText.length * 0.6);
+    const heuristicFont = (maxWidth * ec.LABEL_TARGET_WIDTH_RATIO) / (labelText.length * ec.CHAR_WIDTH_RATIO);
     const minFont = ec.LABEL_MIN_FONT / zoomFactor;
     const maxFont = ec.LABEL_MAX_FONT_THRESHOLD / zoomFactor;
     const fontSize = Math.max(minFont, Math.min(maxFont, heuristicFont));
@@ -163,10 +172,10 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       group.add(
         new Konva.Text({
           text: "↺",
-          fontSize: Math.max(10, size * 0.28),
+          fontSize: Math.max(ec.LABEL_MIN_FONT, size * dc.RECURSIVE_TEXT_SIZE_RATIO),
           fill: dc.RECURSIVE_COLOR,
-          x: size * 0.18,
-          y: -(size / 2 + 16),
+          x: size * dc.RECURSIVE_TEXT_X_RATIO,
+          y: -(size / 2 + dc.RECURSIVE_TEXT_OFFSET),
           listening: false,
         }),
       );

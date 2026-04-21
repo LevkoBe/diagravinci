@@ -25,6 +25,12 @@ export class AncestryTracker {
   }
 }
 
+export function getChildren(parent: Element, model: DiagramModel): Element[] {
+  return parent.childIds
+    .map((id) => model.elements[id])
+    .filter((c): c is Element => !!c);
+}
+
 export function calculateSize(value: number): number {
   return (
     Math.pow(value, AppConfig.layout.SIZE_EXP) * AppConfig.layout.SIZE_MULT
@@ -35,19 +41,22 @@ export function resolveRelationships(
   model: DiagramModel,
   positions: Record<string, PositionedElement>,
 ): PositionedRelationship[] {
-  const shallowPath = (elementId: string): string | null => {
-    let best: string | null = null;
-    for (const path of Object.keys(positions)) {
-      if (path.split(".").at(-1) !== elementId) continue;
-      if (best === null || path.split(".").length < best.split(".").length) {
-        best = path;
-      }
+  const shallowPathByElementId = new Map<string, string>();
+  const depthOf = new Map<string, number>();
+  for (const path of Object.keys(positions)) {
+    const lastDot = path.lastIndexOf(".");
+    const id = lastDot === -1 ? path : path.slice(lastDot + 1);
+    let depth = 1;
+    for (let i = 0; i < path.length; i++) if (path[i] === ".") depth++;
+    const existingDepth = depthOf.get(id) ?? Infinity;
+    if (depth < existingDepth) {
+      shallowPathByElementId.set(id, path);
+      depthOf.set(id, depth);
     }
-    return best;
-  };
+  }
   return Object.values(model.relationships).flatMap((rel) => {
-    const sourcePath = shallowPath(rel.source);
-    const targetPath = shallowPath(rel.target);
+    const sourcePath = shallowPathByElementId.get(rel.source) ?? null;
+    const targetPath = shallowPathByElementId.get(rel.target) ?? null;
     if (!sourcePath || !targetPath) return [];
     return [
       { id: rel.id, sourcePath, targetPath, type: rel.type, label: rel.label },
@@ -98,9 +107,7 @@ export abstract class BaseLayout implements LayoutAlgorithm {
       return;
     }
 
-    const children = element.childIds
-      .map((id) => model.elements[id])
-      .filter((c): c is Element => !!c);
+    const children = getChildren(element, model);
     if (!children.length) return;
 
     const childContainer = allocatedSize * CHILD_FILL;
@@ -141,9 +148,7 @@ export abstract class BaseLayout implements LayoutAlgorithm {
       coloredPaths: previousViewState?.coloredPaths ?? {},
     } as const;
 
-    const rootChildren = model.root.childIds
-      .map((id) => model.elements[id])
-      .filter((e): e is Element => !!e);
+    const rootChildren = getChildren(model.root, model);
 
     if (!rootChildren.length) {
       return { positions, relationships: [], ...baseState };

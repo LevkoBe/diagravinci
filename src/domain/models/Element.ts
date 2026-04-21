@@ -1,4 +1,4 @@
-export type ElementType = "object" | "state" | "function" | "flow" | "choice";
+export type ElementType = "object" | "state" | "collection" | "function" | "flow" | "choice";
 export type FoldState = "expanded" | "collapsed";
 
 export interface Position {
@@ -11,6 +11,7 @@ export interface Element {
   type: ElementType;
   foldState: FoldState;
   childIds: string[];
+  flags?: string[];
 }
 
 export function createElement(id: string, type: ElementType): Element {

@@ -97,10 +97,10 @@ export class GeminiService implements AIService {
     mode: "bugs" | "suggestions",
   ): Promise<{ analysis: string }> {
     const now = Date.now();
-    this.lastCalls = this.lastCalls.filter((t) => now - t < 60000);
-    if (this.lastCalls.length >= 5) {
+    this.lastCalls = this.lastCalls.filter((t) => now - t < AI.RATE_LIMIT_WINDOW_MS);
+    if (this.lastCalls.length >= AI.RATE_LIMIT_MAX_REQUESTS) {
       throw new Error(
-        "Rate limit reached (5 requests/min). Please wait 60 seconds.",
+        `Rate limit reached (${AI.RATE_LIMIT_MAX_REQUESTS} requests/min). Please wait ${AI.RATE_LIMIT_WINDOW_MS / 1000} seconds.`,
       );
     }
     this.lastCalls.push(now);

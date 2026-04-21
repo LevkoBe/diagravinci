@@ -127,10 +127,10 @@ describe("HierarchicalLayout", () => {
 
   it("skips relationships whose source or target is not among the children (false branch)", () => {
     const model = makeLinearModel();
-    // Add a relationship that references an element outside the root children set
+
     model.relationships.r3 = createRelationship("r3", "A", "external", "-->");
     const vs = layout.apply(model, CANVAS);
-    // All three root elements still get positions
+
     expect(Object.keys(vs.positions)).toHaveLength(3);
   });
 

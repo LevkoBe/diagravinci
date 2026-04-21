@@ -30,7 +30,12 @@ describe("updateElementPosition", () => {
 
   it("updates an existing position", () => {
     const vs = createEmptyViewState();
-    vs.positions["a"] = { id: "a", position: { x: 0, y: 0 }, size: 60, value: 1 };
+    vs.positions["a"] = {
+      id: "a",
+      position: { x: 0, y: 0 },
+      size: 60,
+      value: 1,
+    };
     const updated = updateElementPosition(vs, "a", { x: 50, y: 75 });
     expect(updated.positions["a"].position).toEqual({ x: 50, y: 75 });
     expect(updated.positions["a"].size).toBe(60);
@@ -44,9 +49,53 @@ describe("updateElementPosition", () => {
 
   it("preserves other positions when updating", () => {
     const vs = createEmptyViewState();
-    vs.positions["b"] = { id: "b", position: { x: 500, y: 500 }, size: 40, value: 1 };
+    vs.positions["b"] = {
+      id: "b",
+      position: { x: 500, y: 500 },
+      size: 40,
+      value: 1,
+    };
     const updated = updateElementPosition(vs, "a", { x: 10, y: 20 });
     expect(updated.positions["b"].position).toEqual({ x: 500, y: 500 });
+  });
+
+  it("returns the same reference when position is unchanged (equality guard)", () => {
+    const vs = createEmptyViewState();
+    vs.positions["a"] = {
+      id: "a",
+      position: { x: 42, y: 99 },
+      size: 60,
+      value: 1,
+    };
+    const result = updateElementPosition(vs, "a", { x: 42, y: 99 });
+
+    expect(result).toBe(vs);
+  });
+
+  it("returns a new reference when only x changes", () => {
+    const vs = createEmptyViewState();
+    vs.positions["a"] = {
+      id: "a",
+      position: { x: 42, y: 99 },
+      size: 60,
+      value: 1,
+    };
+    const result = updateElementPosition(vs, "a", { x: 43, y: 99 });
+    expect(result).not.toBe(vs);
+    expect(result.positions["a"].position.x).toBe(43);
+  });
+
+  it("preserves size and value when updating an existing entry", () => {
+    const vs = createEmptyViewState();
+    vs.positions["a"] = {
+      id: "a",
+      position: { x: 0, y: 0 },
+      size: 80,
+      value: 5,
+    };
+    const updated = updateElementPosition(vs, "a", { x: 10, y: 20 });
+    expect(updated.positions["a"].size).toBe(80);
+    expect(updated.positions["a"].value).toBe(5);
   });
 });
 

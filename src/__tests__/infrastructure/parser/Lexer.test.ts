@@ -132,8 +132,8 @@ describe("Lexer", () => {
     expect(tokens[5].type).toBe("NEWLINE");
   });
 
-  it("should not tokenize gibberish", () => {
-    const tokens = new Lexer("!@#$%^&*()_+").tokenize();
+  it("should not tokenize unknown characters (silently skipped)", () => {
+    const tokens = new Lexer("@$%^&*+").tokenize();
     expect(tokens.length).toBe(0);
   });
 
@@ -146,5 +146,61 @@ describe("Lexer", () => {
   it("should tokenize relationship with label", () => {
     const tokens = new Lexer("player o--owns-- tool").tokenize();
     expect(tokens.some((t) => t.type === "o--")).toBe(true);
+  });
+
+  it("silently skips standalone numbers (not valid identifiers)", () => {
+    const tokens = new Lexer("42").tokenize();
+    expect(tokens).toHaveLength(0);
+  });
+
+  it("still tokenizes alphanumeric identifiers with leading letter", () => {
+    const tokens = new Lexer("step1 --> target2").tokenize();
+    const identifiers = tokens.filter((t) => t.type === "IDENTIFIER");
+    expect(identifiers.map((t) => t.value)).toEqual(["step1", "target2"]);
+  });
+
+  it("tokenizes :word as a FLAG token", () => {
+    const tokens = new Lexer("player:warn").tokenize();
+    expect(tokens).toHaveLength(2);
+    expect(tokens[0].type).toBe("IDENTIFIER");
+    expect(tokens[0].value).toBe("player");
+    expect(tokens[1].type).toBe("FLAG");
+    expect(tokens[1].value).toBe("warn");
+  });
+
+  it("tokenizes multiple flags on one element", () => {
+    const tokens = new Lexer("db:critical:dim").tokenize();
+    const flags = tokens.filter((t) => t.type === "FLAG");
+    expect(flags).toHaveLength(2);
+    expect(flags[0].value).toBe("critical");
+    expect(flags[1].value).toBe("dim");
+  });
+
+  it("does not tokenize lone colon as FLAG (no following letter)", () => {
+    const tokens = new Lexer("a : b").tokenize();
+    const flags = tokens.filter((t) => t.type === "FLAG");
+    expect(flags).toHaveLength(0);
+  });
+
+  it("tokenizes !directive line as DIRECTIVE token", () => {
+    const tokens = new Lexer("!selector name=warn color=#f00 mode=dim").tokenize();
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].type).toBe("DIRECTIVE");
+    expect(tokens[0].value).toBe("selector name=warn color=#f00 mode=dim");
+  });
+
+  it("DIRECTIVE token captures only the line, not subsequent content", () => {
+    const tokens = new Lexer("!selector name=warn\nplayer{}").tokenize();
+    const directive = tokens.filter((t) => t.type === "DIRECTIVE");
+    const identifiers = tokens.filter((t) => t.type === "IDENTIFIER");
+    expect(directive).toHaveLength(1);
+    expect(identifiers[0].value).toBe("player");
+  });
+
+  it("skips unknown characters gracefully", () => {
+    const tokens = new Lexer("foo @ bar").tokenize();
+    const identifiers = tokens.filter((t) => t.type === "IDENTIFIER");
+    expect(identifiers.map((t) => t.value)).toContain("foo");
+    expect(identifiers.map((t) => t.value)).toContain("bar");
   });
 });

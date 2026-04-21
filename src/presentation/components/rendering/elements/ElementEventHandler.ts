@@ -51,6 +51,7 @@ export class ElementEventHandler {
           this.callbacks.setHovered(hoveredPath);
         }
 
+        this.callbacks.moveChildGroups(this.path);
         this.callbacks.updateRelationshipLines(this.path);
         this.callbacks.updateChildRelationshipLines(this.path);
       },
@@ -105,6 +106,7 @@ export interface ElementEventCallbacks {
     draggedElementPath: string,
     worldCenter: { x: number; y: number },
   ) => string;
+  moveChildGroups: (parentPath: string) => void;
   updateRelationshipLines: (changedPath: string) => void;
   updateChildRelationshipLines: (parentPath: string) => void;
   updateChildPositions: (parentPath: string) => void;

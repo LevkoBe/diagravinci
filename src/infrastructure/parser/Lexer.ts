@@ -3,6 +3,9 @@ import {
   type Token,
   type TokenType,
   createToken,
+  COMMENT_CHAR,
+  FLAG_CHAR,
+  DIRECTIVE_CHAR,
 } from "./Token";
 
 export class Lexer {
@@ -24,8 +27,14 @@ export class Lexer {
     while (this.i < this.input.length) {
       const char = this.peek();
 
-      if (char === "#") {
+      if (char === COMMENT_CHAR) {
         this.skipComment();
+        continue;
+      }
+
+      if (char === DIRECTIVE_CHAR) {
+        this.advance();
+        tokens.push(this.readDirectiveLine());
         continue;
       }
 
@@ -34,6 +43,12 @@ export class Lexer {
           tokens.push(this.createCurrentToken("NEWLINE", char));
         }
         this.advance();
+        continue;
+      }
+
+      if (char === FLAG_CHAR && /[a-zA-Z_]/.test(this.input[this.i + 1] ?? "")) {
+        this.advance();
+        tokens.push(this.readFlagIdentifier());
         continue;
       }
 
@@ -57,14 +72,38 @@ export class Lexer {
 
   private readIdentifier(): Token {
     const start = { row: this.row, col: this.col };
-    let value = "";
+    const chars: string[] = [];
 
     while (/[a-z0-9_]/i.test(this.peek())) {
-      value += this.peek();
+      chars.push(this.peek());
       this.advance();
     }
 
-    return createToken("IDENTIFIER", value, start.row, start.col);
+    return createToken("IDENTIFIER", chars.join(""), start.row, start.col);
+  }
+
+  private readFlagIdentifier(): Token {
+    const start = { row: this.row, col: this.col };
+    const chars: string[] = [];
+
+    while (/[a-z0-9_]/i.test(this.peek())) {
+      chars.push(this.peek());
+      this.advance();
+    }
+
+    return createToken("FLAG", chars.join(""), start.row, start.col);
+  }
+
+  private readDirectiveLine(): Token {
+    const start = { row: this.row, col: this.col };
+    const chars: string[] = [];
+
+    while (!["", "\n"].includes(this.peek())) {
+      chars.push(this.peek());
+      this.advance();
+    }
+
+    return createToken("DIRECTIVE", chars.join("").trim(), start.row, start.col);
   }
 
   private skipComment(): void {
