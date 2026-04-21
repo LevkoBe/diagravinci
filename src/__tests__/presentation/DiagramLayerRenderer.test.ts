@@ -697,6 +697,10 @@ describe("DiagramLayerRenderer", () => {
         { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
         new Set(),
         1,
+        "polygon",
+        false,
+        {},
+        false,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -895,6 +899,10 @@ describe("DiagramLayerRenderer", () => {
         { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
         new Set(),
         1,
+        "polygon",
+        false,
+        {},
+        false,
       );
       const relLayer = new Konva.Layer();
       const elLayer = new Konva.Layer();
