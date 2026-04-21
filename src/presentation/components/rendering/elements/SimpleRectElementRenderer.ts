@@ -7,31 +7,32 @@ import { BaseElementRenderer } from "./BaseElementRenderer";
 import { VConfig } from "../../visualConfig";
 
 const { DIM_OPACITY } = VConfig.elements;
+const es = VConfig.elementShapes;
 
 export class SimpleRectElementRenderer extends BaseElementRenderer {
   constructor(
     element: Element,
     path: string,
     viewState: ViewState,
-    selectedElementId: string | null,
     connectingFromId: string | null,
     colors: Colors,
     isNew: boolean,
     isDimmed: boolean,
     size: number,
     zoom: number,
+    colorOverride: string | null = null,
   ) {
     super(
       element,
       path,
       viewState,
-      selectedElementId,
       connectingFromId,
       colors,
       isNew,
       isDimmed,
       size,
       zoom,
+      colorOverride,
     );
   }
 
@@ -67,16 +68,16 @@ export class SimpleRectElementRenderer extends BaseElementRenderer {
         dash = undefined;
         break;
       case "state":
-        dash = [5, 5];
+        dash = es.DASH_STATE as number[];
         break;
       case "function":
-        dash = [2, 2];
+        dash = es.DASH_FUNCTION as number[];
         break;
       case "flow":
-        dash = [10, 5];
+        dash = es.DASH_FLOW as number[];
         break;
       case "choice":
-        dash = [2, 5, 10, 5];
+        dash = es.DASH_CHOICE as number[];
         break;
       default:
         dash = undefined;
@@ -85,13 +86,10 @@ export class SimpleRectElementRenderer extends BaseElementRenderer {
     const rectNode = new Konva.Rect({
       width: size,
       height: size,
-      stroke:
-        this.selectedElementId === this.element.id
-          ? this.colors.selected
-          : this.colors.accent,
+      stroke: this.resolveStroke(),
       strokeWidth,
       dash,
-      cornerRadius: 5,
+      cornerRadius: es.CORNER_RADIUS,
       x: -size / 2,
       y: -size / 2,
       opacity: this.isDimmed ? DIM_OPACITY : 1,

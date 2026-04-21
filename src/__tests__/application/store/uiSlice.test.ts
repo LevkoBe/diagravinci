@@ -5,6 +5,9 @@ import reducer, {
   setActiveRelationshipType,
   setConnectingFromId,
   setSelectedElement,
+  setSelectedElements,
+  toggleSelectedElement,
+  clearSelection,
   sendZoomCommand,
   setRenderStyle,
 } from "../../../application/store/uiSlice";
@@ -16,7 +19,7 @@ describe("uiSlice", () => {
     expect(state.activeElementType).toBe("object");
     expect(state.activeRelationshipType).toBe("-->");
     expect(state.connectingFromId).toBeNull();
-    expect(state.selectedElementId).toBeNull();
+    expect(state.selectedElementIds).toEqual([]);
     expect(state.zoomCommand).toBeNull();
     expect(state.renderStyle).toBe("svg");
   });
@@ -62,15 +65,44 @@ describe("uiSlice", () => {
   });
 
   describe("setSelectedElement", () => {
-    it("sets selectedElementId", () => {
+    it("sets selectedElementIds to a single-element array", () => {
       const state = reducer(undefined, setSelectedElement("el-42"));
-      expect(state.selectedElementId).toBe("el-42");
+      expect(state.selectedElementIds).toEqual(["el-42"]);
     });
 
     it("can deselect by passing null", () => {
       const s1 = reducer(undefined, setSelectedElement("el-42"));
       const s2 = reducer(s1, setSelectedElement(null));
-      expect(s2.selectedElementId).toBeNull();
+      expect(s2.selectedElementIds).toEqual([]);
+    });
+  });
+
+  describe("setSelectedElements", () => {
+    it("sets multiple selected element ids", () => {
+      const state = reducer(undefined, setSelectedElements(["a", "b", "c"]));
+      expect(state.selectedElementIds).toEqual(["a", "b", "c"]);
+    });
+  });
+
+  describe("clearSelection", () => {
+    it("clears all selected element ids", () => {
+      const s1 = reducer(undefined, setSelectedElements(["a", "b"]));
+      const s2 = reducer(s1, clearSelection());
+      expect(s2.selectedElementIds).toEqual([]);
+    });
+  });
+
+  describe("toggleSelectedElement", () => {
+    it("adds element if not present", () => {
+      const s1 = reducer(undefined, setSelectedElements(["a"]));
+      const s2 = reducer(s1, toggleSelectedElement("b"));
+      expect(s2.selectedElementIds).toEqual(["a", "b"]);
+    });
+
+    it("removes element if already present", () => {
+      const s1 = reducer(undefined, setSelectedElements(["a", "b"]));
+      const s2 = reducer(s1, toggleSelectedElement("a"));
+      expect(s2.selectedElementIds).toEqual(["b"]);
     });
   });
 

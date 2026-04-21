@@ -1,6 +1,9 @@
 import Konva from "konva";
 import type { EndKind, EndSpec } from "../types";
 import type { RelationshipType } from "../../../../infrastructure/parser/Token";
+import { VConfig } from "../../visualConfig";
+
+const S = VConfig.shapes;
 
 export function screenToWorld(
   pos: { x: number; y: number },
@@ -43,10 +46,10 @@ export function isDashed(type: RelationshipType): boolean {
 
 export function decorationInset(kind: EndKind): number {
   const insets: Partial<Record<EndKind, number>> = {
-    arrow: 8,
-    triangle: 12,
-    diamond: 20,
-    circle: 10,
+    arrow: S.ARROW_INSET,
+    triangle: S.TRIANGLE_INSET,
+    diamond: S.DIAMOND_INSET,
+    circle: S.CIRCLE_INSET,
   };
   return insets[kind] ?? 0;
 }
@@ -67,7 +70,7 @@ const decorationDrawers: Partial<
   >
 > = {
   arrow: (px, py, nx, ny, tx, ty, stroke) => {
-    const s = 8;
+    const s = S.ARROW_SIZE;
     return new Konva.Line({
       points: [
         px - nx * s + tx * (s * 0.45),
@@ -78,15 +81,15 @@ const decorationDrawers: Partial<
         py - ny * s - ty * (s * 0.45),
       ],
       stroke,
-      strokeWidth: 1.5,
+      strokeWidth: VConfig.rendering.DECORATION_STROKE_WIDTH,
       lineCap: "round",
       lineJoin: "round",
     });
   },
 
   triangle: (px, py, nx, ny, tx, ty, stroke, filled) => {
-    const h = 12,
-      w = 7;
+    const h = S.TRIANGLE_H,
+      w = S.TRIANGLE_W;
     const bx = px - nx * h,
       by = py - ny * h;
     return new Konva.Line({
@@ -102,14 +105,14 @@ const decorationDrawers: Partial<
       ],
       closed: true,
       stroke,
-      strokeWidth: 1.5,
+      strokeWidth: VConfig.rendering.DECORATION_STROKE_WIDTH,
       fill: filled ? stroke : "transparent",
     });
   },
 
   diamond: (px, py, nx, ny, tx, ty, stroke, filled) => {
-    const h = 10,
-      w = 5;
+    const h = S.DIAMOND_H,
+      w = S.DIAMOND_W;
     const mx = px - nx * h,
       my = py - ny * h;
     const bx = px - nx * h * 2,
@@ -129,19 +132,19 @@ const decorationDrawers: Partial<
       ],
       closed: true,
       stroke,
-      strokeWidth: 1.5,
+      strokeWidth: VConfig.rendering.DECORATION_STROKE_WIDTH,
       fill: filled ? stroke : "transparent",
     });
   },
 
   circle: (px, py, nx, ny, _tx, _ty, stroke) => {
-    const r = 5;
+    const r = S.CIRCLE_R;
     return new Konva.Circle({
       x: px - nx * r,
       y: py - ny * r,
       radius: r,
       stroke,
-      strokeWidth: 1.5,
+      strokeWidth: VConfig.rendering.DECORATION_STROKE_WIDTH,
       fill: "transparent",
     });
   },

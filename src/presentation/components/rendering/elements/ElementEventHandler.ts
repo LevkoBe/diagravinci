@@ -23,7 +23,11 @@ export class ElementEventHandler {
     return {
       onClick: (e: Konva.KonvaEventObject<MouseEvent>) => {
         e.cancelBubble = true;
-        this.callbacks.onClick(this.element.id);
+        this.callbacks.onClick(
+          this.element.id,
+          e.evt.shiftKey,
+          e.evt.ctrlKey || e.evt.metaKey,
+        );
       },
 
       onMouseEnter: () => {
@@ -85,7 +89,7 @@ export class ElementEventHandler {
 }
 
 export interface ElementEventCallbacks {
-  onClick: (elementId: string) => void;
+  onClick: (elementId: string, shiftKey: boolean, ctrlKey: boolean) => void;
   onPositionChange: (path: string, worldPos: { x: number; y: number }) => void;
   onReparent: (
     elementId: string,

@@ -10,6 +10,8 @@ import reducer, {
   upsertRelationship,
   removeRelationship,
   setViewMode,
+  pruneElements,
+  restoreHistory,
 } from "../../../application/store/diagramSlice";
 import { createEmptyDiagram } from "../../../domain/models/DiagramModel";
 import { createElement } from "../../../domain/models/Element";
@@ -135,6 +137,67 @@ describe("diagramSlice", () => {
     it("updates the view mode", () => {
       const state = reducer(undefined, setViewMode("hierarchical"));
       expect(state.viewState.viewMode).toBe("hierarchical");
+    });
+  });
+
+  describe("pruneElements", () => {
+    it("removes specified elements from model", () => {
+      const s1 = reducer(undefined, upsertElement(createElement("a", "object")));
+      const s2 = reducer(s1, upsertElement(createElement("b", "object")));
+      const s3 = reducer(s2, pruneElements(["a"]));
+      expect(s3.model.elements["a"]).toBeUndefined();
+      expect(s3.model.elements["b"]).toBeDefined();
+    });
+
+    it("removes pruned ids from root.childIds", () => {
+      const model = createEmptyDiagram();
+      model.root.childIds = ["a", "b", "c"];
+      model.elements["a"] = createElement("a", "object");
+      model.elements["b"] = createElement("b", "object");
+      model.elements["c"] = createElement("c", "object");
+      const s1 = reducer(undefined, setModel(model));
+      const s2 = reducer(s1, pruneElements(["a", "c"]));
+      expect(s2.model.root.childIds).toEqual(["b"]);
+    });
+
+    it("handles pruning non-existent ids gracefully", () => {
+      const state = reducer(undefined, pruneElements(["ghost"]));
+      expect(state.model.elements["ghost"]).toBeUndefined();
+    });
+  });
+
+  describe("restoreHistory", () => {
+    it("restores code, model, positions, relationships, and viewMode", () => {
+      const model = createEmptyDiagram();
+      model.elements["x"] = createElement("x", "state");
+      const state = reducer(undefined, restoreHistory({
+        code: "x",
+        model,
+        positions: { "x": { id: "x", position: { x: 10, y: 20 }, size: 50, value: 1 } },
+        relationships: [{ id: "r1", sourcePath: "x", targetPath: "x", type: "-->" }],
+        viewMode: "circular",
+      }));
+      expect(state.code).toBe("x");
+      expect(state.model.elements["x"]).toBeDefined();
+      expect(state.viewState.positions["x"].position).toEqual({ x: 10, y: 20 });
+      expect(state.viewState.relationships).toHaveLength(1);
+      expect(state.viewState.viewMode).toBe("circular");
+    });
+
+    it("preserves existing zoom and pan when restoring", () => {
+      const vs = createEmptyViewState();
+      vs.zoom = 2;
+      vs.pan = { x: 100, y: 50 };
+      const s1 = reducer(undefined, setViewState(vs));
+      const s2 = reducer(s1, restoreHistory({
+        code: "",
+        model: createEmptyDiagram(),
+        positions: {},
+        relationships: [],
+        viewMode: "basic",
+      }));
+      expect(s2.viewState.zoom).toBe(2);
+      expect(s2.viewState.pan).toEqual({ x: 100, y: 50 });
     });
   });
 });

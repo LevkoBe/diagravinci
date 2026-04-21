@@ -141,6 +141,15 @@ describe("evaluateSelector", () => {
     });
   });
 
+  describe("edge cases in combiner parsing", () => {
+    it("unmatched closing paren causes parsePrimary to return false", () => {
+      // "1 and )" produces an rp token that parsePrimary doesn't handle → returns false
+      const sel = makeSelector([makeAtom("^a$")], "1 and )");
+      expect(() => evaluateSelector(sel, "a", "object")).not.toThrow();
+      expect(evaluateSelector(sel, "a", "object")).toBe(false);
+    });
+  });
+
   describe("complex combiner expressions", () => {
     it("(1 and 2) or 3: short-circuit inside parens must not break outer or", () => {
       const sel = makeSelector(

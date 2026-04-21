@@ -17,9 +17,12 @@ class MockCanvasRenderingContext2D {
   beginPath(): void {}
   moveTo(): void {}
   lineTo(): void {}
+  bezierCurveTo(): void {}
+  quadraticCurveTo(): void {}
   closePath(): void {}
   arc(): void {}
   arcTo(): void {}
+  ellipse(): void {}
   rect(): void {}
   fill(): void {}
   stroke(): void {}
@@ -79,42 +82,46 @@ class MockCanvasRenderingContext2D {
   }
 }
 
+interface CanvasWithMockContext extends HTMLCanvasElement {
+  _context?: MockCanvasRenderingContext2D;
+}
+
 if (typeof window !== "undefined") {
-  const originalCreateElement = document.createElement;
+  const originalCreateElement = document.createElement.bind(document);
   document.createElement = function <K extends keyof HTMLElementTagNameMap>(
     tagName: K,
-    ...args: any[]
+    options?: ElementCreationOptions,
   ): HTMLElementTagNameMap[K] {
     if (tagName.toLowerCase() === "canvas") {
-      const canvas = originalCreateElement.call(
-        document,
+      const canvas = originalCreateElement(
         tagName,
-        ...args,
-      ) as HTMLCanvasElement;
+        options,
+      ) as CanvasWithMockContext;
       canvas.width = 300;
       canvas.height = 150;
-      (canvas as any).getContext = function (
+      canvas.getContext = function (
+        this: CanvasWithMockContext,
         contextType: string,
-        options?: CanvasRenderingContext2DSettings,
+        _options?: CanvasRenderingContext2DSettings,
       ): CanvasRenderingContext2D | null {
         if (contextType === "2d") {
-          if (!(this as any)._context) {
-            (this as any)._context = new MockCanvasRenderingContext2D() as any;
+          if (!this._context) {
+            this._context = new MockCanvasRenderingContext2D();
           }
-          return (this as any)._context;
+          return this._context as unknown as CanvasRenderingContext2D;
         }
         return null;
-      };
-      (canvas as any).toDataURL = function (
-        type?: string,
-        quality?: number,
+      } as HTMLCanvasElement["getContext"];
+      canvas.toDataURL = function (
+        _type?: string,
+        _quality?: number,
       ): string {
         return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
       };
-      (canvas as any).toBlob = function (
+      canvas.toBlob = function (
         callback: BlobCallback,
-        type?: string,
-        quality?: number,
+        _type?: string,
+        _quality?: number,
       ): void {
         callback(new Blob([], { type: "image/png" }));
       };
@@ -128,10 +135,11 @@ if (typeof window !== "undefined") {
       });
       return canvas as HTMLElementTagNameMap[K];
     }
-    return originalCreateElement.call(document, tagName, ...args);
-  };
+    return originalCreateElement(tagName, options);
+  } as typeof document.createElement;
 
   if (!window.CanvasRenderingContext2D) {
-    (window as any).CanvasRenderingContext2D = MockCanvasRenderingContext2D;
+    (window as Window & { CanvasRenderingContext2D: unknown }).CanvasRenderingContext2D =
+      MockCanvasRenderingContext2D;
   }
 }

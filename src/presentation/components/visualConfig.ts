@@ -27,6 +27,7 @@ export const VConfig = {
     LABEL_SIZE_RATIO: 0.24,
     LABEL_MIN_FONT: 10,
     LABEL_MAX_FONT: 18,
+    LABEL_MAX_FONT_THRESHOLD: 20,
 
     LABEL_WIDTH_RATIO: 1.6,
 
@@ -58,5 +59,39 @@ export const VConfig = {
     STROKE_WIDTH: 1.5,
 
     ARROW_SIZE: 8,
+  },
+
+  rendering: {
+    REL_DIM_OPACITY: 0.1,
+    REL_NORMAL_OPACITY: 0.75,
+    REL_STROKE_WIDTH: 1.5,
+    REL_DASH: [8, 6] as number[],
+    REL_LABEL_FONT_SIZE: 10,
+    REL_LABEL_MIN_FONT: 8,
+    REL_LABEL_MAX_FONT_THRESHOLD: 14,
+    REL_LABEL_OFFSET: 12,
+
+    DECORATION_STROKE_WIDTH: 1.5,
+  },
+
+  shapes: {
+    ARROW_INSET: 8,
+    TRIANGLE_INSET: 12,
+    DIAMOND_INSET: 20,
+    CIRCLE_INSET: 10,
+    ARROW_SIZE: 8,
+    TRIANGLE_H: 12,
+    TRIANGLE_W: 7,
+    DIAMOND_H: 10,
+    DIAMOND_W: 5,
+    CIRCLE_R: 5,
+  },
+
+  elementShapes: {
+    CORNER_RADIUS: 5,
+    DASH_STATE: [5, 5] as number[],
+    DASH_FUNCTION: [2, 2] as number[],
+    DASH_FLOW: [10, 5] as number[],
+    DASH_CHOICE: [2, 5, 10, 5] as number[],
   },
 } as const;

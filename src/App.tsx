@@ -5,9 +5,14 @@ import { PropertiesPanel } from "./presentation/components/PropertiesPanel";
 import { ToolBar } from "./presentation/components/ToolBar";
 import AIPanel from "./presentation/components/AIPanel";
 import { TemplatePanel } from "./presentation/components/TemplatePanel";
-import { loadSplitterWidth, saveSplitterWidth } from "./application/store/persistence";
+import {
+  loadSplitterWidth,
+  saveSplitterWidth,
+} from "./application/store/persistence";
+import { useUndoRedo } from "./presentation/hooks/useUndoRedo";
 
 export default function App() {
+  useUndoRedo();
   const [leftWidth, setLeftWidth] = useState(() => loadSplitterWidth(340));
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);

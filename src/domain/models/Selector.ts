@@ -34,7 +34,7 @@ export const emptySelector = (): Selector => ({
   combiner: "",
 });
 
-export type FilterMode = "hide" | "dim";
+export type FilterMode = "hide" | "dim" | "color";
 
 export interface FilterConfig {
   selector: Selector;
@@ -48,6 +48,8 @@ export interface FilterPreset {
   selector: Selector;
   mode: FilterMode;
   isActive: boolean;
+  color: string;
 }
 
 export const FOLD_PRESET_ID = "__fold__";
+export const SELECTION_PRESET_ID = "_selection";

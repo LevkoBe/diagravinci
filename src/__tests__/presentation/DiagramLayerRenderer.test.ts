@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import Konva from "konva";
 import {
   MockElementFactory,
@@ -52,7 +52,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -60,6 +59,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -89,7 +89,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -97,6 +96,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -131,7 +131,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -139,6 +138,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -175,7 +175,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -183,6 +182,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -207,7 +207,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -215,6 +214,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -249,7 +249,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -257,6 +256,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -265,6 +265,209 @@ describe("DiagramLayerRenderer", () => {
       expect(() => {
         renderer.render(relationshipLayer, elementLayer);
       }).not.toThrow();
+    });
+  });
+
+  describe("Hidden and Dimmed Elements", () => {
+    function makeModelWithRoot(id: string): DiagramModel {
+      let model = createEmptyDiagram();
+      model = addElement(model, MockElementFactory.createElement(id, "object"));
+      model.root.childIds.push(id);
+      return model;
+    }
+
+    it("does not render hidden elements", () => {
+      const model = makeModelWithRoot("a");
+      const viewState: ViewState = {
+        ...new ViewStateBuilder().addElement("a", 100, 100, 60).build(),
+        hiddenPaths: ["a"],
+        dimmedPaths: [],
+        foldedPaths: [],
+        coloredPaths: {},
+      };
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(), model, viewState, null, defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(), 1,
+      );
+
+      const relationshipLayer = new Konva.Layer();
+      const elementLayer = new Konva.Layer();
+      renderer.render(relationshipLayer, elementLayer);
+      expect(elementLayer.getChildren().length).toBe(0);
+    });
+
+    it("renders dimmed elements", () => {
+      const model = makeModelWithRoot("a");
+      const viewState: ViewState = {
+        ...new ViewStateBuilder().addElement("a", 100, 100, 60).build(),
+        hiddenPaths: [],
+        dimmedPaths: ["a"],
+        foldedPaths: [],
+        coloredPaths: {},
+      };
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(), model, viewState, null, defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(), 1,
+      );
+
+      const relationshipLayer = new Konva.Layer();
+      const elementLayer = new Konva.Layer();
+      renderer.render(relationshipLayer, elementLayer);
+      expect(elementLayer.getChildren().length).toBeGreaterThan(0);
+    });
+
+    it("skips children of folded elements", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      const parent = MockElementFactory.createElement("parent", "object");
+      const child = MockElementFactory.createElement("child", "object");
+      parent.childIds = ["child"];
+      model = addElement(model, parent);
+      model = addElement(model, child);
+      model.root.childIds.push("parent");
+
+      const viewState: ViewState = {
+        ...new ViewStateBuilder()
+          .addElement("parent", 100, 100, 100)
+          .addElement("parent.child", 120, 120, 40)
+          .build(),
+        hiddenPaths: [],
+        dimmedPaths: [],
+        foldedPaths: ["parent"],
+        coloredPaths: {},
+      };
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(), model, viewState, null, defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(), 1,
+      );
+
+      const relationshipLayer = new Konva.Layer();
+      const elementLayer = new Konva.Layer();
+      renderer.render(relationshipLayer, elementLayer);
+      // parent renders but child is skipped due to fold
+      expect(elementLayer.getChildren().length).toBe(1);
+    });
+  });
+
+  describe("Render Styles", () => {
+    function makeModelWithRoot(id: string): DiagramModel {
+      let model = createEmptyDiagram();
+      model = addElement(model, MockElementFactory.createElement(id, "object"));
+      model.root.childIds.push(id);
+      return model;
+    }
+
+    it("renders with rect style", () => {
+      const model = makeModelWithRoot("a");
+      const viewState = new ViewStateBuilder().addElement("a", 100, 100, 60).build();
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(), model, viewState, null, defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(), 1, "rect",
+      );
+
+      const relationshipLayer = new Konva.Layer();
+      const elementLayer = new Konva.Layer();
+      renderer.render(relationshipLayer, elementLayer);
+      expect(elementLayer.getChildren().length).toBeGreaterThan(0);
+    });
+
+    it("renders with polygon style", () => {
+      const model = makeModelWithRoot("a");
+      const viewState = new ViewStateBuilder().addElement("a", 100, 100, 60).build();
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(), model, viewState, null, defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(), 1, "polygon",
+      );
+
+      const relationshipLayer = new Konva.Layer();
+      const elementLayer = new Konva.Layer();
+      renderer.render(relationshipLayer, elementLayer);
+      expect(elementLayer.getChildren().length).toBeGreaterThan(0);
+    });
+
+    it("renders with svg style (default)", () => {
+      const model = makeModelWithRoot("a");
+      const viewState = new ViewStateBuilder().addElement("a", 100, 100, 60).build();
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(), model, viewState, null, defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(), 1, "svg",
+      );
+
+      const relationshipLayer = new Konva.Layer();
+      const elementLayer = new Konva.Layer();
+      renderer.render(relationshipLayer, elementLayer);
+      expect(elementLayer.getChildren().length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Readonly Mode", () => {
+    it("renders in readonly mode without throwing", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      model = addElement(model, MockElementFactory.createElement("a", "object"));
+      model.root.childIds.push("a");
+      const viewState = new ViewStateBuilder().addElement("a", 100, 100, 60).build();
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(), model, viewState, null, defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(), 1, "svg", true,
+      );
+
+      const relationshipLayer = new Konva.Layer();
+      const elementLayer = new Konva.Layer();
+      renderer.render(relationshipLayer, elementLayer);
+      expect(elementLayer.getChildren().length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("prevPaths animation", () => {
+    it("does not play entry animation for elements already in prevPaths", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      model = addElement(model, MockElementFactory.createElement("a", "object"));
+      model.root.childIds.push("a");
+      const viewState = new ViewStateBuilder().addElement("a", 100, 100, 60).build();
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(), model, viewState, null, defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(["a"]), 1,
+      );
+
+      const relationshipLayer = new Konva.Layer();
+      const elementLayer = new Konva.Layer();
+      renderer.render(relationshipLayer, elementLayer);
+      expect(elementLayer.getChildren().length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Connecting mode", () => {
+    it("renders connecting indicator on target element", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      model = addElement(model, MockElementFactory.createElement("a", "object"));
+      model.root.childIds.push("a");
+      const viewState = new ViewStateBuilder().addElement("a", 100, 100, 60).build();
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(), model, viewState, "a", defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(), 1,
+      );
+
+      const relationshipLayer = new Konva.Layer();
+      const elementLayer = new Konva.Layer();
+      renderer.render(relationshipLayer, elementLayer);
+      expect(elementLayer.getChildren().length).toBeGreaterThan(0);
     });
   });
 
@@ -278,7 +481,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -286,6 +488,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -311,7 +514,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -319,6 +521,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -357,7 +560,6 @@ describe("DiagramLayerRenderer", () => {
         model,
         viewState,
         null,
-        null,
         defaultColors,
         {
           onClick: () => {},
@@ -365,6 +567,7 @@ describe("DiagramLayerRenderer", () => {
           onReparent: () => {},
         },
         new Set(),
+        1,
       );
 
       const relationshipLayer = new Konva.Layer();
@@ -373,6 +576,91 @@ describe("DiagramLayerRenderer", () => {
       expect(() => {
         renderer.render(relationshipLayer, elementLayer);
       }).not.toThrow();
+    });
+  });
+
+  describe("Child Element Rendering", () => {
+    it("renders child elements nested inside parent", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      const parent = MockElementFactory.createElement("parent", "object");
+      const child = MockElementFactory.createElement("child", "object");
+      parent.childIds = ["child"];
+      model = addElement(model, parent);
+      model = addElement(model, child);
+      model.root.childIds.push("parent");
+
+      const viewState: ViewState = new ViewStateBuilder()
+        .addElement("parent", 100, 100, 100)
+        .addElement("parent.child", 130, 130, 40)
+        .build();
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(), model, viewState, null, defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(), 1,
+      );
+
+      const relationshipLayer = new Konva.Layer();
+      const elementLayer = new Konva.Layer();
+      renderer.render(relationshipLayer, elementLayer);
+      // parent rendered as top-level group in elementLayer
+      expect(elementLayer.getChildren().length).toBe(1);
+      // child rendered inside parent group
+      const parentGroup = elementLayer.getChildren()[0] as Konva.Group;
+      const childGroups = parentGroup.getChildren().filter((c) => c instanceof Konva.Group);
+      expect(childGroups.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Readonly Event Handling", () => {
+    it("fires mouseenter and mouseleave on readonly group without throwing", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      model = addElement(model, MockElementFactory.createElement("a", "object"));
+      model.root.childIds.push("a");
+      const viewState = new ViewStateBuilder().addElement("a", 100, 100, 60).build();
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(), model, viewState, null, defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(), 1, "svg", true,
+      );
+
+      const relationshipLayer = new Konva.Layer();
+      const elementLayer = new Konva.Layer();
+      renderer.render(relationshipLayer, elementLayer);
+
+      const group = elementLayer.getChildren()[0] as Konva.Group;
+      expect(() => {
+        group.fire("mouseenter", { type: "mouseenter", evt: new MouseEvent("mouseenter"), target: group, currentTarget: group, cancelBubble: false, pointerId: 0 });
+        group.fire("mouseleave", { type: "mouseleave", evt: new MouseEvent("mouseleave"), target: group, currentTarget: group, cancelBubble: false, pointerId: 0 });
+      }).not.toThrow();
+    });
+  });
+
+  describe("Contextmenu Callback", () => {
+    it("calls onContextMenu when contextmenu event fires on a group", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      model = addElement(model, MockElementFactory.createElement("a", "object"));
+      model.root.childIds.push("a");
+      const viewState = new ViewStateBuilder().addElement("a", 100, 100, 60).build();
+
+      const onContextMenu = vi.fn();
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(), model, viewState, null, defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {}, onContextMenu },
+        new Set(), 1,
+      );
+
+      const relationshipLayer = new Konva.Layer();
+      const elementLayer = new Konva.Layer();
+      renderer.render(relationshipLayer, elementLayer);
+
+      const group = elementLayer.getChildren()[0] as Konva.Group;
+      const mockEvt = { preventDefault: vi.fn() } as unknown as MouseEvent;
+      group.fire("contextmenu", { type: "contextmenu", evt: mockEvt, target: group, currentTarget: group, cancelBubble: false, pointerId: 0 });
+
+      expect(onContextMenu).toHaveBeenCalledWith("a", "a");
     });
   });
 });

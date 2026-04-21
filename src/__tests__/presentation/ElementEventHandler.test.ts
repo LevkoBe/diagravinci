@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import Konva from "konva";
+import type { Node } from "konva/lib/Node";
+import type { Shape } from "konva/lib/Shape";
+import type { Stage } from "konva/lib/Stage";
 
 import { KonvaTestHelper } from "../utils";
 import {
@@ -60,8 +63,8 @@ describe("ElementEventHandler", () => {
       const clickEvent: Konva.KonvaEventObject<MouseEvent> = {
         type: "click",
         evt: new MouseEvent("click"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Shape | Stage,
+        currentTarget: null as unknown as Node,
         cancelBubble: false,
         pointerId: 0,
       };
@@ -85,14 +88,14 @@ describe("ElementEventHandler", () => {
       const clickEvent: Konva.KonvaEventObject<MouseEvent> = {
         type: "click",
         evt: new MouseEvent("click"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Shape | Stage,
+        currentTarget: null as unknown as Node,
         cancelBubble: false,
         pointerId: 0,
       };
 
       handlers.onClick(clickEvent);
-      expect(onClick).toHaveBeenCalledWith("a");
+      expect(onClick).toHaveBeenCalledWith("a", false, false);
     });
   });
 
@@ -112,8 +115,8 @@ describe("ElementEventHandler", () => {
       const mouseEnterEvent: Konva.KonvaEventObject<MouseEvent> = {
         type: "mouseenter",
         evt: new MouseEvent("mouseenter"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Shape | Stage,
+        currentTarget: null as unknown as Node,
         cancelBubble: false,
         pointerId: 0,
       };
@@ -137,8 +140,8 @@ describe("ElementEventHandler", () => {
       const mouseLeaveEvent: Konva.KonvaEventObject<MouseEvent> = {
         type: "mouseleave",
         evt: new MouseEvent("mouseleave"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Shape | Stage,
+        currentTarget: null as unknown as Node,
         cancelBubble: false,
         pointerId: 0,
       };
@@ -148,13 +151,89 @@ describe("ElementEventHandler", () => {
     });
   });
 
+  describe("Drag End Handling", () => {
+    it("calls onReparent when element is dropped on a different parent", () => {
+      const onReparent = vi.fn();
+      const callbacks: ElementEventCallbacks = {
+        onClick: vi.fn(),
+        onPositionChange: vi.fn(),
+        onReparent,
+        setHovered: vi.fn(),
+        findHoveredPath: vi.fn().mockReturnValue(null),
+        findNewParentPath: vi.fn().mockReturnValue("new-parent"),
+        updateRelationshipLines: vi.fn(),
+        updateChildRelationshipLines: vi.fn(),
+        updateChildPositions: vi.fn(),
+        getRootId: vi.fn().mockReturnValue("root"),
+      };
+
+      // path = "old-parent.child" → oldParentPath = "old-parent"
+      // findNewParentPath returns "new-parent" → reparent is triggered
+      const handler = new ElementEventHandler(
+        { id: "child", path: "old-parent.child" },
+        "old-parent.child",
+        helper.getStage(),
+        callbacks,
+      );
+      const handlers = handler.createHandlers();
+
+      const group = new Konva.Group();
+      handlers.onDragEnd({
+        cancelBubble: false,
+        evt: {} as DragEvent,
+        target: group,
+        type: "dragend",
+        currentTarget: group,
+        pointerId: 0,
+      } as unknown as Konva.KonvaEventObject<DragEvent>);
+
+      expect(onReparent).toHaveBeenCalledWith("child", "old-parent", "new-parent");
+    });
+
+    it("does not call onReparent when parent is unchanged", () => {
+      const onReparent = vi.fn();
+      const callbacks: ElementEventCallbacks = {
+        onClick: vi.fn(),
+        onPositionChange: vi.fn(),
+        onReparent,
+        setHovered: vi.fn(),
+        findHoveredPath: vi.fn().mockReturnValue(null),
+        findNewParentPath: vi.fn().mockReturnValue("parent"),
+        updateRelationshipLines: vi.fn(),
+        updateChildRelationshipLines: vi.fn(),
+        updateChildPositions: vi.fn(),
+        getRootId: vi.fn().mockReturnValue("root"),
+      };
+
+      const handler = new ElementEventHandler(
+        { id: "child", path: "parent.child" },
+        "parent.child",
+        helper.getStage(),
+        callbacks,
+      );
+      const handlers = handler.createHandlers();
+
+      const group = new Konva.Group();
+      handlers.onDragEnd({
+        cancelBubble: false,
+        evt: {} as DragEvent,
+        target: group,
+        type: "dragend",
+        currentTarget: group,
+        pointerId: 0,
+      } as unknown as Konva.KonvaEventObject<DragEvent>);
+
+      expect(onReparent).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Nested Paths", () => {
     it("should correctly handle nested element paths", () => {
       const setHovered = vi.fn();
       const callbacks: Partial<ElementEventCallbacks> = { setHovered };
 
       const handler = new ElementEventHandler(
-        { id: "nested" },
+        { id: "nested", path: "root.nested.a" },
         "root.nested.a",
         helper.getStage(),
         callbacks as ElementEventCallbacks,
@@ -164,8 +243,8 @@ describe("ElementEventHandler", () => {
       const mouseEnterEvent: Konva.KonvaEventObject<MouseEvent> = {
         type: "mouseenter",
         evt: new MouseEvent("mouseenter"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Shape | Stage,
+        currentTarget: null as unknown as Node,
         cancelBubble: false,
         pointerId: 0,
       };

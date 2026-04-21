@@ -112,6 +112,7 @@ describe("HierarchicalLayout", () => {
       hiddenPaths: [],
       dimmedPaths: [],
       foldedPaths: [],
+      coloredPaths: {},
     };
     const vs = layout.apply(makeLinearModel(), CANVAS, prev);
     expect(vs.zoom).toBe(2);
@@ -122,6 +123,27 @@ describe("HierarchicalLayout", () => {
     const model = createEmptyDiagram();
     const vs = layout.apply(model, CANVAS);
     expect(vs.positions).toEqual({});
+  });
+
+  it("skips relationships whose source or target is not among the children (false branch)", () => {
+    const model = makeLinearModel();
+    // Add a relationship that references an element outside the root children set
+    model.relationships.r3 = createRelationship("r3", "A", "external", "-->");
+    const vs = layout.apply(model, CANVAS);
+    // All three root elements still get positions
+    expect(Object.keys(vs.positions)).toHaveLength(3);
+  });
+
+  it("handles cyclic relationships without throwing (covers rank fallback)", () => {
+    const model = createEmptyDiagram();
+    model.elements.X = createElement("X", "object");
+    model.elements.Y = createElement("Y", "object");
+    model.root.childIds = ["X", "Y"];
+    model.relationships.cycle1 = createRelationship("cycle1", "X", "Y", "-->");
+    model.relationships.cycle2 = createRelationship("cycle2", "Y", "X", "-->");
+    const vs = layout.apply(model, CANVAS);
+    expect(vs.positions["X"]).toBeDefined();
+    expect(vs.positions["Y"]).toBeDefined();
   });
 });
 
@@ -185,6 +207,7 @@ describe("TimelineLayout", () => {
       hiddenPaths: [],
       dimmedPaths: [],
       foldedPaths: [],
+      coloredPaths: {},
     };
     const vs = layout.apply(makeLinearModel(), CANVAS, prev);
     expect(vs.zoom).toBe(1.5);
@@ -253,6 +276,7 @@ describe("PipelineLayout", () => {
       hiddenPaths: [],
       dimmedPaths: [],
       foldedPaths: [],
+      coloredPaths: {},
     };
     const vs = layout.apply(makeLinearModel(), CANVAS, prev);
     expect(vs.zoom).toBe(0.8);

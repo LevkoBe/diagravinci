@@ -17,7 +17,6 @@ export class DiagramLayerRenderer {
   private readonly stage: Konva.Stage;
   private readonly model: DiagramModel;
   private readonly viewState: ViewState;
-  private readonly selectedElementId: string | null;
   private readonly connectingFromId: string | null;
   private readonly colors: Colors;
   private readonly callbacks: RenderCallbacks;
@@ -36,43 +35,40 @@ export class DiagramLayerRenderer {
   private readonly zoom: number;
   private readonly renderStyle: RenderStyle;
 
+  private readonly isReadonly: boolean;
+
   constructor(
     stage: Konva.Stage,
     model: DiagramModel,
     viewState: ViewState,
-    selectedElementId: string | null,
     connectingFromId: string | null,
     colors: Colors,
     callbacks: RenderCallbacks,
     prevPaths: Set<string>,
     zoom: number,
     renderStyle: RenderStyle = "polygon",
+    isReadonly = false,
   ) {
     this.stage = stage;
     this.model = model;
     this.viewState = viewState;
-    this.selectedElementId = selectedElementId;
     this.connectingFromId = connectingFromId;
     this.colors = colors;
     this.callbacks = callbacks;
     this.prevPaths = prevPaths;
     this.zoom = zoom;
     this.renderStyle = renderStyle;
+    this.isReadonly = isReadonly;
 
     const { pixelSizes, zoomHidden, zoomDimmed } = computeElementSizes(
       model,
+      this.viewState,
       zoom,
     );
     this.pixelSizes = pixelSizes;
 
     this.hiddenSet = new Set([...viewState.hiddenPaths, ...zoomHidden]);
     this.dimmedSet = new Set([...viewState.dimmedPaths, ...zoomDimmed]);
-
-    console.log("[DiagramLayerRenderer] Filter sets:", {
-      hidden: this.hiddenSet.size,
-      dimmed: this.dimmedSet.size,
-      folded: viewState.foldedPaths.length,
-    });
 
     this.relationshipRenderer = new RelationshipRenderer(
       viewState,
@@ -108,17 +104,19 @@ export class DiagramLayerRenderer {
     path: string,
     parentPos?: { x: number; y: number },
   ): void {
-    if (this.hiddenSet.has(path)) {
-      console.log("[DiagramLayerRenderer] Skipping hidden element:", path);
-      return;
-    }
+    if (this.hiddenSet.has(path)) return;
 
     const isDimmed = this.dimmedSet.has(path);
-    if (isDimmed) {
-      console.log("[DiagramLayerRenderer] Rendering dimmed element:", path);
-    }
 
-    const elementGroup = this.renderElement(element, path, parentPos, isDimmed);
+    const colorOverride = this.viewState.coloredPaths?.[path] ?? null;
+
+    const elementGroup = this.renderElement(
+      element,
+      path,
+      parentPos,
+      isDimmed,
+      colorOverride,
+    );
     if (!elementGroup) return;
 
     parentGroup.add(elementGroup);
@@ -133,13 +131,7 @@ export class DiagramLayerRenderer {
       }).play();
     }
 
-    if (this.viewState.foldedPaths.includes(path)) {
-      console.log(
-        "[DiagramLayerRenderer] Element folded, skipping children:",
-        path,
-      );
-      return;
-    }
+    if (this.viewState.foldedPaths.includes(path)) return;
 
     const pos = this.viewState.positions[path];
     if (!pos) return;
@@ -167,6 +159,7 @@ export class DiagramLayerRenderer {
     path: string,
     parentPos?: { x: number; y: number },
     isDimmed = false,
+    colorOverride: string | null = null,
   ): Konva.Group | undefined {
     const isNew = !this.prevPaths.has(path);
     const size = this.getSize(path);
@@ -175,13 +168,13 @@ export class DiagramLayerRenderer {
       element,
       path,
       this.viewState,
-      this.selectedElementId,
       this.connectingFromId,
       this.colors,
       isNew,
       isDimmed,
       size,
       this.zoom,
+      colorOverride,
     ] as const;
 
     const elementRenderer =
@@ -198,6 +191,19 @@ export class DiagramLayerRenderer {
     this.groupMap.set(path, group);
     this.hoverIn.set(path, onHoverIn);
     this.hoverOut.set(path, onHoverOut);
+
+    if (this.isReadonly) {
+      group.draggable(false);
+      group.on("mouseenter", () => {
+        this.stage.container().style.cursor = "default";
+        this.setHovered(path);
+      });
+      group.on("mouseleave", () => {
+        this.stage.container().style.cursor = "default";
+        this.setHovered(null);
+      });
+      return group;
+    }
 
     const eventHandler = new ElementEventHandler(
       { id: element.id, path },
@@ -226,7 +232,6 @@ export class DiagramLayerRenderer {
     group.on("dragend", handlers.onDragEnd);
     group.on("contextmenu", (e: Konva.KonvaEventObject<MouseEvent>) => {
       e.evt.preventDefault();
-      console.log("[DiagramLayerRenderer] RMC contextmenu on path:", path);
       this.callbacks.onContextMenu?.(element.id, path);
     });
 

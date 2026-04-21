@@ -8,6 +8,9 @@ import {
   decorationInset,
 } from "./arrowUtils";
 import type { Colors } from "../types";
+import { VConfig } from "../../visualConfig";
+
+const RC = VConfig.rendering;
 
 export class RelationshipRenderer {
   private readonly viewState: ViewState;
@@ -41,7 +44,7 @@ export class RelationshipRenderer {
 
       const isDimmed =
         this.dimmedSet.has(sourcePath) || this.dimmedSet.has(targetPath);
-      const opacity = isDimmed ? 0.1 : 0.75;
+      const opacity = isDimmed ? RC.REL_DIM_OPACITY : RC.REL_NORMAL_OPACITY;
 
       const sourcePos = this.viewState.positions[sourcePath];
       const targetPos = this.viewState.positions[targetPath];
@@ -69,9 +72,9 @@ export class RelationshipRenderer {
       const line = new Konva.Line({
         points,
         stroke,
-        strokeWidth: 1.5,
+        strokeWidth: RC.REL_STROKE_WIDTH,
         lineCap: "round",
-        dash: isDashed(rel.type) ? [8, 6] : undefined,
+        dash: isDashed(rel.type) ? RC.REL_DASH as number[] : undefined,
       });
       group.add(line);
 
@@ -103,17 +106,14 @@ export class RelationshipRenderer {
       if (rel.label) {
         const midX = (points[0] + points[2]) / 2;
         const midY = (points[1] + points[3]) / 2;
-        const label = new Konva.Text({
-          x: midX - ny * 12,
-          y: midY + nx * 12,
-          text: rel.label,
-          fontSize: 10,
-          fill: stroke,
-          opacity: opacity,
-          offsetY: 6,
-          align: "center",
-        });
-        label.offsetX(label.width() / 2);
+        const label = adaptiveRelLabel(
+          rel.label,
+          points,
+          midX - ny * RC.REL_LABEL_OFFSET,
+          midY + nx * RC.REL_LABEL_OFFSET,
+          stroke,
+          opacity,
+        );
         group.add(label);
       }
     });
@@ -157,9 +157,9 @@ export class RelationshipRenderer {
       const line = new Konva.Line({
         points: result.points,
         stroke,
-        strokeWidth: 1.5,
+        strokeWidth: RC.REL_STROKE_WIDTH,
         lineCap: "round",
-        dash: isDashed(rel.type) ? [8, 6] : undefined,
+        dash: isDashed(rel.type) ? RC.REL_DASH as number[] : undefined,
       });
       group.add(line);
 
@@ -191,17 +191,14 @@ export class RelationshipRenderer {
       if (rel.label) {
         const midX = (result.points[0] + result.points[2]) / 2;
         const midY = (result.points[1] + result.points[3]) / 2;
-        const label = new Konva.Text({
-          x: midX - result.ny * 12,
-          y: midY + result.nx * 12,
-          text: rel.label,
-          fontSize: 10,
-          fill: stroke,
-          opacity: 0.9,
-          offsetY: 6,
-          align: "center",
-        });
-        label.offsetX(label.width() / 2);
+        const label = adaptiveRelLabel(
+          rel.label,
+          result.points,
+          midX - result.ny * RC.REL_LABEL_OFFSET,
+          midY + result.nx * RC.REL_LABEL_OFFSET,
+          stroke,
+          0.9,
+        );
         group.add(label);
       }
 
@@ -212,6 +209,43 @@ export class RelationshipRenderer {
   clear(): void {
     this.relGroups.clear();
   }
+}
+
+function adaptiveRelLabel(
+  text: string,
+  points: number[],
+  x: number,
+  y: number,
+  fill: string,
+  opacity: number,
+): Konva.Text {
+  const lineLen = Math.sqrt(
+    (points[2] - points[0]) ** 2 + (points[3] - points[1]) ** 2,
+  );
+  const maxWidth = Math.max(lineLen * 0.7, 40);
+
+  // Heuristic: avg char width ≈ 0.6 × fontSize; target 80% of maxWidth
+  const heuristicFont = (maxWidth * 0.8) / (text.length * 0.6);
+  const fontSize = Math.max(RC.REL_LABEL_MIN_FONT, Math.min(RC.REL_LABEL_MAX_FONT_THRESHOLD, heuristicFont));
+  const useEllipsis = heuristicFont < RC.REL_LABEL_MIN_FONT;
+
+  const label = new Konva.Text({
+    x,
+    y,
+    text,
+    fontSize,
+    fontFamily: "system-ui, sans-serif",
+    fill,
+    opacity,
+    offsetY: fontSize / 2,
+    align: "center",
+    width: maxWidth,
+    ellipsis: useEllipsis,
+    wrap: "none",
+    padding: 2,
+  });
+  label.offsetX(label.width() / 2);
+  return label;
 }
 
 function computeRelPoints(

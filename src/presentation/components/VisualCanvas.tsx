@@ -5,14 +5,19 @@ import {
   setCanvasSize,
   setViewState,
   updateElementPositionInView,
+  pruneElements,
 } from "../../application/store/diagramSlice";
 import {
   setConnectingFromId,
   setInteractionMode,
   setSelectedElement,
+  setSelectedElements,
+  toggleSelectedElement,
 } from "../../application/store/uiSlice";
+import { setSelectionPreset } from "../../application/store/filterSlice";
 import { toggleElementFold } from "../../application/store/filterSlice";
-import { syncManager } from "../../application/store/store";
+import { acceptDiffId } from "../../application/store/diffSlice";
+import { syncManager, store } from "../../application/store/store";
 import { getCSSVariable } from "../../shared/utils";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
 import { FilterResolver } from "../../domain/sync/FilterResolver";
@@ -20,26 +25,62 @@ import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { Element, ElementType } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
 import type { Position } from "../../domain/models/Element";
+import { AppConfig } from "../../config/appConfig";
+
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return `rgba(0,0,0,${alpha})`;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function getSubtreeIds(model: DiagramModel, rootId: string): string[] {
+  const result: string[] = [];
+  const queue = [rootId];
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (visited.has(id)) continue;
+    visited.add(id);
+    result.push(id);
+    model.elements[id]?.childIds.forEach((c) => queue.push(c));
+  }
+  return result;
+}
 
 export function VisualCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
   const relationshipLayerRef = useRef<Konva.Layer | null>(null);
   const elementLayerRef = useRef<Konva.Layer | null>(null);
+  const selectionLayerRef = useRef<Konva.Layer | null>(null);
   const prevPathsRef = useRef<Set<string>>(new Set());
   const [zoom, setZoom] = useState(1);
+
+  const dragSelectRef = useRef<{
+    startScreen: { x: number; y: number };
+    stageX: number;
+    stageY: number;
+    stageScale: number;
+    active: boolean;
+  } | null>(null);
+  const selectionRectRef = useRef<Konva.Rect | null>(null);
+
+  const justDragSelectedRef = useRef(false);
 
   const dispatch = useAppDispatch();
   const model = useAppSelector((s) => s.diagram.model);
   const viewState = useAppSelector((s) => s.diagram.viewState);
   const filterState = useAppSelector((s) => s.filter);
+  const diffState = useAppSelector((s) => s.diff);
   const isDark = useAppSelector((s) => s.theme.isDark);
   const {
     interactionMode,
     activeElementType,
     activeRelationshipType,
     connectingFromId,
-    selectedElementId,
+    selectedElementIds,
     renderStyle,
   } = useAppSelector((s) => s.ui);
 
@@ -65,7 +106,14 @@ export function VisualCanvas() {
     modelRef.current = model;
   }, [model]);
 
-  // Filter list recomputation
+  useEffect(() => {
+    const color = getCSSVariable("--color-state-selected");
+    dispatch(setSelectionPreset({ ids: selectedElementIds, color }));
+  }, [selectedElementIds, isDark, dispatch]);
+
+  const DIFF_ADDED_COLOR = AppConfig.canvas.DIFF_ADDED_COLOR;
+  const DIFF_REMOVED_COLOR = AppConfig.canvas.DIFF_REMOVED_COLOR;
+
   useEffect(() => {
     const newLists = FilterResolver.resolve(
       filterState,
@@ -73,23 +121,32 @@ export function VisualCanvas() {
       model,
     );
 
+    if (diffState.active) {
+      const addedSet = new Set(diffState.addedIds);
+      const removedSet = new Set(diffState.removedIds);
+      for (const path of Object.keys(viewState.positions)) {
+        const elementId = path.split(".").at(-1)!;
+        if (addedSet.has(elementId)) {
+          newLists.coloredPaths[path] = DIFF_ADDED_COLOR;
+        } else if (removedSet.has(elementId)) {
+          newLists.coloredPaths[path] = DIFF_REMOVED_COLOR;
+        }
+      }
+    }
+
     const unchanged = FilterResolver.equal(newLists, {
       hiddenPaths: viewState.hiddenPaths,
       dimmedPaths: viewState.dimmedPaths,
       foldedPaths: viewState.foldedPaths,
+      coloredPaths: viewState.coloredPaths ?? {},
     });
 
     if (!unchanged) {
-      console.log(
-        "[VisualCanvas] Filter lists changed, updating viewState:",
-        newLists,
-      );
       dispatch(setViewState({ ...viewState, ...newLists }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterState, viewState.positions, model]);
+  }, [filterState, viewState.positions, model, diffState]);
 
-  // Stage setup: runs once
   useEffect(() => {
     if (!containerRef.current) return;
     const stage = new Konva.Stage({
@@ -100,11 +157,14 @@ export function VisualCanvas() {
     });
     const relationshipLayer = new Konva.Layer();
     const elementLayer = new Konva.Layer();
+    const selectionLayer = new Konva.Layer();
     stage.add(relationshipLayer);
     stage.add(elementLayer);
+    stage.add(selectionLayer);
     stageRef.current = stage;
     relationshipLayerRef.current = relationshipLayer;
     elementLayerRef.current = elementLayer;
+    selectionLayerRef.current = selectionLayer;
 
     stage.on("dragstart", () => {
       stage.container().style.cursor = "grabbing";
@@ -116,29 +176,45 @@ export function VisualCanvas() {
 
     stage.on("wheel", (e: Konva.KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault();
-      const oldScale = stage.scaleX();
-      const pointer = stage.getPointerPosition();
-      if (!pointer) return;
-      const mousePointTo = {
-        x: (pointer.x - stage.x()) / oldScale,
-        y: (pointer.y - stage.y()) / oldScale,
-      };
-      const direction = e.evt.deltaY > 0 ? -1 : 1;
-      const newScale = Math.max(
-        0.1,
-        Math.min(5, oldScale * (direction > 0 ? 1.05 : 1 / 1.05)),
-      );
-      stage.scale({ x: newScale, y: newScale });
-      stage.position({
-        x: pointer.x - mousePointTo.x * newScale,
-        y: pointer.y - mousePointTo.y * newScale,
-      });
-      stage.batchDraw();
-      setZoom(newScale);
+
+      if (e.evt.ctrlKey || e.evt.metaKey) {
+        const oldScale = stage.scaleX();
+        const pointer = stage.getPointerPosition();
+        if (!pointer) return;
+        const mousePointTo = {
+          x: (pointer.x - stage.x()) / oldScale,
+          y: (pointer.y - stage.y()) / oldScale,
+        };
+        const direction = e.evt.deltaY > 0 ? -1 : 1;
+        const { ZOOM_MIN, ZOOM_MAX, ZOOM_STEP_FACTOR } = AppConfig.canvas;
+        const newScale = Math.max(
+          ZOOM_MIN,
+          Math.min(ZOOM_MAX, oldScale * (direction > 0 ? ZOOM_STEP_FACTOR : 1 / ZOOM_STEP_FACTOR)),
+        );
+        stage.scale({ x: newScale, y: newScale });
+        stage.position({
+          x: pointer.x - mousePointTo.x * newScale,
+          y: pointer.y - mousePointTo.y * newScale,
+        });
+        stage.batchDraw();
+        setZoom(newScale);
+      } else {
+        stage.position({
+          x: stage.x() - e.evt.deltaX,
+          y: stage.y() - e.evt.deltaY,
+        });
+        stage.batchDraw();
+      }
     });
 
     stage.on("click", (e) => {
       if (e.target !== stage) return;
+      if (modeRef.current === "readonly") return;
+      if (justDragSelectedRef.current) {
+        justDragSelectedRef.current = false;
+        return;
+      }
+
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
       const scale = stage.scaleX();
@@ -157,7 +233,128 @@ export function VisualCanvas() {
         );
       } else if (modeRef.current === "connect") {
         dispatch(setConnectingFromId(null));
+      } else if (modeRef.current === "select") {
+        dispatch(setSelectedElements([]));
       }
+    });
+
+    stage.on("mousedown", (e) => {
+      if (e.evt.button !== 0) return;
+      if (e.target !== stage) return;
+      if (modeRef.current !== "select") return;
+      const pointer = stage.getPointerPosition();
+      if (!pointer) return;
+
+      stage.draggable(false);
+      dragSelectRef.current = {
+        startScreen: { x: pointer.x, y: pointer.y },
+        stageX: stage.x(),
+        stageY: stage.y(),
+        stageScale: stage.scaleX(),
+        active: false,
+      };
+    });
+
+    stage.on("mousemove", () => {
+      if (!dragSelectRef.current) return;
+      const pointer = stage.getPointerPosition();
+      if (!pointer) return;
+
+      const { startScreen, stageX, stageY, stageScale } = dragSelectRef.current;
+
+      const toWorld = (sx: number, sy: number) => ({
+        x: (sx - stageX) / stageScale,
+        y: (sy - stageY) / stageScale,
+      });
+
+      const dx = pointer.x - startScreen.x;
+      const dy = pointer.y - startScreen.y;
+
+      if (!dragSelectRef.current.active && Math.hypot(dx, dy) > AppConfig.canvas.DRAG_SELECT_THRESHOLD_PX) {
+        dragSelectRef.current.active = true;
+        const ws = toWorld(startScreen.x, startScreen.y);
+        const wc = toWorld(pointer.x, pointer.y);
+        const selColor = getCSSVariable("--color-state-selected");
+        const rect = new Konva.Rect({
+          x: Math.min(ws.x, wc.x),
+          y: Math.min(ws.y, wc.y),
+          width: Math.abs(wc.x - ws.x),
+          height: Math.abs(wc.y - ws.y),
+          stroke: selColor,
+          strokeWidth: 1 / stageScale,
+          dash: AppConfig.canvas.SELECTION_RECT_DASH.map((v) => v / stageScale),
+          fill: hexToRgba(selColor, AppConfig.canvas.SELECTION_RECT_FILL_OPACITY),
+          listening: false,
+        });
+        selectionLayer.add(rect);
+        selectionRectRef.current = rect;
+      }
+
+      if (dragSelectRef.current.active && selectionRectRef.current) {
+        const ws = toWorld(startScreen.x, startScreen.y);
+        const wc = toWorld(pointer.x, pointer.y);
+        selectionRectRef.current.setAttrs({
+          x: Math.min(ws.x, wc.x),
+          y: Math.min(ws.y, wc.y),
+          width: Math.abs(wc.x - ws.x),
+          height: Math.abs(wc.y - ws.y),
+        });
+        selectionLayer.batchDraw();
+      }
+    });
+
+    stage.on("mouseup", (e) => {
+      if (e.evt.button !== 0) return;
+      stage.draggable(true);
+
+      if (!dragSelectRef.current?.active) {
+        dragSelectRef.current = null;
+        return;
+      }
+
+      justDragSelectedRef.current = true;
+
+      const { startScreen, stageX, stageY, stageScale } = dragSelectRef.current;
+      const pointer = stage.getPointerPosition()!;
+      const toWorld = (sx: number, sy: number) => ({
+        x: (sx - stageX) / stageScale,
+        y: (sy - stageY) / stageScale,
+      });
+
+      const ws = toWorld(startScreen.x, startScreen.y);
+      const we = toWorld(pointer.x, pointer.y);
+      const x1 = Math.min(ws.x, we.x);
+      const y1 = Math.min(ws.y, we.y);
+      const x2 = Math.max(ws.x, we.x);
+      const y2 = Math.max(ws.y, we.y);
+
+      const positions = store.getState().diagram.viewState.positions;
+      const idsInRect: string[] = [];
+      for (const [path, pos] of Object.entries(positions)) {
+        const { x, y } = pos.position;
+        if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
+          const id = path.split(".").at(-1)!;
+          if (!idsInRect.includes(id)) idsInRect.push(id);
+        }
+      }
+
+      const currentIds = store.getState().ui.selectedElementIds;
+      const currentSet = new Set(currentIds);
+      const result = [...currentIds];
+      for (const id of idsInRect) {
+        if (currentSet.has(id)) {
+          const idx = result.indexOf(id);
+          if (idx !== -1) result.splice(idx, 1);
+        } else {
+          result.push(id);
+        }
+      }
+      dispatch(setSelectedElements(result));
+
+      selectionRectRef.current?.destroy();
+      selectionLayer.batchDraw();
+      selectionRectRef.current = null;
+      dragSelectRef.current = null;
     });
 
     const handleResize = () => {
@@ -209,10 +406,11 @@ export function VisualCanvas() {
   useEffect(() => {
     if (!stageRef.current) return;
     stageRef.current.container().style.cursor =
-      interactionMode === "select" ? "default" : "crosshair";
+      interactionMode === "select" || interactionMode === "readonly"
+        ? "default"
+        : "crosshair";
   }, [interactionMode]);
 
-  // Re-render layers
   useEffect(() => {
     if (
       !relationshipLayerRef.current ||
@@ -225,7 +423,6 @@ export function VisualCanvas() {
       stageRef.current,
       model,
       viewState,
-      selectedElementId,
       connectingFromId,
       {
         accent: getCSSVariable("--color-accent"),
@@ -249,7 +446,7 @@ export function VisualCanvas() {
           );
           syncManager.syncFromVis(updatedModel);
         },
-        onClick: (elementId) => {
+        onClick: (elementId, shiftKey, ctrlKey) => {
           const mode = modeRef.current;
 
           if (mode === "create") {
@@ -289,7 +486,7 @@ export function VisualCanvas() {
             });
             if (connectingFromRef.current === elementId)
               dispatch(setConnectingFromId(null));
-            dispatch(setSelectedElement(null));
+            dispatch(setSelectedElements([]));
           } else if (mode === "connect") {
             const sourceId = connectingFromRef.current;
             if (!sourceId) {
@@ -334,25 +531,51 @@ export function VisualCanvas() {
               dispatch(setInteractionMode("select"));
             }
           } else {
-            dispatch(setSelectedElement(elementId));
+            if (shiftKey) {
+              const subtreeIds = getSubtreeIds(modelRef.current, elementId);
+              const currentIds = store.getState().ui.selectedElementIds;
+              const currentSet = new Set(currentIds);
+              const allSelected = subtreeIds.every((id) => currentSet.has(id));
+              if (allSelected) {
+                const subtreeSet = new Set(subtreeIds);
+                dispatch(
+                  setSelectedElements(
+                    currentIds.filter((id) => !subtreeSet.has(id)),
+                  ),
+                );
+              } else {
+                const combined = [...currentIds];
+                for (const id of subtreeIds) {
+                  if (!currentSet.has(id)) combined.push(id);
+                }
+                dispatch(setSelectedElements(combined));
+              }
+            } else if (ctrlKey) {
+              dispatch(toggleSelectedElement(elementId));
+            } else {
+              dispatch(setSelectedElement(elementId));
+            }
           }
         },
         onContextMenu: (elementId, path) => {
+          const { diff } = store.getState();
+          if (diff.active) {
+            if (diff.removedIds.includes(elementId)) {
+              dispatch(acceptDiffId(elementId));
+              dispatch(pruneElements([elementId]));
+            } else if (diff.addedIds.includes(elementId)) {
+              dispatch(acceptDiffId(elementId));
+            }
+            return;
+          }
           const currentlyFolded = viewState.foldedPaths.includes(path);
-          console.log(
-            "[VisualCanvas] RMC on element:",
-            elementId,
-            "path:",
-            path,
-            "currentlyFolded:",
-            currentlyFolded,
-          );
           dispatch(toggleElementFold({ path, currentlyFolded }));
         },
       },
       prevPathsRef.current,
       zoom,
       renderStyle,
+      interactionMode === "readonly",
     );
 
     renderer.render(relationshipLayerRef.current, elementLayerRef.current);
@@ -360,11 +583,11 @@ export function VisualCanvas() {
   }, [
     model,
     viewState,
-    selectedElementId,
     connectingFromId,
     isDark,
     zoom,
     renderStyle,
+    interactionMode,
     dispatch,
   ]);
 

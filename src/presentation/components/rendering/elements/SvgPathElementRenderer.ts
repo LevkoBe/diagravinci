@@ -22,13 +22,13 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
     element: Element,
     path: string,
     viewState: ViewState,
-    selectedElementId: string | null,
     connectingFromId: string | null,
     colors: Colors,
     isNew: boolean,
     isDimmed: boolean,
     size: number,
     zoom: number,
+    colorOverride: string | null = null,
     elementSvgs: Record<
       string,
       { data: string; viewBoxWidth: number; viewBoxHeight: number }
@@ -38,13 +38,13 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
       element,
       path,
       viewState,
-      selectedElementId,
       connectingFromId,
       colors,
       isNew,
       isDimmed,
       size,
       zoom,
+      colorOverride,
     );
     this.elementSvgs = elementSvgs;
   }
@@ -91,10 +91,7 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
 
     const pathNode = new Konva.Path({
       data: config.data,
-      stroke:
-        this.selectedElementId === this.element.id
-          ? this.colors.selected
-          : this.colors.accent,
+      stroke: this.resolveStroke(),
       strokeWidth,
       scale: { x: scale, y: scale },
       x: -(config.viewBoxWidth * scale) / 2,

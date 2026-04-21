@@ -4,11 +4,12 @@ import type { ViewState } from "../../../../domain/models/ViewState";
 import type { Element } from "../../../../domain/models/Element";
 import { VConfig } from "../../visualConfig";
 import { getLucideIcon, renderLucideIconOnGroup } from "./lucideIconMap";
+import { AppConfig } from "../../../../config/appConfig";
 
 const ec = VConfig.elements;
 const dc = VConfig.decorations;
 
-const ANONYMOUS_PREFIX = "anon_";
+const ANONYMOUS_PREFIX = AppConfig.parser.ANONYMOUS_ID_PREFIX + "_";
 
 export interface IElementRenderer {
   render(parentPos?: { x: number; y: number }): ElementRenderResult | undefined;
@@ -18,7 +19,6 @@ export abstract class BaseElementRenderer implements IElementRenderer {
   protected readonly element: Element;
   protected readonly path: string;
   protected readonly viewState: ViewState;
-  protected readonly selectedElementId: string | null;
   protected readonly connectingFromId: string | null;
   protected readonly colors: Colors;
   protected readonly isNew: boolean;
@@ -28,34 +28,40 @@ export abstract class BaseElementRenderer implements IElementRenderer {
 
   protected readonly zoom: number;
 
+  protected readonly colorOverride: string | null;
+
   constructor(
     element: Element,
     path: string,
     viewState: ViewState,
-    selectedElementId: string | null,
     connectingFromId: string | null,
     colors: Colors,
     isNew: boolean,
     isDimmed: boolean,
     size: number,
     zoom: number,
+    colorOverride: string | null = null,
   ) {
     this.element = element;
     this.path = path;
     this.viewState = viewState;
-    this.selectedElementId = selectedElementId;
     this.connectingFromId = connectingFromId;
     this.colors = colors;
     this.isNew = isNew;
     this.isDimmed = isDimmed;
     this.size = size;
     this.zoom = zoom;
+    this.colorOverride = colorOverride;
   }
 
   abstract render(parentPos?: {
     x: number;
     y: number;
   }): ElementRenderResult | undefined;
+
+  protected resolveStroke(): string {
+    return this.colorOverride || this.colors.accent;
+  }
 
   protected createElementGroup(parentPos?: {
     x: number;
@@ -103,12 +109,12 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       ? iconMatch[1]
       : (rawId ?? this.element.type.toUpperCase());
     const maxWidth = this.size * ec.LABEL_WIDTH_RATIO;
-
-    const targetScreenFont = Math.max(
-      ec.LABEL_MIN_FONT,
-      Math.min(ec.LABEL_MAX_FONT, this.size * ec.LABEL_SIZE_RATIO),
-    );
-    const fontSize = targetScreenFont / Math.max(this.zoom, 0.01);
+    const zoomFactor = Math.max(this.zoom, 0.01);
+    const heuristicFont = (maxWidth * 0.8) / (labelText.length * 0.6);
+    const minFont = ec.LABEL_MIN_FONT / zoomFactor;
+    const maxFont = ec.LABEL_MAX_FONT_THRESHOLD / zoomFactor;
+    const fontSize = Math.max(minFont, Math.min(maxFont, heuristicFont));
+    const useEllipsis = heuristicFont < minFont;
 
     const hasVisibleChildren = Object.keys(this.viewState.positions).some(
       (p) =>
@@ -128,7 +134,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       width: maxWidth,
       x: -maxWidth / 2,
       y: labelY,
-      ellipsis: true,
+      ellipsis: useEllipsis,
       wrap: "none",
       padding: 2,
       opacity: this.isDimmed ? ec.DIM_OPACITY : 1,
@@ -182,10 +188,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  protected addContainerBackground(_group: Konva.Group): void {
-    // Non-SVG renderers omit the container background circle entirely
-  }
+  protected addContainerBackground(_group: Konva.Group): void {}
 
   protected createHoverCallbacks(
     group: Konva.Group,

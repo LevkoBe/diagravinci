@@ -6,10 +6,11 @@ import type {
   ViewState,
 } from "../models/ViewState";
 import type { LayoutAlgorithm } from "./LayoutAlgorithm";
+import { AppConfig } from "../../config/appConfig";
 
-export const CHILD_FILL = 0.85;
-export const ELEMENT_FILL = 0.7;
-export const RADIO = 3.3;
+export const CHILD_FILL = AppConfig.layout.CHILD_FILL;
+export const ELEMENT_FILL = AppConfig.layout.ELEMENT_FILL;
+export const RADIO = AppConfig.layout.RADIO;
 
 export class AncestryTracker {
   private readonly _set: Set<string>;
@@ -25,7 +26,9 @@ export class AncestryTracker {
 }
 
 export function calculateSize(value: number): number {
-  return Math.pow(value, 0.9) * 30;
+  return (
+    Math.pow(value, AppConfig.layout.SIZE_EXP) * AppConfig.layout.SIZE_MULT
+  );
 }
 
 export function resolveRelationships(
@@ -63,7 +66,6 @@ export abstract class BaseLayout implements LayoutAlgorithm {
     containerHeight: number,
   ): { x: number; y: number; size: number }[];
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected computeValue(_element: Element, _model: DiagramModel): number {
     return 0;
   }
@@ -136,6 +138,7 @@ export abstract class BaseLayout implements LayoutAlgorithm {
       hiddenPaths: previousViewState?.hiddenPaths ?? [],
       dimmedPaths: previousViewState?.dimmedPaths ?? [],
       foldedPaths: previousViewState?.foldedPaths ?? [],
+      coloredPaths: previousViewState?.coloredPaths ?? {},
     } as const;
 
     const rootChildren = model.root.childIds
