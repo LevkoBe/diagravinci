@@ -75,6 +75,12 @@ export class Lexer {
       } else if (/[a-zA-Z_]/.test(char)) {
         tokens.push(this.readIdentifier());
         continue;
+      } else if (
+        char === "." &&
+        /[a-zA-Z_]/.test(this.input[this.i + 1] ?? "")
+      ) {
+        tokens.push(this.readRelativeIdentifier());
+        continue;
       }
 
       this.advance();
@@ -102,8 +108,26 @@ export class Lexer {
     while (/[a-z0-9_]/i.test(this.peek())) {
       chars.push(this.peek());
       this.advance();
+      if (
+        this.peek() === "." &&
+        /[a-zA-Z_]/.test(this.input[this.i + 1] ?? "")
+      ) {
+        chars.push(".");
+        this.advance();
+      }
     }
 
+    return createToken("IDENTIFIER", chars.join(""), start.row, start.col);
+  }
+
+  private readRelativeIdentifier(): Token {
+    const start = { row: this.row, col: this.col };
+    const chars: string[] = ["."];
+    this.advance(); // consume leading '.'
+    while (/[a-z0-9_]/i.test(this.peek())) {
+      chars.push(this.peek());
+      this.advance();
+    }
     return createToken("IDENTIFIER", chars.join(""), start.row, start.col);
   }
 

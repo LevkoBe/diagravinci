@@ -241,8 +241,8 @@ describe("Parser", () => {
     expect(game.childIds).toContain(player.id);
     expect(game.childIds).toContain(world.id);
     const rel = Array.from(Object.values(model.relationships))[0];
-    expect(rel.source).toBe(player.id);
-    expect(rel.target).toBe(world.id);
+    expect(rel.source).toBe("game.player");
+    expect(rel.target).toBe("game.world");
   });
 
   it("should preserve element order", () => {
@@ -568,11 +568,11 @@ describe("Parser", () => {
     const model = parse("a{-->b-->}");
     expect(Object.values(model.elements).length).toBe(2);
     expect(Object.values(model.relationships).length).toBe(2);
-    const [a, b] = Array.from(Object.values(model.elements));
+    const [a] = Array.from(Object.values(model.elements));
     const [rel1, rel2] = Object.values(model.relationships);
     expect(rel1.source).toBe(a.id);
-    expect(rel1.target).toBe(b.id);
-    expect(rel2.source).toBe(b.id);
+    expect(rel1.target).toBe("a.b");
+    expect(rel2.source).toBe("a.b");
     expect(rel2.target).toBe(a.id);
   });
 
@@ -639,7 +639,8 @@ describe("Parser edge cases", () => {
   });
 
   it("parses !atom and !selector directives", () => {
-    const code = "!atom  id=1  all=*.db.*\n!selector  name=warn  color=#f00  mode=dim  combiner=1";
+    const code =
+      "!atom  id=1  all=*.db.*\n!selector  name=warn  color=#f00  mode=dim  combiner=1";
     const model = parse(code);
     expect(model.atoms ?? []).toHaveLength(1);
     expect((model.atoms ?? [])[0].patterns["all"]).toBe("*.db.*");
@@ -662,7 +663,9 @@ describe("Parser edge cases", () => {
   });
 
   it("deduplicates !selector directives with same name", () => {
-    const model = parse("!selector name=warn color=#f00 mode=color\n!selector name=warn color=#0f0 mode=dim");
+    const model = parse(
+      "!selector name=warn color=#f00 mode=color\n!selector name=warn color=#0f0 mode=dim",
+    );
     const presets = model.filterPresets ?? [];
     expect(presets).toHaveLength(1);
     expect(presets[0].color).toBe("#f00");
@@ -681,5 +684,104 @@ describe("Parser edge cases", () => {
     const depth = 1002;
     const open = "a" + "{a".repeat(depth);
     expect(() => parse(open)).toThrow("Maximum parser nesting depth exceeded");
+  });
+
+  describe("relationship endpoint scoping", () => {
+    it("does not add pre-existing target to container", () => {
+      const model = parse("a() c()\nd{a a-->c}");
+      expect(model.elements["d"].childIds).toEqual(["a"]);
+      expect(model.elements["d"].childIds).not.toContain("c");
+    });
+
+    it("does not add pre-existing source to container", () => {
+      const model = parse("a() c()\ne{c a-->c}");
+      expect(model.elements["e"].childIds).toEqual(["c"]);
+      expect(model.elements["e"].childIds).not.toContain("a");
+    });
+
+    it("does not add either pre-existing endpoint to container", () => {
+      const model = parse("a() c()\nf{a-->c}");
+      expect(model.elements["f"].childIds).toHaveLength(0);
+    });
+
+    it("explicit listing still pulls pre-existing element into container", () => {
+      const model = parse("a() c()\nb{a c a-->c}");
+      expect(model.elements["b"].childIds).toContain("a");
+      expect(model.elements["b"].childIds).toContain("c");
+    });
+
+    it("creates new elements locally when they appear only in relationships", () => {
+      const model = parse("f2{x-->y}");
+      expect(model.elements["f2"].childIds).toContain("x");
+      expect(model.elements["f2"].childIds).toContain("y");
+    });
+
+    it("stores local path for newly created relationship endpoints", () => {
+      const model = parse("f2{x-->y}");
+      const rels = Object.values(model.relationships);
+      expect(rels).toHaveLength(1);
+      expect(rels[0].source).toBe("f2.x");
+      expect(rels[0].target).toBe("f2.y");
+    });
+
+    it("stores bare id for pre-existing global relationship endpoints", () => {
+      const model = parse("a() c()\nf{a-->c}");
+      const rels = Object.values(model.relationships);
+      expect(rels).toHaveLength(1);
+      expect(rels[0].source).toBe("a");
+      expect(rels[0].target).toBe("c");
+    });
+
+    it("supports a-->b-->c chain with auto-creation", () => {
+      const model = parse("g{a-->b-->c}");
+      expect(model.elements["g"].childIds).toContain("a");
+      expect(model.elements["g"].childIds).toContain("b");
+      expect(model.elements["g"].childIds).toContain("c");
+      const rels = Object.values(model.relationships);
+      expect(rels).toHaveLength(2);
+    });
+  });
+
+  describe("dot notation path references", () => {
+    it("relative .a-->.c resolves to local paths", () => {
+      const model = parse("a() c()\nb{a c .a-->.c}");
+      const rels = Object.values(model.relationships);
+      expect(rels).toHaveLength(1);
+      expect(rels[0].source).toBe("b.a");
+      expect(rels[0].target).toBe("b.c");
+      expect(model.elements["b"].childIds).toContain("a");
+      expect(model.elements["b"].childIds).toContain("c");
+    });
+
+    it("relative source with global target: .a-->c", () => {
+      const model = parse("a() c()\nd{a .a-->c}");
+      const rels = Object.values(model.relationships);
+      expect(rels).toHaveLength(1);
+      expect(rels[0].source).toBe("d.a");
+      expect(rels[0].target).toBe("c");
+    });
+
+    it("global source with relative target: a-->.c", () => {
+      const model = parse("a() c()\ne{c a-->.c}");
+      const rels = Object.values(model.relationships);
+      expect(rels).toHaveLength(1);
+      expect(rels[0].source).toBe("a");
+      expect(rels[0].target).toBe("e.c");
+    });
+
+    it("absolute path alt.a-->alt.c", () => {
+      const model = parse("alt{a c}\nf{alt.a-->alt.c}");
+      const rels = Object.values(model.relationships);
+      expect(rels).toHaveLength(1);
+      expect(rels[0].source).toBe("alt.a");
+      expect(rels[0].target).toBe("alt.c");
+      expect(model.elements["f"].childIds).toHaveLength(0);
+    });
+
+    it("skips relationship and emits validation error when .a not in container", () => {
+      const model = parse("a() c()\ng{.a-->c}");
+      expect(Object.values(model.relationships)).toHaveLength(0);
+      expect(model.validationErrors?.length).toBeGreaterThan(0);
+    });
   });
 });

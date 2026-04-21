@@ -15,6 +15,7 @@ export interface DiagramModel {
   metadata: DiagramMetadata;
   atoms?: SelectorAtom[];
   filterPresets?: FilterPreset[];
+  validationErrors?: string[];
 }
 
 export function createEmptyDiagram(): DiagramModel {

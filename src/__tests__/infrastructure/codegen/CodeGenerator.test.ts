@@ -437,5 +437,38 @@ describe("CodeGenerator", () => {
         ).toBe(Object.keys(first.relationships).length);
       }
     });
+
+    it("is idempotent: second round-trip produces identical model to first", () => {
+      const cases = [
+        "a() c()\nb{a c a-->c}",
+        "f2{x-->y}",
+        "a() c()\nb{a c .a-->.c}",
+        "alt{a c}\nf{alt.a-->alt.c}",
+        "a b c\na-->b-->c",
+        ...BUILT_IN_TEMPLATES.map((t) => t.code),
+      ];
+
+      for (const code of cases) {
+        const first = parse(generate(parse(code)));
+        const second = parse(generate(first));
+
+        expect(
+          Object.keys(second.relationships).sort(),
+          `idempotency: relationships for "${code.slice(0, 40)}"`,
+        ).toEqual(Object.keys(first.relationships).sort());
+
+        expect(
+          second.root.childIds,
+          `idempotency: root.childIds for "${code.slice(0, 40)}"`,
+        ).toEqual(first.root.childIds);
+
+        for (const id of Object.keys(first.elements)) {
+          expect(
+            second.elements[id]?.childIds,
+            `idempotency: ${id}.childIds for "${code.slice(0, 40)}"`,
+          ).toEqual(first.elements[id].childIds);
+        }
+      }
+    });
   });
 });
