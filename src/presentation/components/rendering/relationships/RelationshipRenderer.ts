@@ -4,7 +4,7 @@ import type { RelationshipType } from "../../../../infrastructure/parser/Token";
 import {
   parseEndSpec,
   isDashed,
-  addDecoration,
+  createDecoration,
   decorationInset,
 } from "./arrowUtils";
 import type { Colors } from "../types";
@@ -12,18 +12,39 @@ import type { Colors } from "../types";
 export class RelationshipRenderer {
   private readonly viewState: ViewState;
   private readonly colors: Colors;
-  private readonly relLineNodes = new Map<string, Konva.Line>();
+  private readonly hiddenSet: Set<string>;
+  private readonly dimmedSet: Set<string>;
+  private readonly relGroups = new Map<string, Konva.Group>();
 
-  constructor(viewState: ViewState, colors: Colors) {
+  constructor(
+    viewState: ViewState,
+    colors: Colors,
+    hiddenSet: Set<string>,
+    dimmedSet: Set<string>,
+  ) {
     this.viewState = viewState;
     this.colors = colors;
+    this.hiddenSet = hiddenSet;
+    this.dimmedSet = dimmedSet;
   }
 
   render(layer: Konva.Layer): void {
-    this.relLineNodes.clear();
+    this.relGroups.clear();
+
     this.viewState.relationships.forEach((rel) => {
-      const sourcePos = this.viewState.positions[rel.sourcePath];
-      const targetPos = this.viewState.positions[rel.targetPath];
+      const sourcePath = rel.sourcePath;
+      const targetPath = rel.targetPath;
+
+      if (this.hiddenSet.has(sourcePath) || this.hiddenSet.has(targetPath)) {
+        return;
+      }
+
+      const isDimmed =
+        this.dimmedSet.has(sourcePath) || this.dimmedSet.has(targetPath);
+      const opacity = isDimmed ? 0.1 : 0.75;
+
+      const sourcePos = this.viewState.positions[sourcePath];
+      const targetPos = this.viewState.positions[targetPath];
       if (!sourcePos || !targetPos) return;
 
       const { points, nx, ny, ex1, ey1, ex2, ey2 } = computeRelPoints(
@@ -40,52 +61,60 @@ export class RelationshipRenderer {
 
       const stroke = this.colors.relationship;
       const spec = parseEndSpec(rel.type);
+
+      const group = new Konva.Group({ opacity });
+      layer.add(group);
+      this.relGroups.set(rel.id, group);
+
       const line = new Konva.Line({
         points,
         stroke,
         strokeWidth: 1.5,
         lineCap: "round",
         dash: isDashed(rel.type) ? [8, 6] : undefined,
-        opacity: 0.7,
       });
-      layer.add(line);
-      this.relLineNodes.set(rel.id, line);
+      group.add(line);
 
-      addDecoration(
-        layer,
-        spec.source,
-        spec.sourceFilled,
-        ex1,
-        ey1,
-        -nx,
-        -ny,
-        stroke,
-      );
-      addDecoration(
-        layer,
-        spec.target,
-        spec.targetFilled,
-        ex2,
-        ey2,
-        nx,
-        ny,
-        stroke,
-      );
+      if (spec.source !== "none") {
+        const sourceDeco = createDecoration(
+          spec.source,
+          spec.sourceFilled,
+          ex1,
+          ey1,
+          -nx,
+          -ny,
+          stroke,
+        );
+        if (sourceDeco) group.add(sourceDeco);
+      }
+      if (spec.target !== "none") {
+        const targetDeco = createDecoration(
+          spec.target,
+          spec.targetFilled,
+          ex2,
+          ey2,
+          nx,
+          ny,
+          stroke,
+        );
+        if (targetDeco) group.add(targetDeco);
+      }
+
       if (rel.label) {
         const midX = (points[0] + points[2]) / 2;
         const midY = (points[1] + points[3]) / 2;
         const label = new Konva.Text({
-          x: midX + -ny * 12,
+          x: midX - ny * 12,
           y: midY + nx * 12,
           text: rel.label,
           fontSize: 10,
           fill: stroke,
-          opacity: 0.85,
+          opacity: opacity,
           offsetY: 6,
           align: "center",
         });
         label.offsetX(label.width() / 2);
-        layer.add(label);
+        group.add(label);
       }
     });
   }
@@ -98,8 +127,10 @@ export class RelationshipRenderer {
       if (rel.sourcePath !== changedPath && rel.targetPath !== changedPath)
         return;
 
-      const line = this.relLineNodes.get(rel.id);
-      if (!line) return;
+      const group = this.relGroups.get(rel.id);
+      if (!group) return;
+
+      group.destroyChildren();
 
       const sp = getWorldPos(rel.sourcePath);
       const tp = getWorldPos(rel.targetPath);
@@ -120,13 +151,66 @@ export class RelationshipRenderer {
 
       if (!result.points) return;
 
-      line.points(result.points);
-      line.getLayer()?.batchDraw();
+      const stroke = this.colors.relationship;
+      const spec = parseEndSpec(rel.type);
+
+      const line = new Konva.Line({
+        points: result.points,
+        stroke,
+        strokeWidth: 1.5,
+        lineCap: "round",
+        dash: isDashed(rel.type) ? [8, 6] : undefined,
+      });
+      group.add(line);
+
+      if (spec.source !== "none") {
+        const sourceDeco = createDecoration(
+          spec.source,
+          spec.sourceFilled,
+          result.ex1,
+          result.ey1,
+          -result.nx,
+          -result.ny,
+          stroke,
+        );
+        if (sourceDeco) group.add(sourceDeco);
+      }
+      if (spec.target !== "none") {
+        const targetDeco = createDecoration(
+          spec.target,
+          spec.targetFilled,
+          result.ex2,
+          result.ey2,
+          result.nx,
+          result.ny,
+          stroke,
+        );
+        if (targetDeco) group.add(targetDeco);
+      }
+
+      if (rel.label) {
+        const midX = (result.points[0] + result.points[2]) / 2;
+        const midY = (result.points[1] + result.points[3]) / 2;
+        const label = new Konva.Text({
+          x: midX - result.ny * 12,
+          y: midY + result.nx * 12,
+          text: rel.label,
+          fontSize: 10,
+          fill: stroke,
+          opacity: 0.9,
+          offsetY: 6,
+          align: "center",
+        });
+        label.offsetX(label.width() / 2);
+        group.add(label);
+      }
+
+      group.getLayer()?.batchDraw();
     });
   }
 
   clear(): void {
-    this.relLineNodes.clear();
+    this.relGroups.clear();
   }
 }
 

@@ -9,6 +9,7 @@ export type InteractionMode =
   | "delete"
   | "disconnect";
 export type ZoomCommand = { type: "in" | "out" | "reset"; ts: number };
+export type RenderStyle = "svg" | "rect" | "polygon";
 
 export interface UIState {
   interactionMode: InteractionMode;
@@ -17,6 +18,7 @@ export interface UIState {
   connectingFromId: string | null;
   selectedElementId: string | null;
   zoomCommand: ZoomCommand | null;
+  renderStyle: RenderStyle;
 }
 
 const initialState: UIState = {
@@ -26,6 +28,7 @@ const initialState: UIState = {
   connectingFromId: null,
   selectedElementId: null,
   zoomCommand: null,
+  renderStyle: "svg",
 };
 
 const uiSlice = createSlice({
@@ -54,6 +57,9 @@ const uiSlice = createSlice({
     sendZoomCommand(state, action: PayloadAction<"in" | "out" | "reset">) {
       state.zoomCommand = { type: action.payload, ts: Date.now() };
     },
+    setRenderStyle(state, action: PayloadAction<RenderStyle>) {
+      state.renderStyle = action.payload;
+    },
   },
 });
 
@@ -64,6 +70,7 @@ export const {
   setConnectingFromId,
   setSelectedElement,
   sendZoomCommand,
+  setRenderStyle,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

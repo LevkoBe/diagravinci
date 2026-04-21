@@ -48,6 +48,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         false,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render();
@@ -73,6 +75,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         false,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render();
@@ -98,6 +102,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         false,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render();
@@ -125,6 +131,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         false,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render();
@@ -149,6 +157,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         false,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render(parentPos);
@@ -174,6 +184,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         true,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render();
@@ -197,6 +209,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         false,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render();
@@ -222,6 +236,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         false,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render();
@@ -247,6 +263,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         false,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render();
@@ -274,6 +292,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         false,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render();
@@ -305,6 +325,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         false,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render();
@@ -334,6 +356,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         false,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render();
@@ -359,6 +383,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         false,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render();
@@ -386,6 +412,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         false,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render();
@@ -411,6 +439,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         false,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render();
@@ -435,6 +465,8 @@ describe("ElementRenderer", () => {
         defaultColors,
         false,
         false,
+        100,
+        1,
       );
 
       const result = renderer.render();
@@ -484,8 +516,8 @@ describe("ElementRenderer", () => {
       const clickEvent: Konva.KonvaEventObject<MouseEvent> = {
         type: "click",
         evt: new MouseEvent("click"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Konva.Shape,
+        currentTarget: null as unknown as Konva.Node,
         cancelBubble: false,
         pointerId: 0,
       };
@@ -505,8 +537,8 @@ describe("ElementRenderer", () => {
       const clickEvent: Konva.KonvaEventObject<MouseEvent> = {
         type: "click",
         evt: new MouseEvent("click"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Konva.Shape,
+        currentTarget: null as unknown as Konva.Node,
         cancelBubble: false,
         pointerId: 0,
       };
@@ -529,8 +561,8 @@ describe("ElementRenderer", () => {
       const mouseEnterEvent: Konva.KonvaEventObject<MouseEvent> = {
         type: "mouseenter",
         evt: new MouseEvent("mouseenter"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Konva.Shape,
+        currentTarget: null as unknown as Konva.Node,
         cancelBubble: false,
         pointerId: 0,
       };
@@ -550,8 +582,8 @@ describe("ElementRenderer", () => {
       const mouseLeaveEvent: Konva.KonvaEventObject<MouseEvent> = {
         type: "mouseleave",
         evt: new MouseEvent("mouseleave"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Konva.Shape,
+        currentTarget: null as unknown as Konva.Node,
         cancelBubble: false,
         pointerId: 0,
       };
@@ -574,8 +606,8 @@ describe("ElementRenderer", () => {
       const mouseEnterEvent: Konva.KonvaEventObject<MouseEvent> = {
         type: "mouseenter",
         evt: new MouseEvent("mouseenter"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Konva.Shape,
+        currentTarget: null as unknown as Konva.Node,
         cancelBubble: false,
         pointerId: 0,
       };
@@ -608,8 +640,8 @@ describe("ElementRenderer", () => {
       const dragMoveEvent: Konva.KonvaEventObject<DragEvent> = {
         type: "dragmove",
         evt: new DragEvent("dragmove"),
-        target: null as any,
-        currentTarget: null as any,
+        target: null as unknown as Konva.Shape,
+        currentTarget: null as unknown as Konva.Node,
         cancelBubble: false,
         pointerId: 0,
       };
@@ -650,8 +682,8 @@ describe("ElementRenderer", () => {
       const dragEndEvent: Konva.KonvaEventObject<DragEvent> = {
         type: "dragend",
         evt: new DragEvent("dragend"),
-        target: group as any,
-        currentTarget: null as any,
+        target: group as unknown as Konva.Shape,
+        currentTarget: null as unknown as Konva.Node,
         cancelBubble: false,
         pointerId: 0,
       };

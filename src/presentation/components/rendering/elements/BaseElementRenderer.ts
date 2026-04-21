@@ -2,9 +2,10 @@ import Konva from "konva";
 import type { Colors, ElementRenderResult } from "../types";
 import type { ViewState } from "../../../../domain/models/ViewState";
 import type { Element } from "../../../../domain/models/Element";
+import { VConfig } from "../../visualConfig";
 
-const RECURSIVE_COLOR = "#f97316";
-const CONNECTING_FROM_COLOR = "#3b82f6";
+const ec = VConfig.elements;
+const dc = VConfig.decorations;
 
 export interface IElementRenderer {
   render(parentPos?: { x: number; y: number }): ElementRenderResult | undefined;
@@ -20,6 +21,10 @@ export abstract class BaseElementRenderer implements IElementRenderer {
   protected readonly isNew: boolean;
   protected readonly isDimmed: boolean;
 
+  protected readonly size: number;
+
+  protected readonly zoom: number;
+
   constructor(
     element: Element,
     path: string,
@@ -29,6 +34,8 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     colors: Colors,
     isNew: boolean,
     isDimmed: boolean,
+    size: number,
+    zoom: number,
   ) {
     this.element = element;
     this.path = path;
@@ -38,6 +45,8 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     this.colors = colors;
     this.isNew = isNew;
     this.isDimmed = isDimmed;
+    this.size = size;
+    this.zoom = zoom;
   }
 
   abstract render(parentPos?: {
@@ -66,28 +75,45 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     return group;
   }
 
-  protected addLabel(group: Konva.Group, size: number): void {
+  protected addLabel(group: Konva.Group): void {
+    const labelText = this.element.id ?? this.element.type.toUpperCase();
+    const maxWidth = this.size * ec.LABEL_WIDTH_RATIO;
+
+    const targetScreenFont = Math.max(
+      ec.LABEL_MIN_FONT,
+      Math.min(ec.LABEL_MAX_FONT, this.size * ec.LABEL_SIZE_RATIO),
+    );
+    const fontSize = targetScreenFont / Math.max(this.zoom, 0.01);
+
     const hasVisibleChildren = Object.keys(this.viewState.positions).some(
       (p) =>
         p.startsWith(this.path + ".") &&
         p.split(".").length === this.path.split(".").length + 1,
     );
+    const labelY = hasVisibleChildren
+      ? this.size / 2 + ec.LABEL_BELOW_OFFSET
+      : -fontSize / 2;
 
-    const fontSize = 12;
-    group.add(
-      new Konva.Text({
-        text: this.element.id,
-        fontSize,
-        fill: this.colors.fgPrimary,
-        x: -size / 2,
-        y: hasVisibleChildren ? size / 2 + 4 : -fontSize / 2,
-        width: size,
-        align: "center",
-      }),
-    );
+    const textNode = new Konva.Text({
+      text: labelText,
+      fontSize,
+      fontFamily: ec.LABEL_FONT_FAMILY,
+      fill: this.colors.fgPrimary,
+      align: "center",
+      width: maxWidth,
+      x: -maxWidth / 2,
+      y: labelY,
+      ellipsis: true,
+      wrap: "none",
+      padding: 2,
+      opacity: this.isDimmed ? ec.DIM_OPACITY : 1,
+    });
+
+    group.add(textNode);
   }
 
-  protected addDecorationsIfNeeded(group: Konva.Group, size: number): void {
+  protected addDecorationsIfNeeded(group: Konva.Group): void {
+    const { size } = this;
     const pos = this.viewState.positions[this.path];
     if (!pos) return;
 
@@ -102,7 +128,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
         new Konva.Circle({
           radius: size / 2,
           fill: this.colors.bgSecondary,
-          opacity: 0.3,
+          opacity: ec.CONTAINER_BG_OPACITY,
         }),
       );
     }
@@ -110,10 +136,10 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     if (pos.isRecursive) {
       group.add(
         new Konva.Circle({
-          radius: size / 2 + 5,
-          stroke: RECURSIVE_COLOR,
-          strokeWidth: 2,
-          dash: [5, 4],
+          radius: size / 2 + dc.RECURSIVE_RING_OFFSET,
+          stroke: dc.RECURSIVE_COLOR,
+          strokeWidth: dc.RECURSIVE_RING_WIDTH,
+          dash: dc.RECURSIVE_RING_DASH as number[],
           listening: false,
         }),
       );
@@ -121,7 +147,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
         new Konva.Text({
           text: "↺",
           fontSize: Math.max(10, size * 0.28),
-          fill: RECURSIVE_COLOR,
+          fill: dc.RECURSIVE_COLOR,
           x: size * 0.18,
           y: -(size / 2 + 16),
           listening: false,
@@ -132,9 +158,13 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     if (this.connectingFromId === this.element.id) {
       group.add(
         new Konva.Circle({
-          radius: size / 2 + (pos.isRecursive ? 14 : 8),
-          stroke: CONNECTING_FROM_COLOR,
-          strokeWidth: 2.5,
+          radius:
+            size / 2 +
+            (pos.isRecursive
+              ? dc.CONNECTING_RING_OFFSET_RECURSIVE
+              : dc.CONNECTING_RING_OFFSET),
+          stroke: dc.CONNECTING_COLOR,
+          strokeWidth: dc.CONNECTING_RING_WIDTH,
           listening: false,
         }),
       );
@@ -146,23 +176,21 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     shapeNode: Konva.Shape,
     initialStrokeWidth: number,
   ): { onHoverIn: () => void; onHoverOut: () => void } {
-    const hoverScale = 1.15;
+    const isDimmed = this.isDimmed;
     const hoverStrokeWidth = initialStrokeWidth * 0.8;
-    const isDimmed = this.isDimmed === true;
 
     const onHoverIn = () => {
       if (isDimmed) return;
       new Konva.Tween({
         node: group,
-        duration: 0.15,
+        duration: ec.HOVER_DURATION,
         easing: Konva.Easings.EaseOut,
-        scaleX: hoverScale,
-        scaleY: hoverScale,
+        scaleX: ec.HOVER_SCALE_FACTOR,
+        scaleY: ec.HOVER_SCALE_FACTOR,
       }).play();
-
       new Konva.Tween({
         node: shapeNode,
-        duration: 0.15,
+        duration: ec.HOVER_DURATION,
         easing: Konva.Easings.EaseOut,
         strokeWidth: hoverStrokeWidth,
       }).play();
@@ -172,15 +200,14 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       if (isDimmed) return;
       new Konva.Tween({
         node: group,
-        duration: 0.15,
+        duration: ec.HOVER_DURATION,
         easing: Konva.Easings.EaseOut,
         scaleX: 1,
         scaleY: 1,
       }).play();
-
       new Konva.Tween({
         node: shapeNode,
-        duration: 0.15,
+        duration: ec.HOVER_DURATION,
         easing: Konva.Easings.EaseOut,
         strokeWidth: initialStrokeWidth,
       }).play();

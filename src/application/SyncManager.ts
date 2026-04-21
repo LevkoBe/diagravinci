@@ -104,6 +104,12 @@ export class SyncManager {
     this.syncFromCode(code);
   }
 
+  reLayout(): void {
+    const { model, viewState, canvasSize } = this.store.getState().diagram;
+    const newViewState = ViewStateMerger.merge(viewState, model, canvasSize);
+    this.store.dispatch(setViewState(newViewState));
+  }
+
   private notify(event: SyncEvent): void {
     this.listeners.forEach((cb) => cb(event));
   }

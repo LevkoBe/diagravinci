@@ -62,6 +62,9 @@ const diagramSlice = createSlice({
     removeRelationship: (state, action: PayloadAction<string>) => {
       delete state.model.relationships[action.payload];
     },
+    setViewMode: (state, action: PayloadAction<ViewState["viewMode"]>) => {
+      state.viewState.viewMode = action.payload;
+    },
   },
 });
 
@@ -75,6 +78,7 @@ export const {
   removeElement,
   upsertRelationship,
   removeRelationship,
+  setViewMode,
 } = diagramSlice.actions;
 
 export default diagramSlice.reducer;

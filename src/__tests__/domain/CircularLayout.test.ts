@@ -45,11 +45,11 @@ describe("CircularLayout", () => {
     expect(Math.abs(distB - distC)).toBeLessThan(0.1);
   });
 
-  it("should assign larger size to elements with more children", () => {
+  it("should assign same (max) size to all siblings regardless of child count", () => {
     const viewState = createViewState("a{b c d} e");
     const sizeA = viewState.positions["a"].size;
     const sizeE = viewState.positions["e"].size;
-    expect(sizeA).toBeGreaterThan(sizeE);
+    expect(sizeA).toBeCloseTo(sizeE);
   });
 
   it("should handle nested elements with proper positioning", () => {

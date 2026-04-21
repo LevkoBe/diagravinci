@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, createContext, useContext } from "react";
 import {
   MousePointer2,
   Pencil,
@@ -19,6 +19,14 @@ import {
   Minimize2,
   AlignJustify,
   SlidersHorizontal,
+  Circle,
+  TreePine,
+  ArrowRightLeft,
+  Workflow,
+  Spline,
+  Square,
+  Hexagon,
+  Menu,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { toggleTheme } from "../../application/store/themeSlice";
@@ -27,11 +35,14 @@ import {
   setActiveElementType,
   setActiveRelationshipType,
   sendZoomCommand,
+  setRenderStyle,
+  type RenderStyle,
 } from "../../application/store/uiSlice";
 import {
   setModel,
   setViewState,
   setCode,
+  setViewMode,
 } from "../../application/store/diagramSlice";
 import {
   openFilterModal,
@@ -41,7 +52,6 @@ import {
 import { FilterModal } from "./FilterModal";
 import { ELEMENT_SVGS } from "../ElementConfigs";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
-import { FOLD_PRESET_ID } from "../../domain/models/Selector";
 
 const ELEMENT_TYPES = [
   { type: "object" },
@@ -87,6 +97,8 @@ function Divider() {
   return <div className="w-px h-6 bg-fg-ternary/50 mx-1 shrink-0" />;
 }
 
+const PillOpenContext = createContext(false);
+
 function Pill({
   label,
   children,
@@ -94,12 +106,42 @@ function Pill({
   label: string;
   children: React.ReactNode;
 }) {
+  const forceOpen = useContext(PillOpenContext);
+  const [open, setOpen] = useState(false);
+  const isOpen = forceOpen || open;
+
+  const slide =
+    "grid overflow-hidden transition-[grid-template-columns] duration-500 ease-out";
+
   return (
-    <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-accent/50 bg-accent/6">
-      <span className="text-[9px] font-bold text-accent/70 tracking-widest uppercase mr-1 select-none">
-        {label}
-      </span>
-      {children}
+    <div
+      className={[
+        "flex items-center px-2.5 py-1.5 rounded-full border border-accent/50 bg-accent/6 justify-center",
+        forceOpen ? "justify-center" : "min-w-32",
+      ].join(" ")}
+      onMouseEnter={() => !forceOpen && setOpen(true)}
+      onMouseLeave={() => !forceOpen && setOpen(false)}
+    >
+      {/* Label — slides away as buttons appear */}
+      <div
+        className={`${slide} ${isOpen ? "grid-cols-[0fr]" : "grid-cols-[1fr]"}`}
+      >
+        <button
+          className="overflow-hidden min-w-0 text-[9px] font-bold text-accent/70 tracking-widest uppercase select-none whitespace-nowrap focus:outline-none"
+          onClick={() => !forceOpen && setOpen((v) => !v)}
+        >
+          {label}
+        </button>
+      </div>
+
+      {/* Buttons — slide in as label disappears */}
+      <div
+        className={`${slide} ${isOpen ? "grid-cols-[1fr]" : "grid-cols-[0fr]"}`}
+      >
+        <div className="overflow-hidden min-w-0 flex items-center gap-1 pl-1">
+          {children}
+        </div>
+      </div>
     </div>
   );
 }
@@ -146,11 +188,25 @@ type FoldMode = "expanded" | "collapsed" | "edited";
 
 export function ToolBar() {
   const dispatch = useAppDispatch();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   const isDark = useAppSelector((s) => s.theme.isDark);
-  const { interactionMode, activeElementType, activeRelationshipType } =
-    useAppSelector((s) => s.ui);
   const { model, viewState, code } = useAppSelector((s) => s.diagram);
-  const { presets, isModalOpen, foldLevel } = useAppSelector((s) => s.filter);
+  const viewMode = viewState.viewMode;
+  const {
+    interactionMode,
+    activeElementType,
+    activeRelationshipType,
+    renderStyle,
+  } = useAppSelector((s) => s.ui);
+  const {
+    presets,
+    isModalOpen,
+    foldLevel,
+    foldActive,
+    manuallyFolded,
+    manuallyUnfolded,
+  } = useAppSelector((s) => s.filter);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
 
@@ -160,16 +216,13 @@ export function ToolBar() {
 
   const is = (m: string) => interactionMode === m;
 
-  const foldPreset = presets.find((p) => p.id === FOLD_PRESET_ID);
-  const foldMode: FoldMode = !foldPreset?.isActive
+  const foldMode: FoldMode = !foldActive
     ? "expanded"
-    : foldPreset.selector.atoms.length > 1
+    : manuallyFolded.length > 0 || manuallyUnfolded.length > 0
       ? "edited"
       : "collapsed";
 
-  const activePresetCount = presets.filter(
-    (p) => p.isActive && p.id !== FOLD_PRESET_ID,
-  ).length;
+  const activePresetCount = presets.filter((p) => p.isActive).length;
 
   const handleSaveDiagram = () => {
     trigger(
@@ -211,6 +264,223 @@ export function ToolBar() {
     );
   };
 
+  const createBtns = ELEMENT_TYPES.map(({ type }) => (
+    <Btn
+      key={type}
+      title={`New ${type}`}
+      active={is("create") && activeElementType === type}
+      onClick={() => dispatch(setActiveElementType(type))}
+    >
+      <ElementIcon type={type} />
+    </Btn>
+  ));
+
+  const modeBtns = (
+    <>
+      <Btn
+        title="Select / Move"
+        active={is("select")}
+        onClick={() => dispatch(setInteractionMode("select"))}
+      >
+        <MousePointer2 size={15} />
+      </Btn>
+      <Btn
+        title="Create element"
+        active={is("create")}
+        onClick={() => dispatch(setInteractionMode("create"))}
+      >
+        <Pencil size={15} />
+      </Btn>
+      <Btn
+        title="Connect elements"
+        active={is("connect")}
+        onClick={() => dispatch(setInteractionMode("connect"))}
+      >
+        <Link2 size={15} />
+      </Btn>
+      <Btn
+        title="Delete element"
+        active={is("delete")}
+        danger={is("delete")}
+        onClick={() => dispatch(setInteractionMode("delete"))}
+      >
+        <Trash2 size={15} />
+      </Btn>
+      <Btn
+        title="Disconnect elements"
+        active={is("disconnect")}
+        danger={is("disconnect")}
+        onClick={() => dispatch(setInteractionMode("disconnect"))}
+      >
+        <Unlink size={15} />
+      </Btn>
+    </>
+  );
+
+  const relBtns = REL_TYPES.map(({ type, label, glyph }) => (
+    <Btn
+      key={type}
+      title={label}
+      active={activeRelationshipType === type}
+      onClick={() => dispatch(setActiveRelationshipType(type))}
+    >
+      <span className="text-[12px] font-bold font-mono leading-none select-none">
+        {glyph}
+      </span>
+    </Btn>
+  ));
+
+  const selectBtns = (
+    <>
+      <div className="relative">
+        <Btn
+          title="Filter presets"
+          active={isModalOpen || activePresetCount > 0}
+          onClick={() => dispatch(openFilterModal())}
+        >
+          <ListFilter size={15} />
+        </Btn>
+        {activePresetCount > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-3.5 h-3.5 rounded-full bg-accent text-bg-primary text-[9px] font-bold flex items-center justify-center pointer-events-none px-0.5">
+            {activePresetCount}
+          </span>
+        )}
+      </div>
+      <input
+        type="number"
+        min={1}
+        max={99}
+        value={foldLevel}
+        onChange={(e) => dispatch(setFoldLevel(Number(e.target.value)))}
+        title="Fold depth threshold"
+        className="w-9 text-center text-[11px] font-mono bg-bg-secondary/60 border border-fg-ternary/30 rounded px-1 py-0.5 focus:outline-none focus:border-accent/60 text-fg-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+      <Btn
+        title={FOLD_MODE_TITLES[foldMode]}
+        active={foldMode !== "expanded"}
+        danger={foldMode === "edited"}
+        onClick={() => dispatch(toggleFoldActive())}
+      >
+        {FOLD_MODE_ICONS[foldMode]}
+      </Btn>
+    </>
+  );
+
+  const projectBtns = (
+    <>
+      <Btn title="Save diagram (.json)" onClick={handleSaveDiagram}>
+        <Download size={15} />
+      </Btn>
+      <Btn title="Load diagram (.json)" onClick={handleLoadDiagram}>
+        <Upload size={15} />
+      </Btn>
+      <Btn title="New diagram" onClick={handleNew}>
+        <FilePlus size={15} />
+      </Btn>
+    </>
+  );
+
+  const codeBtns = (
+    <>
+      <Btn title="Save code (.dg)" onClick={handleSaveCode}>
+        <FileCode size={15} />
+      </Btn>
+      <Btn title="Load code (.dg)" onClick={handleLoadCode}>
+        <FileInput size={15} />
+      </Btn>
+    </>
+  );
+
+  const layoutBtns = (
+    <>
+      <Btn
+        title="Circular layout"
+        active={viewMode === "circular" || viewMode === "basic"}
+        onClick={() => {
+          dispatch(setViewMode("circular"));
+          import("../../application/store/store").then(({ syncManager }) =>
+            syncManager.reLayout(),
+          );
+        }}
+      >
+        <Circle size={15} />
+      </Btn>
+      <Btn
+        title="Hierarchical layout"
+        active={viewMode === "hierarchical"}
+        onClick={() => {
+          dispatch(setViewMode("hierarchical"));
+          import("../../application/store/store").then(({ syncManager }) =>
+            syncManager.reLayout(),
+          );
+        }}
+      >
+        <TreePine size={15} />
+      </Btn>
+      <Btn
+        title="Timeline layout"
+        active={viewMode === "timeline"}
+        onClick={() => {
+          dispatch(setViewMode("timeline"));
+          import("../../application/store/store").then(({ syncManager }) =>
+            syncManager.reLayout(),
+          );
+        }}
+      >
+        <ArrowRightLeft size={15} />
+      </Btn>
+      <Btn
+        title="Pipeline layout"
+        active={viewMode === "pipeline"}
+        onClick={() => {
+          dispatch(setViewMode("pipeline"));
+          import("../../application/store/store").then(({ syncManager }) =>
+            syncManager.reLayout(),
+          );
+        }}
+      >
+        <Workflow size={15} />
+      </Btn>
+    </>
+  );
+
+  const styleBtns = (
+    [
+      { value: "svg", title: "SVG paths", icon: <Spline size={15} /> },
+      { value: "rect", title: "Rectangles", icon: <Square size={15} /> },
+      { value: "polygon", title: "Polygons", icon: <Hexagon size={15} /> },
+    ] as { value: RenderStyle; title: string; icon: React.ReactNode }[]
+  ).map(({ value, title, icon }) => (
+    <Btn
+      key={value}
+      title={title}
+      active={renderStyle === value}
+      onClick={() => dispatch(setRenderStyle(value))}
+    >
+      {icon}
+    </Btn>
+  ));
+
+  const viewBtns = (
+    <>
+      <Btn title="Zoom in" onClick={() => dispatch(sendZoomCommand("in"))}>
+        <ZoomIn size={15} />
+      </Btn>
+      <Btn title="Zoom out" onClick={() => dispatch(sendZoomCommand("out"))}>
+        <ZoomOut size={15} />
+      </Btn>
+      <Btn
+        title="Reset view"
+        onClick={() => dispatch(sendZoomCommand("reset"))}
+      >
+        <Maximize2 size={15} />
+      </Btn>
+      <Btn title="Toggle theme" onClick={() => dispatch(toggleTheme())}>
+        {isDark ? <Sun size={15} /> : <Moon size={15} />}
+      </Btn>
+    </>
+  );
+
   return (
     <>
       <input
@@ -228,156 +498,56 @@ export function ToolBar() {
         onChange={handleCodeFile}
       />
       {isModalOpen && <FilterModal />}
-      <div className="flex items-center gap-2 px-4 py-2.5 flex-wrap border-b-2 border-fg-ternary/60">
-        {/* Create */}
-        <Pill label="Create">
-          {ELEMENT_TYPES.map(({ type }) => (
-            <Btn
-              key={type}
-              title={`New ${type}`}
-              active={is("create") && activeElementType === type}
-              onClick={() => dispatch(setActiveElementType(type))}
-            >
-              <ElementIcon type={type} />
-            </Btn>
-          ))}
-        </Pill>
 
-        <Divider />
+      <div className="border-b-2 border-fg-ternary/60">
+        {/* Mobile header — visible only on small screens */}
+        <div className="flex sm:hidden items-center px-4 py-2">
+          <Btn
+            title="Toggle menu"
+            active={mobileOpen}
+            onClick={() => setMobileOpen((v) => !v)}
+          >
+            <Menu size={15} />
+          </Btn>
+        </div>
 
-        {/* Interaction mode */}
-        <Pill label="Mode">
-          <Btn
-            title="Select / Move"
-            active={is("select")}
-            onClick={() => dispatch(setInteractionMode("select"))}
-          >
-            <MousePointer2 size={15} />
-          </Btn>
-          <Btn
-            title="Create element"
-            active={is("create")}
-            onClick={() => dispatch(setInteractionMode("create"))}
-          >
-            <Pencil size={15} />
-          </Btn>
-          <Btn
-            title="Connect elements"
-            active={is("connect")}
-            onClick={() => dispatch(setInteractionMode("connect"))}
-          >
-            <Link2 size={15} />
-          </Btn>
-          <Btn
-            title="Delete element"
-            active={is("delete")}
-            danger={is("delete")}
-            onClick={() => dispatch(setInteractionMode("delete"))}
-          >
-            <Trash2 size={15} />
-          </Btn>
-          <Btn
-            title="Disconnect elements"
-            active={is("disconnect")}
-            danger={is("disconnect")}
-            onClick={() => dispatch(setInteractionMode("disconnect"))}
-          >
-            <Unlink size={15} />
-          </Btn>
-        </Pill>
-        <Divider />
-        {/* Relationship types */}
-        <Pill label="Rel">
-          {REL_TYPES.map(({ type, label, glyph }) => (
-            <Btn
-              key={type}
-              title={label}
-              active={activeRelationshipType === type}
-              onClick={() => dispatch(setActiveRelationshipType(type))}
-            >
-              <span className="text-[12px] font-bold font-mono leading-none select-none">
-                {glyph}
-              </span>
-            </Btn>
-          ))}
-        </Pill>
-        <Divider />
-        {/* Filter & Fold */}
-        <Pill label="Select">
-          <div className="relative">
-            <Btn
-              title="Filter presets"
-              active={isModalOpen || activePresetCount > 0}
-              onClick={() => dispatch(openFilterModal())}
-            >
-              <ListFilter size={15} />
-            </Btn>
-            {activePresetCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-3.5 h-3.5 rounded-full bg-accent text-bg-primary text-[9px] font-bold flex items-center justify-center pointer-events-none px-0.5">
-                {activePresetCount}
-              </span>
-            )}
-          </div>
-          <input
-            type="number"
-            min={1}
-            max={99}
-            value={foldLevel}
-            onChange={(e) => dispatch(setFoldLevel(Number(e.target.value)))}
-            title="Fold depth threshold"
-            className="w-9 text-center text-[11px] font-mono bg-bg-secondary/60 border border-fg-ternary/30 rounded px-1 py-0.5 focus:outline-none focus:border-accent/60 text-fg-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-          />
-          <Btn
-            title={FOLD_MODE_TITLES[foldMode]}
-            active={foldMode !== "expanded"}
-            danger={foldMode === "edited"}
-            onClick={() => dispatch(toggleFoldActive())}
-          >
-            {FOLD_MODE_ICONS[foldMode]}
-          </Btn>
-        </Pill>
-        <div className="flex-1" />
-        <Pill label="Project">
-          <Btn title="Save diagram (.json)" onClick={handleSaveDiagram}>
-            <Download size={15} />
-          </Btn>
-          <Btn title="Load diagram (.json)" onClick={handleLoadDiagram}>
-            <Upload size={15} />
-          </Btn>
-          <Btn title="New diagram" onClick={handleNew}>
-            <FilePlus size={15} />
-          </Btn>
-        </Pill>
-        <Divider />
-        <Pill label="Code">
-          <Btn title="Save code (.dg)" onClick={handleSaveCode}>
-            <FileCode size={15} />
-          </Btn>
-          <Btn title="Load code (.dg)" onClick={handleLoadCode}>
-            <FileInput size={15} />
-          </Btn>
-        </Pill>
-        <Divider />
-        <Pill label="View">
-          <Btn title="Zoom in" onClick={() => dispatch(sendZoomCommand("in"))}>
-            <ZoomIn size={15} />
-          </Btn>
-          <Btn
-            title="Zoom out"
-            onClick={() => dispatch(sendZoomCommand("out"))}
-          >
-            <ZoomOut size={15} />
-          </Btn>
-          <Btn
-            title="Reset view"
-            onClick={() => dispatch(sendZoomCommand("reset"))}
-          >
-            <Maximize2 size={15} />
-          </Btn>
-          <Btn title="Toggle theme" onClick={() => dispatch(toggleTheme())}>
-            {isDark ? <Sun size={15} /> : <Moon size={15} />}
-          </Btn>
-        </Pill>
+        {/* Desktop toolbar — hidden on small screens */}
+        <div className="hidden w-full sm:flex items-center justify-around gap-2 px-4 py-2.5 flex-wrap">
+          <Pill label="Create">{createBtns}</Pill>
+          <Divider />
+          <Pill label="Mode">{modeBtns}</Pill>
+          <Divider />
+          <Pill label="Rel">{relBtns}</Pill>
+          <Divider />
+          <Pill label="Select">{selectBtns}</Pill>
+          <Divider />
+          <Pill label="Project">{projectBtns}</Pill>
+          <Divider />
+          <Pill label="Code">{codeBtns}</Pill>
+          <Divider />
+          <Pill label="Layout">{layoutBtns}</Pill>
+          <Divider />
+          <Pill label="Style">{styleBtns}</Pill>
+          <Divider />
+          <Pill label="View">{viewBtns}</Pill>
+        </div>
+
+        {/* Mobile panel — all pills forced open, stacked in a wrap grid */}
+        {mobileOpen && (
+          <PillOpenContext.Provider value={true}>
+            <div className="sm:hidden flex flex-wrap justify-around gap-2 px-4 py-3">
+              <Pill label="Create">{createBtns}</Pill>
+              <Pill label="Mode">{modeBtns}</Pill>
+              <Pill label="Rel">{relBtns}</Pill>
+              <Pill label="Select">{selectBtns}</Pill>
+              <Pill label="Project">{projectBtns}</Pill>
+              <Pill label="Code">{codeBtns}</Pill>
+              <Pill label="Layout">{layoutBtns}</Pill>
+              <Pill label="Style">{styleBtns}</Pill>
+              <Pill label="View">{viewBtns}</Pill>
+            </div>
+          </PillOpenContext.Provider>
+        )}
       </div>
     </>
   );
