@@ -10,7 +10,6 @@ import {
 } from "../../application/store/diagramSlice";
 import {
   setConnectingFromId,
-  setInteractionMode,
   setSelectedElement,
   setSelectedElements,
   toggleSelectedElement,
@@ -487,7 +486,7 @@ export function VisualCanvas() {
             oldParentPath,
             newParentPath,
           );
-          syncManager.syncFromVis(updatedModel);
+          syncManager.syncFromVis(updatedModel, true);
         },
         onClick: (elementId, shiftKey, ctrlKey) => {
           const mode = modeRef.current;
@@ -549,7 +548,6 @@ export function VisualCanvas() {
                 },
               });
               dispatch(setConnectingFromId(null));
-              dispatch(setInteractionMode("select"));
             }
           } else if (mode === "disconnect") {
             const sourceId = connectingFromRef.current;
@@ -571,7 +569,6 @@ export function VisualCanvas() {
                 relationships: newRelationships,
               });
               dispatch(setConnectingFromId(null));
-              dispatch(setInteractionMode("select"));
             }
           } else {
             if (shiftKey) {
@@ -757,7 +754,7 @@ function createNewElement(
     newRoot = { ...newRoot, childIds: [...newRoot.childIds, newId] };
   }
 
-  syncManager.syncFromVis({ ...model, root: newRoot, elements: newElements });
+  syncManager.syncFromVis({ ...model, root: newRoot, elements: newElements }, true);
   if (worldPos)
     dispatch(updateElementPositionInView({ id: newId, position: worldPos }));
   dispatch(setSelectedElement(newId));

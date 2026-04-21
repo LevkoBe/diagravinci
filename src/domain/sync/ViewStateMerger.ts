@@ -7,9 +7,10 @@ export class ViewStateMerger {
     current: ViewState,
     newModel: DiagramModel,
     canvasSize: { width: number; height: number },
+    preservePositions = false,
   ): ViewState {
     const layout = getLayout(current.viewMode);
-    const viewState = layout.apply(newModel, canvasSize, current);
+    const viewState = layout.apply(newModel, canvasSize, current, preservePositions);
 
     return {
       ...viewState,

@@ -38,6 +38,7 @@ import {
   RotateCcw,
   StepForward,
   Table2,
+  HelpCircle,
 } from "lucide-react";
 import { AppConfig } from "../../config/appConfig";
 import {
@@ -49,6 +50,7 @@ import {
   useWindowContext,
 } from "@levkobe/c7one";
 import { FiltersPanel } from "./FilterModal";
+import { HelpModal } from "./HelpModal";
 import {
   parchmentTheme,
   diagraVinciDark,
@@ -289,6 +291,7 @@ export function ToolBar() {
   const isDark = detectIsDark(colors["--color-bg-base"]);
   const { tree, moveDivider } = useWindowContext();
   const [selectorModalOpen, setSelectorModalOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const toolbarInnerRef = useRef<HTMLDivElement>(null);
   const [toolbarWidth, setToolbarWidth] = useState(9999);
@@ -945,6 +948,9 @@ export function ToolBar() {
       <Btn title="Toggle theme" onClick={toggleTheme}>
         {isDark ? <Sun size={15} /> : <Moon size={15} />}
       </Btn>
+      <Btn title="Help / quick reference" onClick={() => setHelpOpen(true)}>
+        <HelpCircle size={15} />
+      </Btn>
       <SettingsModalButton
         expose={[
           "mode",
@@ -1270,6 +1276,7 @@ export function ToolBar() {
         )}
       </div>
 
+      <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
       <Modal open={selectorModalOpen} onOpenChange={setSelectorModalOpen}>
         <Modal.Content className="w-130 h-160 p-0 overflow-hidden">
           <FiltersPanel />

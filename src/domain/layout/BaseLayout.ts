@@ -139,6 +139,7 @@ export abstract class BaseLayout implements LayoutAlgorithm {
     model: DiagramModel,
     canvasSize: { width: number; height: number },
     previousViewState?: ViewState,
+    preservePositions = false,
   ): ViewState {
     const positions: ViewState["positions"] = {};
     const baseState = {
@@ -181,6 +182,13 @@ export abstract class BaseLayout implements LayoutAlgorithm {
         new AncestryTracker(),
       ),
     );
+
+    if (preservePositions && previousViewState) {
+      for (const path of Object.keys(positions)) {
+        const prev = previousViewState.positions[path];
+        if (prev) positions[path].position = prev.position;
+      }
+    }
 
     return {
       positions,
