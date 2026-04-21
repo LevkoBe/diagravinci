@@ -585,9 +585,17 @@ export function ToolBar() {
 
   const handleExportSubset = () => {
     const hiddenSet = new Set(viewState.hiddenPaths);
+    const foldedSet = new Set(viewState.foldedPaths);
+    const isDescendantOfFolded = (path: string): boolean => {
+      const parts = path.split(".");
+      for (let i = 1; i < parts.length; i++) {
+        if (foldedSet.has(parts.slice(0, i).join("."))) return true;
+      }
+      return false;
+    };
     const visibleIds = new Set(
       Object.keys(viewState.positions)
-        .filter((p) => !hiddenSet.has(p))
+        .filter((p) => !hiddenSet.has(p) && !isDescendantOfFolded(p))
         .map((p) => p.split(".").at(-1)!),
     );
     const filteredElements: typeof model.elements = {};

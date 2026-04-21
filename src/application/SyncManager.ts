@@ -3,6 +3,7 @@ import type { ViewState } from "../domain/models/ViewState";
 import { ModelDiffer } from "../domain/sync/ModelDiffer";
 import { ViewStateMerger } from "../domain/sync/ViewStateMerger";
 import { setCode, setModel, setViewState } from "./store/diagramSlice";
+import { syncPresetsFromCode } from "./store/filterSlice";
 import type { AppStore } from "./store/store";
 
 export interface ICodeParser {
@@ -67,6 +68,15 @@ export class SyncManager {
         newModel,
         canvasSize,
       );
+
+      if (presetsChanged) {
+        this.store.dispatch(
+          syncPresetsFromCode({
+            modelPresets: newModel.filterPresets ?? [],
+            prevModelPresetIds: (currentModel.filterPresets ?? []).map((p) => p.id),
+          }),
+        );
+      }
 
       this.store.dispatch(setModel(newModel));
       this.store.dispatch(setViewState(newViewState));

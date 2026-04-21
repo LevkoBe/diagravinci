@@ -1,9 +1,9 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type {
-  FilterMode,
-  FilterPreset,
+import type { FilterMode, FilterPreset } from "../../domain/models/Selector";
+import {
+  SELECTION_PRESET_ID,
+  emptySelector,
 } from "../../domain/models/Selector";
-import { SELECTION_PRESET_ID, emptySelector } from "../../domain/models/Selector";
 
 function escapeForRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -49,7 +49,10 @@ function swapPresets(state: FilterState, id: string, dir: 1 | -1): void {
   if (idx < 0) return;
   const target = idx + dir;
   if (target < 0 || target >= state.presets.length) return;
-  [state.presets[idx], state.presets[target]] = [state.presets[target], state.presets[idx]];
+  [state.presets[idx], state.presets[target]] = [
+    state.presets[target],
+    state.presets[idx],
+  ];
   state._rev++;
 }
 
@@ -203,6 +206,40 @@ const filterSlice = createSlice({
       state.manuallyUnfolded = payload.manuallyUnfolded;
       state._rev++;
     },
+
+    syncPresetsFromCode(
+      state,
+      {
+        payload: { modelPresets, prevModelPresetIds },
+      }: PayloadAction<{
+        modelPresets: FilterPreset[];
+        prevModelPresetIds: string[];
+      }>,
+    ) {
+      const prevCodeIds = new Set(prevModelPresetIds);
+      const newCodeIds = new Set(modelPresets.map((p) => p.id));
+      const localActives = new Map(
+        state.presets.map((p) => [p.id, p.isActive]),
+      );
+
+      state.presets = state.presets.filter(
+        (p) => !prevCodeIds.has(p.id) || newCodeIds.has(p.id),
+      );
+
+      for (const modelPreset of modelPresets) {
+        const idx = state.presets.findIndex((p) => p.id === modelPreset.id);
+        const isActive = localActives.has(modelPreset.id)
+          ? localActives.get(modelPreset.id)!
+          : true;
+        if (idx !== -1) {
+          state.presets[idx] = { ...modelPreset, isActive };
+        } else {
+          state.presets.push({ ...modelPreset, isActive: true });
+        }
+      }
+
+      state._rev++;
+    },
   },
 });
 
@@ -224,6 +261,7 @@ export const {
   syncPresetsFromTab,
   restoreFilterState,
   setSelectionPreset,
+  syncPresetsFromCode,
 } = filterSlice.actions;
 
 export default filterSlice.reducer;

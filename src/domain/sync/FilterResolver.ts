@@ -56,12 +56,7 @@ export class FilterResolver {
     const coloredMap = new Map<string, string>();
     const globalAtoms = model.atoms ?? [];
 
-    const filterStateIds = new Set(filterState.presets.map((p) => p.id));
-
-    const modelPresets = (model.filterPresets ?? [])
-      .filter((p) => !filterStateIds.has(p.id))
-      .map((p) => ({ ...p, isActive: true }));
-    const allPresets = [...modelPresets, ...filterState.presets];
+    const allPresets = filterState.presets;
 
     for (const preset of allPresets) {
       if (!preset.isActive) continue;
