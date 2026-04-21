@@ -83,6 +83,7 @@ A few things that no other diagramming tool does together:
 - **SVG path** — smooth custom shapes per element type
 - **Rectangle** — axis-aligned boxes for compact views
 - **Polygon** — geometric multi-point shapes
+- **Class diagram mode** — toggleable overlay that renders elements as UML-style class boxes; attributes and methods are inferred from nested elements and relationships
 
 ### Canvas Controls
 
@@ -95,6 +96,7 @@ A few things that no other diagramming tool does together:
 
 ### Filtering System
 
+- **In-code selector directives** — define filter presets directly inside diagram code using `!atom` and `!selector` directives; presets defined in code are loaded automatically when the diagram is parsed
 - **Filter presets** — named configurations, each with its own selector rules and visual mode
 - **Color mode** — highlight matching elements with a chosen color
 - **Dim mode** — reduce opacity of non-matching elements to 0.18
@@ -147,6 +149,7 @@ A few things that no other diagramming tool does together:
 - **round_robin routing** — distribute tokens across multiple outgoing relationships in rotation
 - **choice branching** — tokens fork at `<>` choice elements and follow all matching paths
 - **function cloning** — tokens entering `()` elements trigger cloned sub-processes
+- **Special execution elements** — named `()` functions with built-in behaviour: `multiplier_N` (fan-out to N copies), `duplicator` (copy token to all outgoing paths), `deduplicator` (suppress duplicate tokens), `connector` / `disconnector` (add or remove relationships at runtime), `throttler_N` (pass every Nth token)
 - **Tick controls** — play, pause, step, and reset execution; configurable tick interval
 - **Execution color** — active tokens highlighted with a distinct color across the canvas
 
@@ -208,6 +211,10 @@ A few things that no other diagramming tool does together:
 - **Responsive toolbar** — collapses to a mobile menu on small screens
 - **Zoom-adaptive rendering** — very small elements are simplified at low zoom levels
 - **Dynamic render props** — label font size, stroke width, and icon size all scale with zoom
+
+### Quick Reference
+
+- **Help modal** — `?` button in the View toolbar group opens a built-in quick-reference card covering element types, relationship syntax, toolbar groups, keyboard shortcuts, and tips
 
 ### Keyboard Shortcuts
 
@@ -278,6 +285,39 @@ running[] --stop--> idle[]
 valid >success> process()
 invalid >error> reject()
 ```
+
+### Dot-notation path references
+
+Refer to a nested element by its full path using dots. Useful in relationships and cross-references without repeating the full nesting structure:
+
+```
+system{
+  frontend{ pages{} }
+  backend{ api() }
+}
+
+system.frontend.pages --> system.backend.api
+```
+
+Relative references (starting with `.`) are resolved from the current nesting level:
+
+```
+system{
+  .frontend.pages --> .backend.api
+}
+```
+
+### In-code selector directives
+
+Define filter presets directly in diagram code using `!` directives. They are parsed and loaded automatically:
+
+```
+!atom id=api_layer name=api
+!selector name=API mode=color color=#4488ff combiner=api_layer
+```
+
+`!atom` defines a reusable selector atom (matched by name, path, or level).
+`!selector` assembles atoms into a named, immediately-active filter preset.
 
 ### Comments
 
@@ -364,7 +404,7 @@ npm run test           # run all tests
 npm run test:coverage  # run with v8 coverage report
 ```
 
-26 test suites, 600+ tests covering domain models, layout algorithms, parser/lexer, filter resolution, execution engine, Redux slices, and React components.
+34 test suites, 836 tests covering domain models, layout algorithms, parser/lexer, filter resolution, execution engine, Redux slices, and React components.
 
 Tests run automatically on every pull request via GitHub Actions before merge.
 
