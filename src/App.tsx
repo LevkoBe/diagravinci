@@ -5,11 +5,13 @@ import { PropertiesPanel } from "./presentation/components/PropertiesPanel";
 import { ToolBar } from "./presentation/components/ToolBar";
 import AIPanel from "./presentation/components/AIPanel";
 import { TemplatePanel } from "./presentation/components/TemplatePanel";
+import { loadSplitterWidth, saveSplitterWidth } from "./application/store/persistence";
 
 export default function App() {
-  const [leftWidth, setLeftWidth] = useState(340);
+  const [leftWidth, setLeftWidth] = useState(() => loadSplitterWidth(340));
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
+  const leftWidthRef = useRef(leftWidth);
 
   const startDrag = () => {
     isDragging.current = true;
@@ -17,6 +19,9 @@ export default function App() {
   };
 
   const stopDrag = () => {
+    if (isDragging.current) {
+      saveSplitterWidth(leftWidthRef.current);
+    }
     isDragging.current = false;
     document.body.style.cursor = "default";
   };
@@ -29,7 +34,10 @@ export default function App() {
 
     const min = 260;
     const max = bounds.width - 400;
-    if (newWidth > min && newWidth < max) setLeftWidth(newWidth);
+    if (newWidth > min && newWidth < max) {
+      leftWidthRef.current = newWidth;
+      setLeftWidth(newWidth);
+    }
   };
 
   return (

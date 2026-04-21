@@ -477,9 +477,14 @@ function shiftCombiner(
       if (num > deletedNum && num <= oldTotal) return String(num - 1);
       return n;
     })
+    .replace(/\bnot\s+0\b/g, "")
     .replace(/\b0\b/g, "")
+    .replace(/\(\s*\)/g, "")
+    .replace(/\bnot\s+(and|or|xor)\b/gi, "$1")
+    .replace(/\b(and|or|xor)\s+not\s*$/gi, "")
     .replace(/\b(and|or|xor)\s+(and|or|xor)\b/gi, "$2")
     .replace(/^\s*(and|or|xor)\s*/i, "")
     .replace(/\s*(and|or|xor)\s*$/i, "")
+    .replace(/^\s*not\s*$/i, "")
     .trim();
 }

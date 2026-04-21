@@ -3,9 +3,12 @@ import type { Colors, ElementRenderResult } from "../types";
 import type { ViewState } from "../../../../domain/models/ViewState";
 import type { Element } from "../../../../domain/models/Element";
 import { VConfig } from "../../visualConfig";
+import { getLucideIcon, renderLucideIconOnGroup } from "./lucideIconMap";
 
 const ec = VConfig.elements;
 const dc = VConfig.decorations;
+
+const ANONYMOUS_PREFIX = "anon_";
 
 export interface IElementRenderer {
   render(parentPos?: { x: number; y: number }): ElementRenderResult | undefined;
@@ -76,7 +79,29 @@ export abstract class BaseElementRenderer implements IElementRenderer {
   }
 
   protected addLabel(group: Konva.Group): void {
-    const labelText = this.element.id ?? this.element.type.toUpperCase();
+    const rawId = this.element.id;
+
+    if (rawId?.startsWith(ANONYMOUS_PREFIX)) return;
+
+    const iconMatch = rawId?.match(/^_(.+)_$/);
+    if (iconMatch) {
+      const iconName = iconMatch[1].toLowerCase();
+      const iconNodes = getLucideIcon(iconName);
+      if (iconNodes) {
+        renderLucideIconOnGroup(
+          group,
+          iconNodes,
+          this.size,
+          this.colors.fgPrimary,
+          this.isDimmed ? ec.DIM_OPACITY : 1,
+        );
+        return;
+      }
+    }
+
+    const labelText = iconMatch
+      ? iconMatch[1]
+      : (rawId ?? this.element.type.toUpperCase());
     const maxWidth = this.size * ec.LABEL_WIDTH_RATIO;
 
     const targetScreenFont = Math.max(
@@ -117,21 +142,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     const pos = this.viewState.positions[this.path];
     if (!pos) return;
 
-    const hasVisibleChildren = Object.keys(this.viewState.positions).some(
-      (p) =>
-        p.startsWith(this.path + ".") &&
-        p.split(".").length === this.path.split(".").length + 1,
-    );
-
-    if (hasVisibleChildren) {
-      group.add(
-        new Konva.Circle({
-          radius: size / 2,
-          fill: this.colors.bgSecondary,
-          opacity: ec.CONTAINER_BG_OPACITY,
-        }),
-      );
-    }
+    this.addContainerBackground(group);
 
     if (pos.isRecursive) {
       group.add(
@@ -169,6 +180,11 @@ export abstract class BaseElementRenderer implements IElementRenderer {
         }),
       );
     }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  protected addContainerBackground(_group: Konva.Group): void {
+    // Non-SVG renderers omit the container background circle entirely
   }
 
   protected createHoverCallbacks(
