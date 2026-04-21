@@ -2,7 +2,7 @@
 
 **App:** https://levkobe.github.io/diagravinci/
 
-**Feedback form:** _(link TBD)_
+**Feedback form:** https://forms.gle/gXc7GmhQnDBsrv867
 
 **Time to complete:** ~15–20 minutes
 
