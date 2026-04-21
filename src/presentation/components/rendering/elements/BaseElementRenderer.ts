@@ -86,8 +86,6 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       x: pos.position.x,
       y: pos.position.y,
       draggable: true,
-      scaleX: this.isNew ? 0 : 1,
-      scaleY: this.isNew ? 0 : 1,
     });
 
     return group;

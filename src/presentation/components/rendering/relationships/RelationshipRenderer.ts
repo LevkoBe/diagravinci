@@ -138,22 +138,11 @@ export class RelationshipRenderer {
       const targetPos = this.viewState.positions[targetPath];
       if (!sourcePos || !targetPos) return;
 
-      if (this.viewportRect) {
-        const vp = this.viewportRect;
-        const srcOut = isPositionOutsideViewport(
-          sourcePos.position.x,
-          sourcePos.position.y,
-          sourcePos.size,
-          vp,
-        );
-        const tgtOut = isPositionOutsideViewport(
-          targetPos.position.x,
-          targetPos.position.y,
-          targetPos.size,
-          vp,
-        );
-        if (srcOut && tgtOut) return;
-      }
+      if (
+        this.viewportRect &&
+        isPositionOutsideViewport(sourcePos.position.x, sourcePos.position.y, sourcePos.size, this.viewportRect) &&
+        isPositionOutsideViewport(targetPos.position.x, targetPos.position.y, targetPos.size, this.viewportRect)
+      ) return;
 
       const isDimmed =
         this.dimmedSet.has(sourcePath) || this.dimmedSet.has(targetPath);

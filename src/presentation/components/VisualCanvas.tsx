@@ -52,11 +52,16 @@ export function VisualCanvas() {
   const elementLayerRef = useRef<Konva.Layer | null>(null);
   const selectionLayerRef = useRef<Konva.Layer | null>(null);
   const prevPathsRef = useRef<Set<string>>(new Set());
-  const prevElementPositionsRef = useRef<Record<string, { x: number; y: number }>>({});
-  const prevClonePositionsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const prevElementPositionsRef = useRef<
+    Record<string, { x: number; y: number }>
+  >({});
+  const prevClonePositionsRef = useRef<
+    Record<string, { x: number; y: number }>
+  >({});
   const justDraggedPathsRef = useRef<Set<string>>(new Set());
   const geometryCacheRef = useRef<GeometryCache>(new Map());
   const [zoom, setZoom] = useState(1);
+  const [stagePan, setStagePan] = useState(0);
 
   const dragSelectRef = useRef<{
     startScreen: { x: number; y: number };
@@ -87,7 +92,9 @@ export function VisualCanvas() {
   );
 
   const canvasColors = useMemo(() => {
-    const stateTokens = detectIsDark(colors["--color-bg-base"]) ? darkStateTokens : lightStateTokens;
+    const stateTokens = detectIsDark(colors["--color-bg-base"])
+      ? darkStateTokens
+      : lightStateTokens;
     return {
       accent: colors["--color-accent"],
       fgPrimary: colors["--color-fg-primary"],
@@ -193,6 +200,7 @@ export function VisualCanvas() {
     stage.on("dragend", () => {
       stage.container().style.cursor =
         modeRef.current === "select" ? "default" : "crosshair";
+      setStagePan((n) => n + 1);
     });
 
     stage.on("wheel", (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -229,6 +237,7 @@ export function VisualCanvas() {
           y: stage.y() - e.evt.deltaY,
         });
         stage.batchDraw();
+        setStagePan((n) => n + 1);
       }
     });
 
@@ -621,10 +630,14 @@ export function VisualCanvas() {
 
     renderer.render(relationshipLayerRef.current, elementLayerRef.current);
 
+    const groupMap = renderer.getGroupMap();
+
     if (cloneIds.size > 0) {
-      const groupMap = renderer.getGroupMap();
       const prevClonePositions = prevClonePositionsRef.current;
-      const animDuration = Math.min((tickIntervalMs / 1000) * VConfig.rendering.ANIM_TICK_RATIO, VConfig.rendering.ANIM_MAX_DURATION);
+      const animDuration = Math.min(
+        (tickIntervalMs / 1000) * VConfig.rendering.ANIM_TICK_RATIO,
+        VConfig.rendering.ANIM_MAX_DURATION,
+      );
 
       for (const [path, posEntry] of Object.entries(viewState.positions)) {
         const elementId = path.split(".").at(-1)!;
@@ -635,7 +648,7 @@ export function VisualCanvas() {
         if (!oldPos) {
           const spawnPos = spawnOriginsRef.current.get(elementId);
           if (spawnPos) {
-            const group = groupMap.get(path);
+            const group = groupMap.get(path); // groupMap hoisted above
             if (group) {
               const newPos = posEntry.position;
               group.x(spawnPos.x);
@@ -690,6 +703,7 @@ export function VisualCanvas() {
     connectingFromId,
     canvasColors,
     zoom,
+    stagePan,
     renderStyle,
     interactionMode,
     dispatch,

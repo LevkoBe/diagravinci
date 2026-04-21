@@ -158,13 +158,14 @@ export class DiagramLayerRenderer {
   private isOffScreen(path: string): boolean {
     const pos = this.viewState.positions[path];
     if (!pos) return false;
+    const { x, y } = pos.position;
+    const half = pos.size / 2;
     const vp = this.viewportRect;
-    const half = (pos.size ?? 0) / 2;
     return (
-      pos.position.x + half < vp.x ||
-      pos.position.x - half > vp.x + vp.w ||
-      pos.position.y + half < vp.y ||
-      pos.position.y - half > vp.y + vp.h
+      x + half < vp.x ||
+      x - half > vp.x + vp.w ||
+      y + half < vp.y ||
+      y - half > vp.y + vp.h
     );
   }
 

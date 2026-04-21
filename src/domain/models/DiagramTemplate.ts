@@ -231,7 +231,8 @@ export const EDGE_CASE_TEMPLATES: DiagramTemplate[] = [
   {
     id: "edge-deep-nesting",
     name: "Deep Nesting",
-    description: "Six levels of nested elements — tests hierarchical layout depth",
+    description:
+      "Six levels of nested elements — tests hierarchical layout depth",
     tags: ["edge-case", "nesting", "hierarchy"],
     preferredView: "hierarchical",
     code: `Root{
@@ -278,7 +279,8 @@ Zeta *-- Alpha`,
   {
     id: "edge-all-element-types",
     name: "All Element Types",
-    description: "One of each element type: object, collection, function, state, choice, flow",
+    description:
+      "One of each element type: object, collection, function, state, choice, flow",
     tags: ["edge-case", "element-types", "syntax"],
     preferredView: "circular",
     code: `obj{}
@@ -298,7 +300,8 @@ fl --> obj`,
   {
     id: "edge-cycle",
     name: "Cyclic Dependencies",
-    description: "Three services with a dependency cycle plus cross-cuts — tests cycle rendering",
+    description:
+      "Three services with a dependency cycle plus cross-cuts — tests cycle rendering",
     tags: ["edge-case", "cycle", "dependencies"],
     preferredView: "basic",
     code: `ServiceA{
@@ -325,20 +328,28 @@ ServiceC ..> SharedDB`,
   {
     id: "edge-wide-fanout",
     name: "Wide Fan-Out",
-    description: "Hub element connected to 20 leaf nodes — tests flat large fan-out layout",
+    description:
+      "Hub element connected to 20 leaf nodes — tests flat large fan-out layout",
     tags: ["edge-case", "fan-out", "performance"],
     preferredView: "circular",
     code: [
       "Hub{}",
-      ...Array.from({ length: 20 }, (_, i) => `Leaf${String(i + 1).padStart(2, "0")}[]`),
+      ...Array.from(
+        { length: 20 },
+        (_, i) => `Leaf${String(i + 1).padStart(2, "0")}[]`,
+      ),
       "",
-      ...Array.from({ length: 20 }, (_, i) => `Hub --> Leaf${String(i + 1).padStart(2, "0")}`),
+      ...Array.from(
+        { length: 20 },
+        (_, i) => `Hub --> Leaf${String(i + 1).padStart(2, "0")}`,
+      ),
     ].join("\n"),
   },
   {
     id: "edge-mutual-nesting",
     name: "Mutual Nesting",
-    description: "a contains b, b contains a — tests circular parent-child with a partial relationship on one line",
+    description:
+      "a contains b, b contains a — tests circular parent-child with a partial relationship on one line",
     tags: ["edge-case", "circular", "nesting"],
     preferredView: "basic",
     code: `a[b]--b{a}`,
@@ -346,7 +357,8 @@ ServiceC ..> SharedDB`,
   {
     id: "edge-26-isolated",
     name: "26 Isolated Nodes",
-    description: "All keyboard-row letters as disconnected flat elements — tests layout of many unrelated nodes",
+    description:
+      "All keyboard-row letters as disconnected flat elements — tests layout of many unrelated nodes",
     tags: ["edge-case", "isolated", "performance"],
     preferredView: "circular",
     code: `q w e r t y u i o p a s d f g h j k l z x c v b n m`,
@@ -354,7 +366,8 @@ ServiceC ..> SharedDB`,
   {
     id: "edge-broken-chain",
     name: "Broken Inline Chain",
-    description: "Two chains and trailing islands on one line — the space between i and o silently breaks the chain into q→…→i and o→…→f, then g–m are isolated",
+    description:
+      "Two chains and trailing islands on one line — the space between i and o silently breaks the chain into q→…→i and o→…→f, then g–m are isolated",
     tags: ["edge-case", "chain", "parsing"],
     preferredView: "pipeline",
     code: `q --> w --> e --> r --> t --> y --> u --> i o --> p --> a --> s --> d --> f g h j k l z x c v b n m`,
@@ -362,7 +375,8 @@ ServiceC ..> SharedDB`,
   {
     id: "edge-diamond",
     name: "Diamond Dependency",
-    description: "Classic diamond: A → B, A → C, B → D, C → D — tests multi-path convergence",
+    description:
+      "Classic diamond: A → B, A → C, B → D, C → D — tests multi-path convergence",
     tags: ["edge-case", "diamond", "convergence"],
     preferredView: "hierarchical",
     code: `Root{}
@@ -386,7 +400,8 @@ export const SELECTOR_SHOWCASE_TEMPLATES: DiagramTemplate[] = [
   {
     id: "selector-flags",
     name: "Flag-Based Selectors",
-    description: "Elements tagged with :flag syntax, each selector preset colors its matching group",
+    description:
+      "Elements tagged with :flag syntax, each selector preset colors its matching group",
     tags: ["selector", "flags", "showcase"],
     preferredView: "hierarchical",
     code: `!selector  name=fine  color=#661144  mode=color
@@ -420,7 +435,8 @@ bishop --> pawn`,
   {
     id: "selector-atoms-type",
     name: "Atom: Match by Element Type",
-    description: "Atoms that select by element type — functions, states, and deep elements highlighted",
+    description:
+      "Atoms that select by element type — functions, states, and deep elements highlighted",
     tags: ["selector", "atoms", "type-match"],
     preferredView: "hierarchical",
     code: `!atom  id=fn  function_name=.*
@@ -452,7 +468,8 @@ Idle --> transform`,
   {
     id: "selector-atoms-name",
     name: "Atom: Match by Name Pattern",
-    description: "Atoms using regex to highlight services, databases, and caches by name",
+    description:
+      "Atoms using regex to highlight services, databases, and caches by name",
     tags: ["selector", "atoms", "name-pattern"],
     preferredView: "pipeline",
     code: `!atom  id=svc  all_name=.*Service
@@ -485,7 +502,8 @@ OrderService --> MessageBus`,
   {
     id: "selector-atoms-combine",
     name: "Atom: Boolean Combiners",
-    description: "Combining atoms with + (OR), & (AND), - (NOT) operators to build compound selectors",
+    description:
+      "Combining atoms with + (OR), & (AND), - (NOT) operators to build compound selectors",
     tags: ["selector", "atoms", "boolean-logic"],
     preferredView: "basic",
     code: `!atom  id=backend   all_name=.*Service
@@ -519,9 +537,10 @@ export const EXECUTION_TEMPLATES: DiagramTemplate[] = [
   {
     id: "exec-linear-pipeline",
     name: "Linear Pipeline",
-    description: "Generator spawns typed items, flows through queue → state machine → choice → output or error",
+    description:
+      "Generator spawns typed items, flows through queue → state machine → choice → output or error",
     tags: ["execution", "pipeline", "branching"],
-    preferredView: "execute",
+    preferredView: "timeline",
     code: `gen(
   a{}
   b[]
@@ -546,13 +565,15 @@ ch --no--> e`,
   {
     id: "exec-generator-filter",
     name: "Generator with Filter",
-    description: "Generator spawns items, choice gate filters to transform or skip path",
+    description:
+      "Generator spawns items, choice gate filters to transform or skip path",
     tags: ["execution", "filter", "branching"],
-    preferredView: "execute",
+    preferredView: "timeline",
     code: `gen(
-  Item{}
+  Good_Item{}
+  Faulty_Itm{}
 )
-filter<>
+filter<Item{}>
 transform()
 store[]
 skip[]
@@ -565,9 +586,10 @@ transform --> store`,
   {
     id: "exec-round-robin",
     name: "Round Robin",
-    description: "Generator feeds a round_robin distributor that cycles tokens across three workers",
+    description:
+      "Generator feeds a round_robin distributor that cycles tokens across three workers",
     tags: ["execution", "round-robin", "load-balancing"],
-    preferredView: "execute",
+    preferredView: "timeline",
     code: `gen(
   Request{}
 )
@@ -584,15 +606,16 @@ round_robin --> worker3`,
   {
     id: "exec-decision-tree",
     name: "Binary Decision Tree",
-    description: "Generator feeds a root choice node that splits into two branches, each routing yes/no to leaf sinks",
+    description:
+      "Generator feeds a root choice node that splits into two branches, each routing yes/no to leaf sinks",
     tags: ["execution", "decision-tree", "branching"],
-    preferredView: "execute",
+    preferredView: "timeline",
     code: `gen(
   obj{}
 )
 root<>
-branch1<>
-branch2<>
+branch1<s||>
+branch2<o{}>
 leaf1{}
 leaf2{}
 leaf3{}
@@ -605,6 +628,86 @@ branch1 --yes--> leaf1
 branch1 --no--> leaf2
 branch2 --yes--> leaf3
 branch2 --no--> leaf4`,
+  },
+  {
+    id: "exec-connector",
+    name: "Connector — merge multiple streams",
+    description:
+      "Two generators each produce their own element; connector merges all arrivals into one token with a loop relationship between them",
+    tags: ["execution", "connector"],
+    preferredView: "timeline",
+    code: `gen_a(
+  A{}
+)
+gen_b(
+  B{}
+)
+connector()
+merged[]
+
+gen_a --> connector
+gen_b --> connector
+connector --> merged`,
+  },
+  {
+    id: "exec-disconnector",
+    name: "Disconnector — strip relationships",
+    description:
+      "Generator produces connected pairs; disconnector strips the relationship before forwarding the bare elements",
+    tags: ["execution", "disconnector"],
+    preferredView: "timeline",
+    code: `gen(
+  X{}
+  Y{}
+)
+disconnector()
+out[]
+
+gen --> disconnector
+disconnector --> out`,
+  },
+  {
+    id: "exec-multiplier-duplicator",
+    name: "Multiplier & Duplicator",
+    description:
+      "multiplier_3 sends 3 independent copies to one target; duplicator broadcasts one token to all outgoing branches",
+    tags: ["execution", "multiplier", "duplicator"],
+    preferredView: "timeline",
+    code: `gen(
+  Packet{}
+)
+multiplier_3()
+copies[]
+source2()
+duplicator()
+branch_a[]
+branch_b[]
+
+gen --> multiplier_3
+multiplier_3 --> copies
+gen --> source2
+source2 --> duplicator
+duplicator --> branch_a
+duplicator --> branch_b`,
+  },
+  {
+    id: "exec-deduplicator-throttler",
+    name: "Deduplicator & Throttler",
+    description:
+      "multiplier_4 fans into 4 copies; deduplicator passes only the first same-named token per tick; throttler_3 forwards every 3rd tick",
+    tags: ["execution", "deduplicator", "throttler"],
+    preferredView: "timeline",
+    code: `gen(Packet{})
+
+gen -->
+  multiplier_4() -->
+  pipe[] -->
+  deduplicator() -->
+  unique[]
+gen -->
+  throttler_3() -->
+  sparse[]
+`,
   },
 ];
 
