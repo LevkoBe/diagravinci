@@ -368,10 +368,40 @@ describe("RelationshipRenderer", () => {
     }).not.toThrow();
   });
 
+  describe("Culling — both endpoints outside viewport", () => {
+    it("culls relationship when both endpoints are outside the viewport", () => {
+      const viewport: ViewportRect = { x: 2000, y: 0, w: 800, h: 600 };
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 0, 0, 60)
+        .addElement("b", 100, 0, 60)
+        .addRelationship("r", "a", "b", "-->")
+        .build();
+
+      const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set(), viewport);
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBe(0);
+    });
+
+    it("culls all relationships when all endpoints are far outside the viewport", () => {
+      const viewport: ViewportRect = { x: 5000, y: 5000, w: 800, h: 600 };
+      const builder = new ViewStateBuilder();
+      for (let i = 0; i < 10; i++) {
+        builder
+          .addElement(`a${i}`, i * 80, 0, 60)
+          .addElement(`b${i}`, i * 80 + 40, 0, 60)
+          .addRelationship(`r${i}`, `a${i}`, `b${i}`, "-->");
+      }
+
+      const renderer = new RelationshipRenderer(builder.build(), defaultColors, new Set(), new Set(), viewport);
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBe(0);
+    });
+  });
+
   describe("Viewport Culling", () => {
     const viewport: ViewportRect = { x: 0, y: 0, w: 800, h: 600 };
 
-    it("skips edge when both endpoints are outside the viewport", () => {
+    it("culls edge when both endpoints are outside the viewport", () => {
       const viewState = new ViewStateBuilder()
         .addElement("a", 5000, 5000, 60)
         .addElement("b", 6000, 5000, 60)
@@ -419,7 +449,7 @@ describe("RelationshipRenderer", () => {
       expect(layer.getChildren().length).toBeGreaterThan(0);
     });
 
-    it("culls only off-screen edges, keeps on-screen ones", () => {
+    it("renders only in-viewport edges, culls off-screen edges", () => {
       const builder = new ViewStateBuilder()
         .addElement("on1", 100, 100, 60)
         .addElement("on2", 300, 100, 60)
