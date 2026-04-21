@@ -21,6 +21,7 @@ export interface UIState {
   selectedElementIds: string[];
   zoomCommand: ZoomCommand | null;
   renderStyle: RenderStyle;
+  classDiagramMode: boolean;
 }
 
 const { ui } = AppConfig;
@@ -33,6 +34,7 @@ const initialState: UIState = {
   selectedElementIds: [],
   zoomCommand: null,
   renderStyle: ui.DEFAULT_RENDER_STYLE,
+  classDiagramMode: true,
 };
 
 const uiSlice = createSlice({
@@ -84,6 +86,9 @@ const uiSlice = createSlice({
     setRenderStyle(state, action: PayloadAction<RenderStyle>) {
       state.renderStyle = action.payload;
     },
+    toggleClassDiagramMode(state) {
+      state.classDiagramMode = !state.classDiagramMode;
+    },
   },
 });
 
@@ -98,6 +103,7 @@ export const {
   clearSelection,
   sendZoomCommand,
   setRenderStyle,
+  toggleClassDiagramMode,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

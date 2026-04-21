@@ -227,6 +227,490 @@ function generateClusterDsl(clusters: number, perCluster: number): string {
   return lines.join("\n");
 }
 
+export const EDGE_CASE_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "edge-deep-nesting",
+    name: "Deep Nesting",
+    description:
+      "Six levels of nested elements — tests hierarchical layout depth",
+    tags: ["edge-case", "nesting", "hierarchy"],
+    preferredView: "hierarchical",
+    code: `Root{
+  Level2{
+    Level3{
+      Level4{
+        Level5{
+          Level6{
+            DeepLeaf
+          }
+          SiblingLeaf
+        }
+        Level5B{
+          AnotherLeaf
+        }
+      }
+    }
+  }
+  Branch{
+    BranchChild
+  }
+}`,
+  },
+  {
+    id: "edge-all-rel-types",
+    name: "All Relationship Types",
+    description: "One diagram using all six relationship arrow styles",
+    tags: ["edge-case", "relationships", "syntax"],
+    preferredView: "basic",
+    code: `Alpha{}
+Beta{}
+Gamma{}
+Delta{}
+Epsilon{}
+Zeta{}
+
+Alpha --> Beta
+Beta ..> Gamma
+Gamma --|> Delta
+Delta ..|> Epsilon
+Epsilon o-- Alpha
+Zeta *-- Alpha`,
+  },
+  {
+    id: "edge-all-element-types",
+    name: "All Element Types",
+    description:
+      "One of each element type: object, collection, function, state, choice, flow",
+    tags: ["edge-case", "element-types", "syntax"],
+    preferredView: "circular",
+    code: `obj{}
+coll[]
+fn()
+st||
+ch<>
+fl>>
+
+obj --> coll
+coll --> fn
+fn --> st
+st --> ch
+ch --> fl
+fl --> obj`,
+  },
+  {
+    id: "edge-cycle",
+    name: "Cyclic Dependencies",
+    description:
+      "Three services with a dependency cycle plus cross-cuts — tests cycle rendering",
+    tags: ["edge-case", "cycle", "dependencies"],
+    preferredView: "basic",
+    code: `ServiceA{
+  HandlerA
+  CacheA
+}
+ServiceB{
+  HandlerB
+  CacheB
+}
+ServiceC{
+  HandlerC
+  CacheC
+}
+SharedDB
+
+ServiceA --> ServiceB
+ServiceB --> ServiceC
+ServiceC --> ServiceA
+ServiceA ..> ServiceC
+ServiceB ..> SharedDB
+ServiceC ..> SharedDB`,
+  },
+  {
+    id: "edge-wide-fanout",
+    name: "Wide Fan-Out",
+    description:
+      "Hub element connected to 20 leaf nodes — tests flat large fan-out layout",
+    tags: ["edge-case", "fan-out", "performance"],
+    preferredView: "circular",
+    code: [
+      "Hub{}",
+      ...Array.from(
+        { length: 20 },
+        (_, i) => `Leaf${String(i + 1).padStart(2, "0")}[]`,
+      ),
+      "",
+      ...Array.from(
+        { length: 20 },
+        (_, i) => `Hub --> Leaf${String(i + 1).padStart(2, "0")}`,
+      ),
+    ].join("\n"),
+  },
+  {
+    id: "edge-mutual-nesting",
+    name: "Mutual Nesting",
+    description:
+      "a contains b, b contains a — tests circular parent-child with a partial relationship on one line",
+    tags: ["edge-case", "circular", "nesting"],
+    preferredView: "basic",
+    code: `a[b]--b{a}`,
+  },
+  {
+    id: "edge-26-isolated",
+    name: "26 Isolated Nodes",
+    description:
+      "All keyboard-row letters as disconnected flat elements — tests layout of many unrelated nodes",
+    tags: ["edge-case", "isolated", "performance"],
+    preferredView: "circular",
+    code: `q w e r t y u i o p a s d f g h j k l z x c v b n m`,
+  },
+  {
+    id: "edge-broken-chain",
+    name: "Broken Inline Chain",
+    description:
+      "Two chains and trailing islands on one line — the space between i and o silently breaks the chain into q→…→i and o→…→f, then g–m are isolated",
+    tags: ["edge-case", "chain", "parsing"],
+    preferredView: "pipeline",
+    code: `q --> w --> e --> r --> t --> y --> u --> i o --> p --> a --> s --> d --> f g h j k l z x c v b n m`,
+  },
+  {
+    id: "edge-diamond",
+    name: "Diamond Dependency",
+    description:
+      "Classic diamond: A → B, A → C, B → D, C → D — tests multi-path convergence",
+    tags: ["edge-case", "diamond", "convergence"],
+    preferredView: "hierarchical",
+    code: `Root{}
+Left{
+  LeftDetail
+}
+Right{
+  RightDetail
+}
+Merged{}
+
+Root --> Left
+Root --> Right
+Left --> Merged
+Right --> Merged
+Left ..> Right`,
+  },
+];
+
+export const SELECTOR_SHOWCASE_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "selector-flags",
+    name: "Flag-Based Selectors",
+    description:
+      "Elements tagged with :flag syntax, each selector preset colors its matching group",
+    tags: ["selector", "flags", "showcase"],
+    preferredView: "hierarchical",
+    code: `!selector  name=fine  color=#661144  mode=color
+!selector  name=unlocked  color=#4caf50  mode=color
+!selector  name=current  color=#2196f3  mode=color
+!selector  name=locked  color=#9e9e9e  mode=color
+
+knight:fine{
+  longsword()
+  shield{}
+}
+queen:current{
+  crown()
+  scepter{}
+}
+rook:unlocked{
+  tower{}
+}
+pawn:locked{
+  armor{}
+}
+bishop:locked{
+  staff()
+}
+
+knight --> queen
+queen --> rook
+rook --> pawn
+bishop --> pawn`,
+  },
+  {
+    id: "selector-atoms-type",
+    name: "Atom: Match by Element Type",
+    description:
+      "Atoms that select by element type — functions, states, and deep elements highlighted",
+    tags: ["selector", "atoms", "type-match"],
+    preferredView: "hierarchical",
+    code: `!atom  id=fn  function_name=.*
+!atom  id=st  state_name=.*
+!atom  id=deep  all_level=3-4
+
+!selector  name=functions  combiner=fn  color=#ff6b35  mode=color
+!selector  name=states  combiner=st  color=#4caf50  mode=color
+!selector  name=deep_elements  combiner=deep  color=#9c27b0  mode=color
+
+Pipeline{
+  transform()
+  validate()
+  Active||
+  Idle||
+  Stage{
+    step1()
+    step2()
+    Pending||
+    Done||
+  }
+}
+
+transform --> validate
+validate --> Active
+Active --> Idle
+Idle --> transform`,
+  },
+  {
+    id: "selector-atoms-name",
+    name: "Atom: Match by Name Pattern",
+    description:
+      "Atoms using regex to highlight services, databases, and caches by name",
+    tags: ["selector", "atoms", "name-pattern"],
+    preferredView: "pipeline",
+    code: `!atom  id=svc  all_name=.*Service
+!atom  id=db   object_name=.*DB
+!atom  id=cch  all_name=Cache.*
+
+!selector  name=services   combiner=svc  color=#2196f3  mode=color
+!selector  name=databases  combiner=db   color=#ff9800  mode=color
+!selector  name=caches     combiner=cch  color=#4caf50  mode=color
+
+UserService{}
+OrderService{}
+PaymentService{}
+UserDB{}
+OrderDB{}
+CacheLayer{
+  CacheA
+  CacheB
+}
+MessageBus{}
+
+UserService --> UserDB
+OrderService --> OrderDB
+PaymentService --> UserDB
+UserService --> CacheLayer
+OrderService --> CacheLayer
+UserService --> MessageBus
+OrderService --> MessageBus`,
+  },
+  {
+    id: "selector-atoms-combine",
+    name: "Atom: Boolean Combiners",
+    description:
+      "Combining atoms with + (OR), & (AND), - (NOT) operators to build compound selectors",
+    tags: ["selector", "atoms", "boolean-logic"],
+    preferredView: "basic",
+    code: `!atom  id=backend   all_name=.*Service
+!atom  id=storage   object_name=.*DB
+!atom  id=external  all_name=.*Gateway.*
+
+!selector  name=backend          combiner=backend            color=#2196f3  mode=color
+!selector  name=storage          combiner=storage            color=#ff9800  mode=color
+!selector  name=external         combiner=external           color=#e91e63  mode=color
+!selector  name=backend_or_store combiner=backend+storage    color=#00bcd4  mode=dim
+!selector  name=not_external     combiner=-external          color=#9e9e9e  mode=dim
+
+AuthService{}
+UserService{}
+UserDB{}
+SessionCache[]
+PaymentGateway{}
+EmailGateway{}
+APIGateway{}
+
+AuthService --> UserDB
+UserService --> SessionCache
+AuthService --> PaymentGateway
+UserService --> EmailGateway
+APIGateway --> AuthService
+APIGateway --> UserService`,
+  },
+];
+
+export const EXECUTION_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "exec-linear-pipeline",
+    name: "Linear Pipeline",
+    description:
+      "Generator spawns typed items, flows through queue → state machine → choice → output or error",
+    tags: ["execution", "pipeline", "branching"],
+    preferredView: "timeline",
+    code: `gen(
+  a{}
+  b[]
+  c()
+)
+q[]
+s||
+ch<>
+o{
+  a{
+    prev_content
+  }
+}
+e[]
+
+gen --> q
+q --> s
+s --> ch
+ch --yes--> o
+ch --no--> e`,
+  },
+  {
+    id: "exec-generator-filter",
+    name: "Generator with Filter",
+    description:
+      "Generator spawns items, choice gate filters to transform or skip path",
+    tags: ["execution", "filter", "branching"],
+    preferredView: "timeline",
+    code: `gen(
+  Good_Item{}
+  Faulty_Itm{}
+)
+filter<Item{}>
+transform()
+store[]
+skip[]
+
+gen --> filter
+filter --pass--> transform
+filter --reject--> skip
+transform --> store`,
+  },
+  {
+    id: "exec-round-robin",
+    name: "Round Robin",
+    description:
+      "Generator feeds a round_robin distributor that cycles tokens across three workers",
+    tags: ["execution", "round-robin", "load-balancing"],
+    preferredView: "timeline",
+    code: `gen(
+  Request{}
+)
+round_robin()
+worker1[]
+worker2[]
+worker3[]
+
+gen --> round_robin
+round_robin --> worker1
+round_robin --> worker2
+round_robin --> worker3`,
+  },
+  {
+    id: "exec-decision-tree",
+    name: "Binary Decision Tree",
+    description:
+      "Generator feeds a root choice node that splits into two branches, each routing yes/no to leaf sinks",
+    tags: ["execution", "decision-tree", "branching"],
+    preferredView: "timeline",
+    code: `gen(
+  obj{}
+)
+root<>
+branch1<s||>
+branch2<o{}>
+leaf1{}
+leaf2{}
+leaf3{}
+leaf4{}
+
+gen --> root
+root --yes--> branch1
+root --no--> branch2
+branch1 --yes--> leaf1
+branch1 --no--> leaf2
+branch2 --yes--> leaf3
+branch2 --no--> leaf4`,
+  },
+  {
+    id: "exec-connector",
+    name: "Connector — merge multiple streams",
+    description:
+      "Two generators each produce their own element; connector merges all arrivals into one token with a loop relationship between them",
+    tags: ["execution", "connector"],
+    preferredView: "timeline",
+    code: `gen_a(
+  A{}
+)
+gen_b(
+  B{}
+)
+connector()
+merged[]
+
+gen_a --> connector
+gen_b --> connector
+connector --> merged`,
+  },
+  {
+    id: "exec-disconnector",
+    name: "Disconnector — strip relationships",
+    description:
+      "Generator produces connected pairs; disconnector strips the relationship before forwarding the bare elements",
+    tags: ["execution", "disconnector"],
+    preferredView: "timeline",
+    code: `gen(
+  X{}
+  Y{}
+)
+disconnector()
+out[]
+
+gen --> disconnector
+disconnector --> out`,
+  },
+  {
+    id: "exec-multiplier-duplicator",
+    name: "Multiplier & Duplicator",
+    description:
+      "multiplier_3 sends 3 independent copies to one target; duplicator broadcasts one token to all outgoing branches",
+    tags: ["execution", "multiplier", "duplicator"],
+    preferredView: "timeline",
+    code: `gen(
+  Packet{}
+)
+multiplier_3()
+copies[]
+source2()
+duplicator()
+branch_a[]
+branch_b[]
+
+gen --> multiplier_3
+multiplier_3 --> copies
+gen --> source2
+source2 --> duplicator
+duplicator --> branch_a
+duplicator --> branch_b`,
+  },
+  {
+    id: "exec-deduplicator-throttler",
+    name: "Deduplicator & Throttler",
+    description:
+      "multiplier_4 fans into 4 copies; deduplicator passes only the first same-named token per tick; throttler_3 forwards every 3rd tick",
+    tags: ["execution", "deduplicator", "throttler"],
+    preferredView: "timeline",
+    code: `gen(Packet{})
+
+gen -->
+  multiplier_4() -->
+  pipe[] -->
+  deduplicator() -->
+  unique[]
+gen -->
+  throttler_3() -->
+  sparse[]
+`,
+  },
+];
+
 export const STRESS_TEMPLATES: DiagramTemplate[] = [
   {
     id: "stress-star",

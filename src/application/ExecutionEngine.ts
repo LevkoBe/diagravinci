@@ -115,6 +115,36 @@ function cloneSubtree(
   return { all, relationships };
 }
 
+function connectedComponents(ids: string[], model: DiagramModel): string[][] {
+  const idSet = new Set(ids);
+  const parent = new Map<string, string>(ids.map((id) => [id, id]));
+
+  function find(id: string): string {
+    while (parent.get(id) !== id) {
+      const p = parent.get(id)!;
+      parent.set(id, parent.get(p)!);
+      id = p;
+    }
+    return id;
+  }
+
+  for (const rel of Object.values(model.relationships)) {
+    if (idSet.has(rel.source) && idSet.has(rel.target)) {
+      parent.set(find(rel.source), find(rel.target));
+    }
+  }
+
+  const groups = new Map<string, string[]>();
+  for (const id of ids) {
+    const root = find(id);
+    const g = groups.get(root) ?? [];
+    g.push(id);
+    groups.set(root, g);
+  }
+
+  return [...groups.values()];
+}
+
 function collectSubtreeRemoves(
   model: DiagramModel,
   rootId: string,
@@ -139,7 +169,7 @@ function collectSubtreeRemoves(
 }
 
 function baseName(id: string): string {
-  return id.replace(/_\d+$/, "");
+  return id.replace(/(_\d+)+$/, "");
 }
 
 function isGen(el: Element): boolean {
@@ -148,6 +178,33 @@ function isGen(el: Element): boolean {
 
 function isRoundRobin(el: Element): boolean {
   return el.type === "function" && el.id === "round_robin";
+}
+
+function isMultiplier(el: Element): boolean {
+  return el.type === "function" && el.id.startsWith("multiplier_");
+}
+function multiplierCount(el: Element): number {
+  const m = el.id.match(/^multiplier_(\d+)$/);
+  return m ? Math.max(1, parseInt(m[1], 10)) : 1;
+}
+function isDuplicator(el: Element): boolean {
+  return el.type === "function" && el.id === "duplicator";
+}
+function isDeduplicator(el: Element): boolean {
+  return el.type === "function" && el.id === "deduplicator";
+}
+function isConnector(el: Element): boolean {
+  return el.type === "function" && el.id === "connector";
+}
+function isDisconnector(el: Element): boolean {
+  return el.type === "function" && el.id === "disconnector";
+}
+function isThrottler(el: Element): boolean {
+  return el.type === "function" && el.id.startsWith("throttler_");
+}
+function throttlerPeriod(el: Element): number {
+  const m = el.id.match(/^throttler_(\d+)$/);
+  return m ? Math.max(1, parseInt(m[1], 10)) : 1;
 }
 
 function forwardInstance(
@@ -179,7 +236,7 @@ export function computeExecutionStep(
   model: DiagramModel,
   viewState: ViewState,
   instances: TokenInstance[],
-  _tickCount: number,
+  tickCount: number,
   nextInstanceId: number,
   executionColor: string,
 ): StepResult {
@@ -228,7 +285,55 @@ export function computeExecutionStep(
     return types;
   }
 
+  const connectorSkipIds = new Set<string>();
+  const connectorGroups = new Map<string, TokenInstance[]>();
   for (const instance of instances) {
+    const el = model.elements[instance.currentElementId];
+    if (el && isConnector(el)) {
+      const group = connectorGroups.get(instance.currentElementId) ?? [];
+      group.push(instance);
+      connectorGroups.set(instance.currentElementId, group);
+    }
+  }
+  for (const [elementId, group] of connectorGroups) {
+    for (const inst of group) connectorSkipIds.add(inst.id);
+    const targets = (outgoing[elementId] ?? []).filter((t) => model.elements[t]);
+    const merged: TokenInstance = {
+      id: group[0].id,
+      currentElementId: group[0].currentElementId,
+      currentPath: group[0].currentPath,
+      clonedElementIds: group.flatMap((i) => i.clonedElementIds),
+      clonedRelationshipIds: group.flatMap((i) => i.clonedRelationshipIds),
+    };
+    if (targets.length === 0) {
+      for (const inst of group) {
+        for (const cloneId of inst.clonedElementIds)
+          delta.removeElements.push(...collectSubtreeRemoves(model, cloneId, inst.currentElementId, `${inst.currentPath}.${cloneId}`));
+        for (const relId of inst.clonedRelationshipIds)
+          delta.removeRelationshipIds.push(relId);
+      }
+      continue;
+    }
+    const allIds = merged.clonedElementIds;
+    if (allIds.length > 1) {
+      for (let ci = 0; ci < allIds.length; ci++) {
+        const from = allIds[ci];
+        const to = allIds[(ci + 1) % allIds.length];
+        const relId = `conn_${from}_to_${to}`;
+        delta.addRelationships.push({ id: relId, source: from, target: to, type: "-->" });
+        merged.clonedRelationshipIds.push(relId);
+      }
+    }
+    const nextTargetId = targets[0];
+    const nextTargetPath = findElementPath(viewState, nextTargetId);
+    const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
+    forwardInstance(merged, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+  }
+
+  const deduplicatorSeen = new Map<string, Set<string>>();
+
+  for (const instance of instances) {
+    if (connectorSkipIds.has(instance.id)) continue;
     const currentEl = model.elements[instance.currentElementId];
 
     const removeInstanceClones = () => {
@@ -344,6 +449,105 @@ export function computeExecutionStep(
         continue;
       }
 
+      if (isMultiplier(currentEl)) {
+        const n = multiplierCount(currentEl);
+        const nextTargetId = targets[0];
+        const nextTargetPath = findElementPath(viewState, nextTargetId);
+        const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
+        const nextTargetSize = viewState.positions[nextTargetPath]?.size ?? 40;
+        forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+        for (let i = 1; i < n; i++) {
+          const suffix = String(idCounter++);
+          const { all: clonedItems, relationships: clonedRels } = cloneSubtree(
+            model, instance.clonedElementIds, suffix,
+          );
+          for (const { element: el, parentCloneId } of clonedItems) {
+            const parentElementId = parentCloneId ?? nextTargetId;
+            const parentPath = parentCloneId ? `${nextTargetPath}.${parentCloneId}` : nextTargetPath;
+            delta.addElements.push({
+              element: el, parentElementId,
+              path: `${parentPath}.${el.id}`,
+              posEntry: { id: el.id, position: { x: nextTargetPos.x + i * 6, y: nextTargetPos.y + i * 6 }, size: Math.round(nextTargetSize * 0.5), value: 1 },
+              spawnOriginId: instance.currentElementId,
+            });
+          }
+          for (const rel of clonedRels) delta.addRelationships.push(rel);
+          const topLevelCloneIds = clonedItems.filter(c => c.parentCloneId === null).map(c => c.element.id);
+          nextInstances.push({ id: `inst_${idCounter++}`, currentElementId: nextTargetId, currentPath: nextTargetPath, clonedElementIds: topLevelCloneIds, clonedRelationshipIds: clonedRels.map(r => r.id) });
+        }
+        continue;
+      }
+
+      if (isDuplicator(currentEl)) {
+        for (let ti = 0; ti < targets.length; ti++) {
+          const targetId = targets[ti];
+          const targetPath = findElementPath(viewState, targetId);
+          const targetPos = viewState.positions[targetPath]?.position ?? { x: 0, y: 0 };
+          const targetSize = viewState.positions[targetPath]?.size ?? 40;
+          if (ti === 0) {
+            forwardInstance(instance, targetId, targetPath, targetPos, delta, nextInstances);
+          } else {
+            const suffix = String(idCounter++);
+            const { all: clonedItems, relationships: clonedRels } = cloneSubtree(
+              model, instance.clonedElementIds, suffix,
+            );
+            for (const { element: el, parentCloneId } of clonedItems) {
+              const parentElementId = parentCloneId ?? targetId;
+              const parentPath = parentCloneId ? `${targetPath}.${parentCloneId}` : targetPath;
+              delta.addElements.push({
+                element: el, parentElementId,
+                path: `${parentPath}.${el.id}`,
+                posEntry: { id: el.id, position: targetPos, size: Math.round(targetSize * 0.5), value: 1 },
+                spawnOriginId: instance.currentElementId,
+              });
+            }
+            for (const rel of clonedRels) delta.addRelationships.push(rel);
+            const topLevelCloneIds = clonedItems.filter(c => c.parentCloneId === null).map(c => c.element.id);
+            nextInstances.push({ id: `inst_${idCounter++}`, currentElementId: targetId, currentPath: targetPath, clonedElementIds: topLevelCloneIds, clonedRelationshipIds: clonedRels.map(r => r.id) });
+          }
+        }
+        continue;
+      }
+
+      if (isDeduplicator(currentEl)) {
+        const seen = deduplicatorSeen.get(currentEl.id) ?? new Set<string>();
+        deduplicatorSeen.set(currentEl.id, seen);
+        const tokenBase = baseName(instance.clonedElementIds[0] ?? instance.id);
+        if (seen.has(tokenBase)) {
+          removeInstanceClones();
+        } else {
+          seen.add(tokenBase);
+          const nextTargetId = targets[0];
+          const nextTargetPath = findElementPath(viewState, nextTargetId);
+          const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
+          forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+        }
+        continue;
+      }
+
+      if (isDisconnector(currentEl)) {
+        for (const relId of instance.clonedRelationshipIds)
+          delta.removeRelationshipIds.push(relId);
+        const nextTargetId = targets[0];
+        const nextTargetPath = findElementPath(viewState, nextTargetId);
+        const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
+        forwardInstance({ ...instance, clonedRelationshipIds: [] }, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+        continue;
+      }
+
+      if (isThrottler(currentEl)) {
+        const n = throttlerPeriod(currentEl);
+        if (tickCount % n !== 0) {
+          removeInstanceClones();
+        } else {
+          const nextTargetId = targets[0];
+          const nextTargetPath = findElementPath(viewState, nextTargetId);
+          const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
+          forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+        }
+        continue;
+      }
+
       const tmplChildIds = templateChildren(currentEl);
 
       if (tmplChildIds.length === 0) {
@@ -359,10 +563,10 @@ export function computeExecutionStep(
           viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
         const targetSize = viewState.positions[nextTargetPath]?.size ?? 40;
 
-        for (const childId of tmplChildIds) {
+        for (const component of connectedComponents(tmplChildIds, model)) {
           const suffix = String(idCounter++);
           const { all: clonedItems, relationships: clonedRels } =
-            cloneSubtree(model, [childId], suffix);
+            cloneSubtree(model, component, suffix);
           const idx = parseInt(suffix, 10);
           const offsetX = (idx % 5) * 6;
           const offsetY = Math.floor(idx / 5) * 6;
@@ -378,10 +582,7 @@ export function computeExecutionStep(
               path: `${parentPath}.${el.id}`,
               posEntry: {
                 id: el.id,
-                position: {
-                  x: targetPos.x + offsetX,
-                  y: targetPos.y + offsetY,
-                },
+                position: { x: targetPos.x + offsetX, y: targetPos.y + offsetY },
                 size: Math.round(targetSize * 0.5),
                 value: 1,
               },
@@ -427,11 +628,11 @@ export function computeExecutionStep(
     }
     if (tmplChildIds.length === 0) continue;
 
-    for (const childId of tmplChildIds) {
+    for (const component of connectedComponents(tmplChildIds, model)) {
       const suffix = String(idCounter++);
       const { all: clonedItems, relationships: clonedRels } = cloneSubtree(
         model,
-        [childId],
+        component,
         suffix,
       );
 

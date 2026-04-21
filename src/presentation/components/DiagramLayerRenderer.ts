@@ -5,14 +5,26 @@ import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { ViewState } from "../../domain/models/ViewState";
 import type { Colors, RenderCallbacks } from "./rendering/types";
 import { ElementEventHandler } from "./rendering/elements/ElementEventHandler";
-import { RelationshipRenderer, type ViewportRect, type GeometryCache } from "./rendering/relationships/RelationshipRenderer";
+import {
+  RelationshipRenderer,
+  type ViewportRect,
+  type GeometryCache,
+} from "./rendering/relationships/RelationshipRenderer";
 import { SvgPathElementRenderer } from "./rendering/elements/SvgPathElementRenderer";
 import { SimpleRectElementRenderer } from "./rendering/elements/SimpleRectElementRenderer";
 import { PolygonElementRenderer } from "./rendering/elements/PolygonElementRenderer";
 import type { IElementRenderer } from "./rendering/elements/BaseElementRenderer";
 import type { RenderStyle } from "../../application/store/uiSlice";
 
-import { computeElementSizes, type ElementSizes } from "./rendering/elementSizing";
+import {
+  computeElementSizes,
+  type ElementSizes,
+} from "./rendering/elementSizing";
+import {
+  computeClassDiagramContent,
+  computeTextModeSuppressedPaths,
+  shouldUseClassDiagramMode,
+} from "./rendering/elements/classDiagramUtils";
 
 function createElementRenderer(
   renderStyle: RenderStyle,
@@ -27,11 +39,25 @@ function createElementRenderer(
   zoom: number,
   colorOverride: string | null,
 ): IElementRenderer {
-  const args = [element, path, viewState, connectingFromId, colors, isNew, isDimmed, size, zoom, colorOverride] as const;
+  const args = [
+    element,
+    path,
+    viewState,
+    connectingFromId,
+    colors,
+    isNew,
+    isDimmed,
+    size,
+    zoom,
+    colorOverride,
+  ] as const;
   switch (renderStyle) {
-    case "rect": return new SimpleRectElementRenderer(...args);
-    case "polygon": return new PolygonElementRenderer(...args);
-    default: return new SvgPathElementRenderer(...args);
+    case "rect":
+      return new SimpleRectElementRenderer(...args);
+    case "polygon":
+      return new PolygonElementRenderer(...args);
+    default:
+      return new SvgPathElementRenderer(...args);
   }
 }
 
@@ -50,6 +76,7 @@ export class DiagramLayerRenderer {
   private readonly hoverOut = new Map<string, () => void>();
 
   private readonly hiddenSet: Set<string>;
+  private readonly filterHiddenSet: Set<string>;
   private readonly dimmedSet: Set<string>;
 
   private readonly pixelSizes: Map<string, number>;
@@ -60,6 +87,7 @@ export class DiagramLayerRenderer {
 
   private readonly isReadonly: boolean;
   private readonly executionColorMap: Record<string, string>;
+  private readonly classDiagramMode: boolean;
 
   constructor(
     stage: Konva.Stage,
@@ -73,6 +101,7 @@ export class DiagramLayerRenderer {
     renderStyle: RenderStyle = "polygon",
     isReadonly = false,
     executionColorMap: Record<string, string> = {},
+    classDiagramMode = true,
     elementSizes?: ElementSizes,
     geometryCache?: GeometryCache,
   ) {
@@ -87,12 +116,14 @@ export class DiagramLayerRenderer {
     this.renderStyle = renderStyle;
     this.isReadonly = isReadonly;
     this.executionColorMap = executionColorMap;
+    this.classDiagramMode = classDiagramMode;
 
     const { pixelSizes, zoomHidden, zoomDimmed } =
       elementSizes ?? computeElementSizes(model, this.viewState, zoom);
     this.pixelSizes = pixelSizes;
 
     this.hiddenSet = new Set([...viewState.hiddenPaths, ...zoomHidden]);
+    this.filterHiddenSet = new Set(this.hiddenSet);
     this.dimmedSet = new Set([...viewState.dimmedPaths, ...zoomDimmed]);
 
     const stagePos = stage.position();
@@ -111,6 +142,16 @@ export class DiagramLayerRenderer {
       this.viewportRect,
       geometryCache,
     );
+
+    if (classDiagramMode) {
+      const suppressed = computeTextModeSuppressedPaths(
+        model,
+        viewState,
+        this.filterHiddenSet,
+        this.dimmedSet,
+      );
+      for (const p of suppressed) this.hiddenSet.add(p);
+    }
   }
 
   render(relationshipLayer: Konva.Layer, elementLayer: Konva.Layer): void {
@@ -137,13 +178,14 @@ export class DiagramLayerRenderer {
   private isOffScreen(path: string): boolean {
     const pos = this.viewState.positions[path];
     if (!pos) return false;
+    const { x, y } = pos.position;
+    const half = pos.size / 2;
     const vp = this.viewportRect;
-    const half = (pos.size ?? 0) / 2;
     return (
-      pos.position.x + half < vp.x ||
-      pos.position.x - half > vp.x + vp.w ||
-      pos.position.y + half < vp.y ||
-      pos.position.y - half > vp.y + vp.h
+      x + half < vp.x ||
+      x - half > vp.x + vp.w ||
+      y + half < vp.y ||
+      y - half > vp.y + vp.h
     );
   }
 
@@ -154,30 +196,46 @@ export class DiagramLayerRenderer {
     visited: Set<string>,
   ): void {
     if (this.hiddenSet.has(path)) return;
-    if (visited.has(element.id)) return;
 
     const skipRender = this.isOffScreen(path);
+    const isDimmed = this.dimmedSet.has(path);
 
     if (!skipRender) {
-      const isDimmed = this.dimmedSet.has(path);
       const colorOverride =
         this.executionColorMap[element.id] ??
         this.viewState.coloredPaths?.[path] ??
         null;
 
-      const elementGroup = this.renderElement(element, path, isDimmed, colorOverride);
+      const elementGroup = this.renderElement(
+        element,
+        path,
+        isDimmed,
+        colorOverride,
+      );
       if (elementGroup) {
         elementLayer.add(elementGroup);
       }
     }
 
+    if (
+      this.classDiagramMode &&
+      !isDimmed &&
+      shouldUseClassDiagramMode(element, path, this.viewState, this.filterHiddenSet, this.model)
+    ) return;
+
+    if (visited.has(element.id)) return;
     if (this.viewState.foldedPaths.includes(path)) return;
 
     visited.add(element.id);
     element.childIds.forEach((childId) => {
       const child = this.model.elements[childId];
       if (child) {
-        this.renderRecursive(child, elementLayer, `${path}.${childId}`, visited);
+        this.renderRecursive(
+          child,
+          elementLayer,
+          `${path}.${childId}`,
+          visited,
+        );
       }
     });
     visited.delete(element.id);
@@ -198,9 +256,28 @@ export class DiagramLayerRenderer {
     const size = this.getSize(path);
 
     const elementRenderer = createElementRenderer(
-      this.renderStyle, element, path, this.viewState, this.connectingFromId,
-      this.colors, isNew, isDimmed, size, this.zoom, colorOverride,
+      this.renderStyle,
+      element,
+      path,
+      this.viewState,
+      this.connectingFromId,
+      this.colors,
+      isNew,
+      isDimmed,
+      size,
+      this.zoom,
+      colorOverride,
     );
+
+    if (
+      this.classDiagramMode &&
+      !isDimmed &&
+      shouldUseClassDiagramMode(element, path, this.viewState, this.filterHiddenSet, this.model)
+    ) {
+      elementRenderer.setClassDiagramContent(
+        computeClassDiagramContent(element, path, this.model, this.filterHiddenSet),
+      );
+    }
 
     const renderResult = elementRenderer.render();
     if (!renderResult) return;
@@ -233,7 +310,8 @@ export class DiagramLayerRenderer {
         onReparent: this.callbacks.onReparent,
         setHovered: (p) => this.setHovered(p),
         findHoveredPath: (id, pos) => this.findBestPath(id, pos, null),
-        findNewParentPath: (p, pos) => this.findBestPath(p, pos, null) ?? this.model.root.id,
+        findNewParentPath: (p, pos) =>
+          this.findBestPath(p, pos, null) ?? this.model.root.id,
         updateRelationshipLines: (p) => this.updateRelationshipLines(p),
         updateChildRelationshipLines: (p) =>
           this.updateChildRelationshipLines(p),
@@ -274,7 +352,10 @@ export class DiagramLayerRenderer {
     );
   }
 
-  private forEachChildPath(parentPath: string, fn: (path: string) => void): void {
+  private forEachChildPath(
+    parentPath: string,
+    fn: (path: string) => void,
+  ): void {
     const prefix = parentPath + ".";
     for (const p of Object.keys(this.viewState.positions)) {
       if (p.startsWith(prefix)) fn(p);

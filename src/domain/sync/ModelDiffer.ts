@@ -3,11 +3,15 @@ import type { Element } from "../models/Element";
 import type { Relationship } from "../models/Relationship";
 
 function elementsEqual(a: Element, b: Element): boolean {
+  const aFlags = a.flags ?? [];
+  const bFlags = b.flags ?? [];
   return (
     a.type === b.type &&
     a.foldState === b.foldState &&
     a.childIds.length === b.childIds.length &&
-    a.childIds.every((id, i) => id === b.childIds[i])
+    a.childIds.every((id, i) => id === b.childIds[i]) &&
+    aFlags.length === bFlags.length &&
+    aFlags.every((f, i) => f === bFlags[i])
   );
 }
 

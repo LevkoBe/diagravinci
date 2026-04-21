@@ -37,15 +37,18 @@ import {
   Pause,
   RotateCcw,
   StepForward,
+  Table2,
 } from "lucide-react";
 import { AppConfig } from "../../config/appConfig";
 import {
   Button,
+  Modal,
   SettingsModalButton,
   useC7One,
   detectIsDark,
   useWindowContext,
 } from "@levkobe/c7one";
+import { FiltersPanel } from "./FilterModal";
 import {
   parchmentTheme,
   diagraVinciDark,
@@ -59,6 +62,7 @@ import {
   setActiveRelationshipType,
   sendZoomCommand,
   setRenderStyle,
+  toggleClassDiagramMode,
   type RenderStyle,
 } from "../../application/store/uiSlice";
 import {
@@ -284,6 +288,7 @@ export function ToolBar() {
   const { colors, setColors, injectTokens } = useC7One();
   const isDark = detectIsDark(colors["--color-bg-base"]);
   const { tree, moveDivider } = useWindowContext();
+  const [selectorModalOpen, setSelectorModalOpen] = useState(false);
 
   const toolbarInnerRef = useRef<HTMLDivElement>(null);
   const [toolbarWidth, setToolbarWidth] = useState(9999);
@@ -356,6 +361,7 @@ export function ToolBar() {
     activeElementType,
     activeRelationshipType,
     renderStyle,
+    classDiagramMode,
   } = useAppSelector((s) => s.ui);
   const { presets, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
     useAppSelector((s) => s.filter);
@@ -693,7 +699,7 @@ export function ToolBar() {
   const selectBtns = (
     <>
       <div className="relative">
-        <Btn title="Selector presets" active={activePresetCount > 0}>
+        <Btn title="Selector presets" active={activePresetCount > 0} onClick={() => setSelectorModalOpen(true)}>
           <ListFilter size={15} />
         </Btn>
         {activePresetCount > 0 && (
@@ -889,21 +895,32 @@ export function ToolBar() {
   );
 
   const styleBtns = (
-    [
-      { value: "svg", title: "SVG paths", icon: <Spline size={15} /> },
-      { value: "rect", title: "Rectangles", icon: <Square size={15} /> },
-      { value: "polygon", title: "Polygons", icon: <Hexagon size={15} /> },
-    ] as { value: RenderStyle; title: string; icon: React.ReactNode }[]
-  ).map(({ value, title, icon }) => (
-    <Btn
-      key={value}
-      title={title}
-      active={renderStyle === value}
-      onClick={() => dispatch(setRenderStyle(value))}
-    >
-      {icon}
-    </Btn>
-  ));
+    <>
+      {(
+        [
+          { value: "svg", title: "SVG paths", icon: <Spline size={15} /> },
+          { value: "rect", title: "Rectangles", icon: <Square size={15} /> },
+          { value: "polygon", title: "Polygons", icon: <Hexagon size={15} /> },
+        ] as { value: RenderStyle; title: string; icon: React.ReactNode }[]
+      ).map(({ value, title, icon }) => (
+        <Btn
+          key={value}
+          title={title}
+          active={renderStyle === value}
+          onClick={() => dispatch(setRenderStyle(value))}
+        >
+          {icon}
+        </Btn>
+      ))}
+      <Btn
+        title={classDiagramMode ? "Class diagram mode: on" : "Class diagram mode: off"}
+        active={classDiagramMode}
+        onClick={() => dispatch(toggleClassDiagramMode())}
+      >
+        <Table2 size={15} />
+      </Btn>
+    </>
+  );
 
   const viewBtns = (
     <>
@@ -1252,6 +1269,12 @@ export function ToolBar() {
           </PillOpenContext.Provider>
         )}
       </div>
+
+      <Modal open={selectorModalOpen} onOpenChange={setSelectorModalOpen}>
+        <Modal.Content className="w-130 h-160 p-0 overflow-hidden">
+          <FiltersPanel />
+        </Modal.Content>
+      </Modal>
     </>
   );
 }

@@ -46,17 +46,20 @@ export function resolveRelationships(
   for (const path of Object.keys(positions)) {
     const lastDot = path.lastIndexOf(".");
     const id = lastDot === -1 ? path : path.slice(lastDot + 1);
-    let depth = 1;
-    for (let i = 0; i < path.length; i++) if (path[i] === ".") depth++;
+    const depth = (path.match(/\./g) ?? []).length + 1;
     const existingDepth = depthOf.get(id) ?? Infinity;
     if (depth < existingDepth) {
       shallowPathByElementId.set(id, path);
       depthOf.set(id, depth);
     }
   }
+
+  const resolve = (ref: string): string | null =>
+    positions[ref] ? ref : (shallowPathByElementId.get(ref) ?? null);
+
   return Object.values(model.relationships).flatMap((rel) => {
-    const sourcePath = shallowPathByElementId.get(rel.source) ?? null;
-    const targetPath = shallowPathByElementId.get(rel.target) ?? null;
+    const sourcePath = resolve(rel.source);
+    const targetPath = resolve(rel.target);
     if (!sourcePath || !targetPath) return [];
     return [
       { id: rel.id, sourcePath, targetPath, type: rel.type, label: rel.label },

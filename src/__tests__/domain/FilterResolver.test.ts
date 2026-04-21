@@ -5,7 +5,7 @@ import type { PositionedElement } from "../../domain/models/ViewState";
 import { createEmptyDiagram } from "../../domain/models/DiagramModel";
 import { createElement } from "../../domain/models/Element";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
-import type { FilterPreset } from "../../domain/models/Selector";
+import type { FilterPreset, SelectorAtom } from "../../domain/models/Selector";
 
 function makeFilterState(overrides: Partial<FilterState> = {}): FilterState {
   return {
@@ -33,8 +33,12 @@ function makePositions(paths: string[]): Record<string, PositionedElement> {
   );
 }
 
-function makeModel(elementIds: string[]): DiagramModel {
+function makeModel(
+  elementIds: string[],
+  atoms: SelectorAtom[] = [],
+): DiagramModel {
   const model = createEmptyDiagram();
+  model.atoms = atoms;
   for (const id of elementIds) {
     model.elements[id] = createElement(id, "object");
   }
@@ -44,7 +48,6 @@ function makeModel(elementIds: string[]): DiagramModel {
 function makePreset(
   id: string,
   mode: "hide" | "dim" | "color",
-  pathRegex: string,
   isActive = true,
 ): FilterPreset {
   return {
@@ -53,35 +56,35 @@ function makePreset(
     mode,
     isActive,
     color: "#e05c5c",
-    selector: {
-      atoms: [{ id: "a", types: [], path: pathRegex, meta: { kind: "raw" } }],
-      combiner: "",
-    },
+    selector: { combiner: "1" },
   };
+}
+
+function atomForPreset(pathRegex: string): SelectorAtom {
+  return { id: "1", patterns: { all: pathRegex } };
 }
 
 function makePresetWithCombiner(
   id: string,
   mode: "hide" | "dim" | "color",
-  atoms: { path: string }[],
+  atomPatterns: { path: string }[],
   combiner: string,
   isActive = true,
-): FilterPreset {
+): { preset: FilterPreset; atoms: SelectorAtom[] } {
+  const atoms: SelectorAtom[] = atomPatterns.map((a, i) => ({
+    id: String(i + 1),
+    patterns: { all: a.path },
+  }));
   return {
-    id,
-    label: id,
-    mode,
-    isActive,
-    color: "#e05c5c",
-    selector: {
-      atoms: atoms.map((a, i) => ({
-        id: String(i),
-        types: [],
-        path: a.path,
-        meta: { kind: "raw" as const },
-      })),
-      combiner,
+    preset: {
+      id,
+      label: id,
+      mode,
+      isActive,
+      color: "#e05c5c",
+      selector: { combiner },
     },
+    atoms,
   };
 }
 
@@ -98,10 +101,10 @@ describe("FilterResolver.resolve", () => {
   });
 
   it("colors matched paths with preset color", () => {
-    const preset = { ...makePreset("p1", "color", "^a$"), color: "#ff0000" };
+    const preset = { ...makePreset("p1", "color"), color: "#ff0000" };
     const filterState = makeFilterState({ presets: [preset] });
     const positions = makePositions(["a", "b"]);
-    const model = makeModel(["a", "b"]);
+    const model = makeModel(["a", "b"], [atomForPreset("^a$")]);
     const result = FilterResolver.resolve(filterState, positions, model);
     expect(result.coloredPaths["a"]).toBe("#ff0000");
     expect(result.coloredPaths["b"]).toBeUndefined();
@@ -111,10 +114,10 @@ describe("FilterResolver.resolve", () => {
 
   it("hides paths not matching an active hide preset", () => {
     const filterState = makeFilterState({
-      presets: [makePreset("p1", "hide", "^a$")],
+      presets: [makePreset("p1", "hide")],
     });
     const positions = makePositions(["a", "b", "c"]);
-    const model = makeModel(["a", "b", "c"]);
+    const model = makeModel(["a", "b", "c"], [atomForPreset("^a$")]);
     const result = FilterResolver.resolve(filterState, positions, model);
     expect(result.hiddenPaths).toContain("b");
     expect(result.hiddenPaths).toContain("c");
@@ -123,63 +126,58 @@ describe("FilterResolver.resolve", () => {
 
   it("dims paths not matching an active dim preset", () => {
     const filterState = makeFilterState({
-      presets: [makePreset("p1", "dim", "^a$")],
+      presets: [makePreset("p1", "dim")],
     });
     const positions = makePositions(["a", "b"]);
-    const model = makeModel(["a", "b"]);
+    const model = makeModel(["a", "b"], [atomForPreset("^a$")]);
     const result = FilterResolver.resolve(filterState, positions, model);
     expect(result.dimmedPaths).toContain("b");
     expect(result.dimmedPaths).not.toContain("a");
   });
 
   describe("combiner logic", () => {
-    it("not 1: hides paths that MATCH atom 1 (inverted)", () => {
-      const filterState = makeFilterState({
-        presets: [
-          makePresetWithCombiner("p1", "hide", [{ path: "^a$" }], "not 1"),
-        ],
-      });
+    it("-1: hides paths that MATCH atom 1 (inverted)", () => {
+      const { preset, atoms } = makePresetWithCombiner(
+        "p1",
+        "hide",
+        [{ path: "^a$" }],
+        "-1",
+      );
+      const filterState = makeFilterState({ presets: [preset] });
       const positions = makePositions(["a", "b", "c"]);
-      const model = makeModel(["a", "b", "c"]);
+      const model = makeModel(["a", "b", "c"], atoms);
       const result = FilterResolver.resolve(filterState, positions, model);
       expect(result.hiddenPaths).toContain("a");
       expect(result.hiddenPaths).not.toContain("b");
       expect(result.hiddenPaths).not.toContain("c");
     });
 
-    it("1 and 2: hides paths matching neither atom", () => {
-      const filterState = makeFilterState({
-        presets: [
-          makePresetWithCombiner(
-            "p1",
-            "hide",
-            [{ path: "svc" }, { path: "auth" }],
-            "1 and 2",
-          ),
-        ],
-      });
-
+    it("1 & 2: hides paths matching neither atom", () => {
+      const { preset, atoms } = makePresetWithCombiner(
+        "p1",
+        "hide",
+        [{ path: "svc" }, { path: "auth" }],
+        "1 & 2",
+      );
       const positions = makePositions(["svc.auth", "svc.other", "other"]);
-      const model = makeModel(["auth", "other", "other"]);
+      const model = makeModel(["auth", "other", "other"], atoms);
+      const filterState = makeFilterState({ presets: [preset] });
       const result = FilterResolver.resolve(filterState, positions, model);
       expect(result.hiddenPaths).not.toContain("svc.auth");
       expect(result.hiddenPaths).toContain("svc.other");
       expect(result.hiddenPaths).toContain("other");
     });
 
-    it("1 or 2: hides paths matching neither atom", () => {
-      const filterState = makeFilterState({
-        presets: [
-          makePresetWithCombiner(
-            "p1",
-            "hide",
-            [{ path: "^a$" }, { path: "^b$" }],
-            "1 or 2",
-          ),
-        ],
-      });
+    it("1 + 2: hides paths matching neither atom", () => {
+      const { preset, atoms } = makePresetWithCombiner(
+        "p1",
+        "hide",
+        [{ path: "^a$" }, { path: "^b$" }],
+        "1 + 2",
+      );
       const positions = makePositions(["a", "b", "c"]);
-      const model = makeModel(["a", "b", "c"]);
+      const model = makeModel(["a", "b", "c"], atoms);
+      const filterState = makeFilterState({ presets: [preset] });
       const result = FilterResolver.resolve(filterState, positions, model);
       expect(result.hiddenPaths).not.toContain("a");
       expect(result.hiddenPaths).not.toContain("b");
@@ -189,7 +187,7 @@ describe("FilterResolver.resolve", () => {
 
   it("ignores inactive presets", () => {
     const filterState = makeFilterState({
-      presets: [makePreset("p1", "hide", "^a$", false)],
+      presets: [makePreset("p1", "hide", false)],
     });
     const positions = makePositions(["a", "b"]);
     const model = makeModel(["a", "b"]);
@@ -417,7 +415,7 @@ describe("FilterResolver.resolve — matchesPreset edge cases", () => {
           mode: "hide",
           isActive: true,
           color: "#f00",
-          selector: { atoms: [], combiner: "" },
+          selector: { combiner: "" },
         },
       ],
       foldLevel: 1,
@@ -441,12 +439,7 @@ describe("FilterResolver.resolve — matchesPreset edge cases", () => {
           mode: "dim",
           isActive: true,
           color: "#f00",
-          selector: {
-            atoms: [
-              { id: "a0", types: [], path: "^NOMATCH$", meta: { kind: "raw" } },
-            ],
-            combiner: "",
-          },
+          selector: { combiner: "" },
         },
       ],
       foldLevel: 1,
@@ -470,12 +463,7 @@ describe("FilterResolver.resolve — matchesPreset edge cases", () => {
           mode: "color",
           isActive: true,
           color: "#aabbcc",
-          selector: {
-            atoms: [
-              { id: "a0", types: [], path: "ghost", meta: { kind: "raw" } },
-            ],
-            combiner: "",
-          },
+          selector: { combiner: "" },
         },
       ],
       foldLevel: 1,

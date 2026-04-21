@@ -1,6 +1,9 @@
 import {
   BUILT_IN_TEMPLATES,
   COMPLEX_TEMPLATES,
+  EDGE_CASE_TEMPLATES,
+  EXECUTION_TEMPLATES,
+  SELECTOR_SHOWCASE_TEMPLATES,
   STRESS_TEMPLATES,
   type DiagramTemplate,
 } from "./DiagramTemplate";
@@ -28,4 +31,31 @@ export const STRESS_COLLECTION: TemplateCollection = {
   name: "Stress Tests",
   isBuiltIn: true,
   templates: STRESS_TEMPLATES,
+};
+
+export const EDGE_CASES_COLLECTION_ID = "__edge_cases__";
+
+export const EDGE_CASES_COLLECTION: TemplateCollection = {
+  id: EDGE_CASES_COLLECTION_ID,
+  name: "Edge Cases",
+  isBuiltIn: true,
+  templates: EDGE_CASE_TEMPLATES,
+};
+
+export const SELECTOR_SHOWCASE_COLLECTION_ID = "__selector_showcase__";
+
+export const SELECTOR_SHOWCASE_COLLECTION: TemplateCollection = {
+  id: SELECTOR_SHOWCASE_COLLECTION_ID,
+  name: "Selector Showcase",
+  isBuiltIn: true,
+  templates: SELECTOR_SHOWCASE_TEMPLATES,
+};
+
+export const EXECUTION_COLLECTION_ID = "__execution__";
+
+export const EXECUTION_COLLECTION: TemplateCollection = {
+  id: EXECUTION_COLLECTION_ID,
+  name: "Execution",
+  isBuiltIn: true,
+  templates: EXECUTION_TEMPLATES,
 };

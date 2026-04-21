@@ -28,7 +28,7 @@ function makePreset(id: string, active = false): FilterPreset {
     mode: "hide",
     isActive: active,
     color: "#e05c5c",
-    selector: { atoms: [], combiner: "" },
+    selector: { combiner: "" },
   };
 }
 
@@ -273,14 +273,14 @@ describe("filterSlice", () => {
             label: "Updated P1",
             mode: "dim",
             color: "#ff0000",
-            selector: { atoms: [], combiner: "" },
+            selector: { combiner: "" },
           },
           {
             id: "p2",
             label: "New P2",
             mode: "hide",
             color: "#00ff00",
-            selector: { atoms: [], combiner: "" },
+            selector: { combiner: "" },
           },
         ]),
       );
@@ -299,7 +299,7 @@ describe("filterSlice", () => {
             label: "New",
             mode: "hide",
             color: "#aaa",
-            selector: { atoms: [], combiner: "" },
+            selector: { combiner: "" },
           },
         ]),
       );
@@ -350,7 +350,7 @@ describe("filterSlice", () => {
         setSelectionPreset({ ids: ["myNode"], color: "#aaa" }),
       );
       const sel = s1.presets.find((p) => p.id === SELECTION_PRESET_ID);
-      expect(sel?.selector.atoms[0].path).toMatch(/myNode/);
+      expect(sel?.selectionPattern).toMatch(/myNode/);
     });
   });
 

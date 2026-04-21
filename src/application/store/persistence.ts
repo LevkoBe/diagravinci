@@ -22,6 +22,7 @@ type PersistedState = {
     | "interactionMode"
     | "activeElementType"
     | "activeRelationshipType"
+    | "classDiagramMode"
   >;
   filter: PersistedFilter;
   diagram: { code: string; model: DiagramModel; viewState: ViewState };
@@ -121,6 +122,7 @@ function hydratePersistedState(parsed: PersistedState): HydratedState {
     },
     ui: {
       ...parsed.ui,
+      classDiagramMode: parsed.ui.classDiagramMode ?? true,
       connectingFromId: null,
       selectedElementIds: [],
       zoomCommand: null,
@@ -156,6 +158,7 @@ export function saveState(state: AppState): void {
       interactionMode: state.ui.interactionMode,
       activeElementType: state.ui.activeElementType,
       activeRelationshipType: state.ui.activeRelationshipType,
+      classDiagramMode: state.ui.classDiagramMode,
     },
     filter: {
       presets: state.filter.presets.map(({ ...rest }) => ({

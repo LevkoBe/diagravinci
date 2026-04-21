@@ -164,7 +164,7 @@ describe("ElementRenderer", () => {
   });
 
   describe("New Element Animation", () => {
-    it("should have scale 0 for new elements", () => {
+    it("new elements start at full scale (scale 0 removed — was causing invisible elements)", () => {
       const element = MockElementFactory.createElement("a", "object");
       const viewState = new ViewStateBuilder()
         .addElement("a", 100, 100, 60, false)
@@ -184,8 +184,8 @@ describe("ElementRenderer", () => {
 
       const result = renderer.render();
 
-      expect(result?.group.scaleX()).toBe(0);
-      expect(result?.group.scaleY()).toBe(0);
+      expect(result?.group.scaleX()).toBe(1);
+      expect(result?.group.scaleY()).toBe(1);
     });
 
     it("should have scale 1 for existing elements", () => {

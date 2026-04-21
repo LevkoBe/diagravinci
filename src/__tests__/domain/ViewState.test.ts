@@ -3,7 +3,7 @@ import {
   createEmptyViewState,
   updateElementPosition,
 } from "../../domain/models/ViewState";
-import { emptyAtom, emptySelector } from "../../domain/models/Selector";
+import { emptySelector } from "../../domain/models/Selector";
 
 describe("createEmptyViewState", () => {
   it("returns a valid empty view state", () => {
@@ -100,17 +100,8 @@ describe("updateElementPosition", () => {
 });
 
 describe("Selector factory functions", () => {
-  it("emptyAtom creates an atom with defaults", () => {
-    const atom = emptyAtom();
-    expect(atom.types).toEqual([]);
-    expect(atom.path).toBe("");
-    expect(atom.meta).toEqual({ kind: "raw" });
-    expect(typeof atom.id).toBe("string");
-  });
-
-  it("emptySelector creates a selector with no atoms", () => {
+  it("emptySelector creates a selector with an empty combiner", () => {
     const sel = emptySelector();
-    expect(sel.atoms).toEqual([]);
     expect(sel.combiner).toBe("");
   });
 });

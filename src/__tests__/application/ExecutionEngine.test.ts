@@ -1329,3 +1329,288 @@ describe("buildCleanedModel", () => {
     expect(model.elements["A"].childIds).toContain("clone_0");
   });
 });
+
+function multiplier(id: string) {
+  return createElement(id, "function");
+}
+
+describe("computeExecutionStep — multiplier_N", () => {
+  it("multiplier_3 produces 3 instances at targets[0]", () => {
+    const m = multiplier("multiplier_3");
+    const dst = coll("dst");
+    const token = obj("tok");
+    const model = makeModel([m, dst, token], [rel("multiplier_3", "dst")]);
+    const vs = makeViewState({ multiplier_3: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "multiplier_3.tok": { x: 0, y: 0 } });
+    const instance: TokenInstance = { id: "inst_0", currentElementId: "multiplier_3", currentPath: "multiplier_3", clonedElementIds: ["tok"], clonedRelationshipIds: [] };
+    const result = computeExecutionStep(model, vs, [instance], 1, 1, COLOR);
+    expect(result.nextInstances).toHaveLength(3);
+    expect(result.nextInstances.every((i) => i.currentElementId === "dst")).toBe(true);
+  });
+
+  it("multiplier_1 acts as a pass-through", () => {
+    const m = multiplier("multiplier_1");
+    const dst = coll("dst");
+    const token = obj("tok");
+    const model = makeModel([m, dst, token], [rel("multiplier_1", "dst")]);
+    const vs = makeViewState({ multiplier_1: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "multiplier_1.tok": { x: 0, y: 0 } });
+    const instance: TokenInstance = { id: "inst_0", currentElementId: "multiplier_1", currentPath: "multiplier_1", clonedElementIds: ["tok"], clonedRelationshipIds: [] };
+    const result = computeExecutionStep(model, vs, [instance], 1, 1, COLOR);
+    expect(result.nextInstances).toHaveLength(1);
+    expect(result.nextInstances[0].currentElementId).toBe("dst");
+  });
+
+  it("multiplier copies have distinct element IDs — actual clones, not shared references", () => {
+    const m = multiplier("multiplier_2");
+    const dst = coll("dst");
+    const token = obj("tok");
+    const model = makeModel([m, dst, token], [rel("multiplier_2", "dst")]);
+    const vs = makeViewState({ multiplier_2: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "multiplier_2.tok": { x: 0, y: 0 } });
+    const instance: TokenInstance = { id: "inst_0", currentElementId: "multiplier_2", currentPath: "multiplier_2", clonedElementIds: ["tok"], clonedRelationshipIds: [] };
+    const result = computeExecutionStep(model, vs, [instance], 1, 1, COLOR);
+    expect(result.nextInstances).toHaveLength(2);
+    expect(result.nextInstances[0].clonedElementIds).toContain("tok");
+    expect(result.nextInstances[1].clonedElementIds).not.toContain("tok");
+    expect(result.nextInstances[1].clonedElementIds).toHaveLength(1);
+  });
+});
+
+describe("computeExecutionStep — gen with relationships", () => {
+  it("gen clones all template children together in one batch, preserving relationships", () => {
+    const a = obj("a");
+    const b = obj("b");
+    const g = gen(["a", "b"]);
+    const dst = coll("dst");
+    const ab = createRelationship("a-->b", "a", "b", "-->");
+    const model = makeModel([g, a, b, dst], [drel("gen", "dst"), ab]);
+    const vs = makeViewState({ gen: { x: 0, y: 0 }, dst: { x: 100, y: 0 } });
+
+    const result = computeExecutionStep(model, vs, [], 0, 0, COLOR);
+
+    expect(result.nextInstances).toHaveLength(1);
+    const inst = result.nextInstances[0];
+    expect(inst.clonedElementIds).toContain("a_0");
+    expect(inst.clonedElementIds).toContain("b_0");
+
+    const addedRel = result.delta.addRelationships.find(
+      (r) => r.source === "a_0" && r.target === "b_0",
+    );
+    expect(addedRel).toBeDefined();
+    expect(inst.clonedRelationshipIds).toContain(addedRel!.id);
+  });
+
+  it("gen with single child still produces one instance per tick", () => {
+    const child = obj("child");
+    const g = gen(["child"]);
+    const dst = coll("dst");
+    const model = makeModel([g, child, dst], [drel("gen", "dst")]);
+    const vs = makeViewState({ gen: { x: 0, y: 0 }, dst: { x: 100, y: 0 } });
+
+    const result = computeExecutionStep(model, vs, [], 0, 0, COLOR);
+    expect(result.nextInstances).toHaveLength(1);
+    expect(result.nextInstances[0].clonedElementIds).toContain("child_0");
+  });
+});
+
+describe("computeExecutionStep — duplicator", () => {
+  it("duplicator fans out to all 3 outgoing targets", () => {
+    const d = createElement("duplicator", "function");
+    const dst1 = coll("dst1"), dst2 = coll("dst2"), dst3 = coll("dst3");
+    const token = obj("tok");
+    const model = makeModel([d, dst1, dst2, dst3, token], [rel("duplicator", "dst1"), rel("duplicator", "dst2"), rel("duplicator", "dst3")]);
+    const vs = makeViewState({ duplicator: { x: 0, y: 0 }, dst1: { x: 100, y: -50 }, dst2: { x: 100, y: 0 }, dst3: { x: 100, y: 50 }, "duplicator.tok": { x: 0, y: 0 } });
+    const instance: TokenInstance = { id: "inst_0", currentElementId: "duplicator", currentPath: "duplicator", clonedElementIds: ["tok"], clonedRelationshipIds: [] };
+    const result = computeExecutionStep(model, vs, [instance], 1, 1, COLOR);
+    expect(result.nextInstances).toHaveLength(3);
+    expect(result.nextInstances.map((i) => i.currentElementId).sort()).toEqual(["dst1", "dst2", "dst3"]);
+  });
+
+  it("duplicator with single target acts as pass-through", () => {
+    const d = createElement("duplicator", "function");
+    const dst = coll("dst"), token = obj("tok");
+    const model = makeModel([d, dst, token], [rel("duplicator", "dst")]);
+    const vs = makeViewState({ duplicator: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "duplicator.tok": { x: 0, y: 0 } });
+    const instance: TokenInstance = { id: "inst_0", currentElementId: "duplicator", currentPath: "duplicator", clonedElementIds: ["tok"], clonedRelationshipIds: [] };
+    const result = computeExecutionStep(model, vs, [instance], 1, 1, COLOR);
+    expect(result.nextInstances).toHaveLength(1);
+    expect(result.nextInstances[0].currentElementId).toBe("dst");
+  });
+});
+
+describe("computeExecutionStep — deduplicator", () => {
+  it("first token with a given base-name passes through", () => {
+    const d = createElement("deduplicator", "function");
+    const dst = coll("dst"), token = obj("Packet_0");
+    const model = makeModel([d, dst, token], [rel("deduplicator", "dst")]);
+    const vs = makeViewState({ deduplicator: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "deduplicator.Packet_0": { x: 0, y: 0 } });
+    const instance: TokenInstance = { id: "inst_0", currentElementId: "deduplicator", currentPath: "deduplicator", clonedElementIds: ["Packet_0"], clonedRelationshipIds: [] };
+    const result = computeExecutionStep(model, vs, [instance], 1, 1, COLOR);
+    expect(result.nextInstances).toHaveLength(1);
+    expect(result.nextInstances[0].currentElementId).toBe("dst");
+  });
+
+  it("duplicate (same base-name) token is dropped", () => {
+    const d = createElement("deduplicator", "function");
+    const dst = coll("dst"), t0 = obj("Packet_0"), t1 = obj("Packet_1");
+    const model = makeModel([d, dst, t0, t1], [rel("deduplicator", "dst")]);
+    const vs = makeViewState({ deduplicator: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "deduplicator.Packet_0": { x: 0, y: 0 }, "deduplicator.Packet_1": { x: 0, y: 0 } });
+    const instances: TokenInstance[] = [
+      { id: "inst_0", currentElementId: "deduplicator", currentPath: "deduplicator", clonedElementIds: ["Packet_0"], clonedRelationshipIds: [] },
+      { id: "inst_1", currentElementId: "deduplicator", currentPath: "deduplicator", clonedElementIds: ["Packet_1"], clonedRelationshipIds: [] },
+    ];
+    const result = computeExecutionStep(model, vs, instances, 1, 2, COLOR);
+    expect(result.nextInstances).toHaveLength(1);
+    expect(result.nextInstances[0].currentElementId).toBe("dst");
+    expect(result.delta.removeElements.some((r) => r.elementId === "Packet_1")).toBe(true);
+  });
+
+  it("tokens with different base-names both pass through", () => {
+    const d = createElement("deduplicator", "function");
+    const dst = coll("dst"), t0 = obj("Alpha_0"), t1 = obj("Beta_0");
+    const model = makeModel([d, dst, t0, t1], [rel("deduplicator", "dst")]);
+    const vs = makeViewState({ deduplicator: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "deduplicator.Alpha_0": { x: 0, y: 0 }, "deduplicator.Beta_0": { x: 0, y: 0 } });
+    const instances: TokenInstance[] = [
+      { id: "inst_0", currentElementId: "deduplicator", currentPath: "deduplicator", clonedElementIds: ["Alpha_0"], clonedRelationshipIds: [] },
+      { id: "inst_1", currentElementId: "deduplicator", currentPath: "deduplicator", clonedElementIds: ["Beta_0"], clonedRelationshipIds: [] },
+    ];
+    const result = computeExecutionStep(model, vs, instances, 1, 2, COLOR);
+    expect(result.nextInstances).toHaveLength(2);
+    expect(result.nextInstances.every((i) => i.currentElementId === "dst")).toBe(true);
+  });
+});
+
+describe("computeExecutionStep — connector", () => {
+  it("3 tokens at connector merge into 1 with all cloneIds", () => {
+    const c = createElement("connector", "function");
+    const dst = coll("dst"), t0 = obj("A"), t1 = obj("B"), t2 = obj("C");
+    const model = makeModel([c, dst, t0, t1, t2], [rel("connector", "dst")]);
+    const vs = makeViewState({ connector: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "connector.A": { x: 0, y: 0 }, "connector.B": { x: 0, y: 0 }, "connector.C": { x: 0, y: 0 } });
+    const instances: TokenInstance[] = [
+      { id: "inst_0", currentElementId: "connector", currentPath: "connector", clonedElementIds: ["A"], clonedRelationshipIds: [] },
+      { id: "inst_1", currentElementId: "connector", currentPath: "connector", clonedElementIds: ["B"], clonedRelationshipIds: [] },
+      { id: "inst_2", currentElementId: "connector", currentPath: "connector", clonedElementIds: ["C"], clonedRelationshipIds: [] },
+    ];
+    const result = computeExecutionStep(model, vs, instances, 1, 3, COLOR);
+    expect(result.nextInstances).toHaveLength(1);
+    expect(result.nextInstances[0].currentElementId).toBe("dst");
+    expect(result.nextInstances[0].clonedElementIds).toEqual(expect.arrayContaining(["A", "B", "C"]));
+  });
+
+  it("single token at connector passes through unchanged", () => {
+    const c = createElement("connector", "function");
+    const dst = coll("dst"), t0 = obj("A");
+    const model = makeModel([c, dst, t0], [rel("connector", "dst")]);
+    const vs = makeViewState({ connector: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "connector.A": { x: 0, y: 0 } });
+    const instance: TokenInstance = { id: "inst_0", currentElementId: "connector", currentPath: "connector", clonedElementIds: ["A"], clonedRelationshipIds: [] };
+    const result = computeExecutionStep(model, vs, [instance], 1, 1, COLOR);
+    expect(result.nextInstances).toHaveLength(1);
+    expect(result.nextInstances[0].currentElementId).toBe("dst");
+    expect(result.nextInstances[0].clonedElementIds).toEqual(["A"]);
+  });
+
+  it("connector adds loop-chain relationships between merged elements", () => {
+    const c = createElement("connector", "function");
+    const dst = coll("dst"), t0 = obj("A"), t1 = obj("B"), t2 = obj("C");
+    const model = makeModel([c, dst, t0, t1, t2], [rel("connector", "dst")]);
+    const vs = makeViewState({ connector: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "connector.A": { x: 0, y: 0 }, "connector.B": { x: 0, y: 0 }, "connector.C": { x: 0, y: 0 } });
+    const instances: TokenInstance[] = [
+      { id: "inst_0", currentElementId: "connector", currentPath: "connector", clonedElementIds: ["A"], clonedRelationshipIds: [] },
+      { id: "inst_1", currentElementId: "connector", currentPath: "connector", clonedElementIds: ["B"], clonedRelationshipIds: [] },
+      { id: "inst_2", currentElementId: "connector", currentPath: "connector", clonedElementIds: ["C"], clonedRelationshipIds: [] },
+    ];
+    const result = computeExecutionStep(model, vs, instances, 1, 3, COLOR);
+    const sourcesAndTargets = result.delta.addRelationships.map((r) => `${r.source}->${r.target}`);
+    expect(sourcesAndTargets).toContain("A->B");
+    expect(sourcesAndTargets).toContain("B->C");
+    expect(sourcesAndTargets).toContain("C->A");
+    expect(result.nextInstances[0].clonedRelationshipIds).toHaveLength(3);
+  });
+
+  it("connector at dead end drops all tokens", () => {
+    const c = createElement("connector", "function");
+    const t0 = obj("A"), t1 = obj("B");
+    const model = makeModel([c, t0, t1], []);
+    const vs = makeViewState({ connector: { x: 0, y: 0 }, "connector.A": { x: 0, y: 0 }, "connector.B": { x: 0, y: 0 } });
+    const instances: TokenInstance[] = [
+      { id: "inst_0", currentElementId: "connector", currentPath: "connector", clonedElementIds: ["A"], clonedRelationshipIds: [] },
+      { id: "inst_1", currentElementId: "connector", currentPath: "connector", clonedElementIds: ["B"], clonedRelationshipIds: [] },
+    ];
+    const result = computeExecutionStep(model, vs, instances, 1, 2, COLOR);
+    expect(result.nextInstances).toHaveLength(0);
+    const removedIds = result.delta.removeElements.map((r) => r.elementId);
+    expect(removedIds).toContain("A");
+    expect(removedIds).toContain("B");
+  });
+});
+
+describe("computeExecutionStep — disconnector", () => {
+  it("disconnector strips clonedRelationshipIds and adds them to removeRelationshipIds", () => {
+    const d = createElement("disconnector", "function");
+    const dst = coll("dst"), t0 = obj("A"), t1 = obj("B");
+    const rel1 = createRelationship("A-->B", "A", "B", "-->");
+    const model = makeModel([d, dst, t0, t1], [rel("disconnector", "dst")]);
+    model.relationships["A-->B"] = rel1;
+    const vs = makeViewState({ disconnector: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "disconnector.A": { x: 0, y: 0 }, "disconnector.B": { x: 0, y: 0 } });
+    const instance: TokenInstance = { id: "inst_0", currentElementId: "disconnector", currentPath: "disconnector", clonedElementIds: ["A", "B"], clonedRelationshipIds: ["A-->B"] };
+    const result = computeExecutionStep(model, vs, [instance], 1, 1, COLOR);
+    expect(result.nextInstances).toHaveLength(1);
+    expect(result.nextInstances[0].currentElementId).toBe("dst");
+    expect(result.nextInstances[0].clonedRelationshipIds).toEqual([]);
+    expect(result.delta.removeRelationshipIds).toContain("A-->B");
+  });
+
+  it("disconnector with no relationships forwards token unchanged", () => {
+    const d = createElement("disconnector", "function");
+    const dst = coll("dst"), t0 = obj("A");
+    const model = makeModel([d, dst, t0], [rel("disconnector", "dst")]);
+    const vs = makeViewState({ disconnector: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "disconnector.A": { x: 0, y: 0 } });
+    const instance: TokenInstance = { id: "inst_0", currentElementId: "disconnector", currentPath: "disconnector", clonedElementIds: ["A"], clonedRelationshipIds: [] };
+    const result = computeExecutionStep(model, vs, [instance], 1, 1, COLOR);
+    expect(result.nextInstances[0].currentElementId).toBe("dst");
+    expect(result.delta.removeRelationshipIds).toHaveLength(0);
+  });
+});
+
+describe("computeExecutionStep — throttler_N", () => {
+  it("throttler_3 forwards token when tickCount % 3 === 0", () => {
+    const th = multiplier("throttler_3");
+    const dst = coll("dst"), token = obj("tok");
+    const model = makeModel([th, dst, token], [rel("throttler_3", "dst")]);
+    const vs = makeViewState({ throttler_3: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "throttler_3.tok": { x: 0, y: 0 } });
+    const instance: TokenInstance = { id: "inst_0", currentElementId: "throttler_3", currentPath: "throttler_3", clonedElementIds: ["tok"], clonedRelationshipIds: [] };
+    const result = computeExecutionStep(model, vs, [instance], 0, 1, COLOR);
+    expect(result.nextInstances[0].currentElementId).toBe("dst");
+  });
+
+  it("throttler_3 drops token when tickCount % 3 !== 0", () => {
+    const th = multiplier("throttler_3");
+    const dst = coll("dst"), token = obj("tok");
+    const model = makeModel([th, dst, token], [rel("throttler_3", "dst")]);
+    const vs = makeViewState({ throttler_3: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "throttler_3.tok": { x: 0, y: 0 } });
+    const instance: TokenInstance = { id: "inst_0", currentElementId: "throttler_3", currentPath: "throttler_3", clonedElementIds: ["tok"], clonedRelationshipIds: [] };
+    const result = computeExecutionStep(model, vs, [instance], 1, 1, COLOR);
+    expect(result.nextInstances).toHaveLength(0);
+    expect(result.delta.removeElements.some((r) => r.elementId === "tok")).toBe(true);
+  });
+
+  it("throttler_3 forwards on tick 3", () => {
+    const th = multiplier("throttler_3");
+    const dst = coll("dst"), token = obj("tok");
+    const model = makeModel([th, dst, token], [rel("throttler_3", "dst")]);
+    const vs = makeViewState({ throttler_3: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "throttler_3.tok": { x: 0, y: 0 } });
+    const instance: TokenInstance = { id: "inst_0", currentElementId: "throttler_3", currentPath: "throttler_3", clonedElementIds: ["tok"], clonedRelationshipIds: [] };
+    const result = computeExecutionStep(model, vs, [instance], 3, 1, COLOR);
+    expect(result.nextInstances[0].currentElementId).toBe("dst");
+  });
+
+  it("throttler_1 always forwards (every tick)", () => {
+    const th = multiplier("throttler_1");
+    const dst = coll("dst"), token = obj("tok");
+    const model = makeModel([th, dst, token], [rel("throttler_1", "dst")]);
+    const vs = makeViewState({ throttler_1: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "throttler_1.tok": { x: 0, y: 0 } });
+    const instance: TokenInstance = { id: "inst_0", currentElementId: "throttler_1", currentPath: "throttler_1", clonedElementIds: ["tok"], clonedRelationshipIds: [] };
+    for (const tick of [0, 1, 2, 5, 99]) {
+      const result = computeExecutionStep(model, vs, [instance], tick, 1, COLOR);
+      expect(result.nextInstances[0].currentElementId).toBe("dst");
+    }
+  });
+});

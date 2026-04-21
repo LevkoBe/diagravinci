@@ -5,6 +5,7 @@ import type { Element } from "../../../../domain/models/Element";
 import { VConfig } from "../../visualConfig";
 import { getLucideIcon, renderLucideIconOnGroup } from "./lucideIconMap";
 import { AppConfig } from "../../../../config/appConfig";
+import type { ClassDiagramContent } from "./classDiagramUtils";
 
 const ec = VConfig.elements;
 const dc = VConfig.decorations;
@@ -13,6 +14,7 @@ const ANONYMOUS_PREFIX = AppConfig.parser.ANONYMOUS_ID_PREFIX + "_";
 
 export interface IElementRenderer {
   render(): ElementRenderResult | undefined;
+  setClassDiagramContent(content: ClassDiagramContent | null): void;
 }
 
 export abstract class BaseElementRenderer implements IElementRenderer {
@@ -54,6 +56,12 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     this.colorOverride = colorOverride;
   }
 
+  protected classDiagramContent: ClassDiagramContent | null = null;
+
+  setClassDiagramContent(content: ClassDiagramContent | null): void {
+    this.classDiagramContent = content;
+  }
+
   protected abstract addElementShape(group: Konva.Group): Konva.Shape;
 
   render(): ElementRenderResult | undefined {
@@ -86,17 +94,141 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       x: pos.position.x,
       y: pos.position.y,
       draggable: true,
-      scaleX: this.isNew ? 0 : 1,
-      scaleY: this.isNew ? 0 : 1,
     });
 
     return group;
+  }
+
+  protected addClassDiagramLabel(group: Konva.Group): void {
+    const { fields, methods } = this.classDiagramContent!;
+    const { size } = this;
+    const FONT = ec.LABEL_FONT_FAMILY;
+    const OPACITY = this.isDimmed ? ec.DIM_OPACITY : 1;
+    const fill = this.colors.fgPrimary;
+    const maxW = size * 0.6;
+    const xStart = -maxW / 2;
+
+    const allLines = [this.element.id, ...fields, ...methods];
+    const longestLine = allLines.reduce(
+      (a, b) => (a.length > b.length ? a : b),
+      this.element.id,
+    );
+    const zoomFactor = Math.max(this.zoom, 0.01);
+    const heuristicFont =
+      (maxW * ec.LABEL_TARGET_WIDTH_RATIO) /
+      (longestLine.length * ec.CHAR_WIDTH_RATIO);
+    const minFont = ec.LABEL_MIN_FONT / zoomFactor;
+    const maxFont = ec.LABEL_MAX_FONT_THRESHOLD / zoomFactor;
+    const fontSize = Math.max(minFont, Math.min(maxFont, heuristicFont));
+    const useEllipsis = heuristicFont < minFont;
+
+    const LINE_H = fontSize * 1.3;
+    const NAME_H = fontSize * 1.5;
+    const SEP_H = fontSize * 0.5;
+
+    const hasFields = fields.length > 0;
+    const hasMethods = methods.length > 0;
+    const hasContent = hasFields || hasMethods;
+    const numSeps = hasFields && hasMethods ? 2 : hasContent ? 1 : 0;
+    const totalH =
+      NAME_H + numSeps * SEP_H + (fields.length + methods.length) * LINE_H;
+    let y = -totalH / 2;
+
+    group.add(
+      new Konva.Text({
+        text: this.element.id,
+        fontSize,
+        fontFamily: FONT,
+        fontStyle: "bold",
+        fill,
+        align: "center",
+        width: maxW,
+        x: xStart,
+        y,
+        opacity: OPACITY,
+        listening: false,
+        ellipsis: useEllipsis,
+        wrap: "none",
+      }),
+    );
+    y += NAME_H;
+
+    if (hasContent) {
+      group.add(
+        new Konva.Line({
+          points: [xStart, y, xStart + maxW, y],
+          stroke: fill,
+          strokeWidth: 0.5,
+          opacity: OPACITY * 0.5,
+          listening: false,
+        }),
+      );
+      y += SEP_H;
+    }
+
+    for (const field of fields) {
+      group.add(
+        new Konva.Text({
+          text: field,
+          fontSize,
+          fontFamily: FONT,
+          fill,
+          align: "left",
+          width: maxW,
+          x: xStart,
+          y,
+          opacity: OPACITY,
+          listening: false,
+          ellipsis: useEllipsis,
+          wrap: "none",
+        }),
+      );
+      y += LINE_H;
+    }
+
+    if (hasFields && hasMethods) {
+      group.add(
+        new Konva.Line({
+          points: [xStart, y, xStart + maxW, y],
+          stroke: fill,
+          strokeWidth: 0.5,
+          opacity: OPACITY * 0.5,
+          listening: false,
+        }),
+      );
+      y += SEP_H;
+    }
+
+    for (const method of methods) {
+      group.add(
+        new Konva.Text({
+          text: method,
+          fontSize,
+          fontFamily: FONT,
+          fill,
+          align: "left",
+          width: maxW,
+          x: xStart,
+          y,
+          opacity: OPACITY,
+          listening: false,
+          ellipsis: useEllipsis,
+          wrap: "none",
+        }),
+      );
+      y += LINE_H;
+    }
   }
 
   protected addLabel(group: Konva.Group): void {
     const rawId = this.element.id;
 
     if (rawId?.startsWith(ANONYMOUS_PREFIX)) return;
+
+    if (this.classDiagramContent) {
+      this.addClassDiagramLabel(group);
+      return;
+    }
 
     const iconMatch = rawId?.match(/^_(.+)_$/);
     if (iconMatch) {
@@ -119,7 +251,9 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       : (rawId ?? this.element.type.toUpperCase());
     const maxWidth = this.size * ec.LABEL_WIDTH_RATIO;
     const zoomFactor = Math.max(this.zoom, 0.01);
-    const heuristicFont = (maxWidth * ec.LABEL_TARGET_WIDTH_RATIO) / (labelText.length * ec.CHAR_WIDTH_RATIO);
+    const heuristicFont =
+      (maxWidth * ec.LABEL_TARGET_WIDTH_RATIO) /
+      (labelText.length * ec.CHAR_WIDTH_RATIO);
     const minFont = ec.LABEL_MIN_FONT / zoomFactor;
     const maxFont = ec.LABEL_MAX_FONT_THRESHOLD / zoomFactor;
     const fontSize = Math.max(minFont, Math.min(maxFont, heuristicFont));
@@ -172,7 +306,10 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       group.add(
         new Konva.Text({
           text: "↺",
-          fontSize: Math.max(ec.LABEL_MIN_FONT, size * dc.RECURSIVE_TEXT_SIZE_RATIO),
+          fontSize: Math.max(
+            ec.LABEL_MIN_FONT,
+            size * dc.RECURSIVE_TEXT_SIZE_RATIO,
+          ),
           fill: dc.RECURSIVE_COLOR,
           x: size * dc.RECURSIVE_TEXT_X_RATIO,
           y: -(size / 2 + dc.RECURSIVE_TEXT_OFFSET),

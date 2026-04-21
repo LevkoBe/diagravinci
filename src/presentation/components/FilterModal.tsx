@@ -24,13 +24,19 @@ import {
   FOLD_PRESET_ID,
   type FilterMode,
   type FilterPreset,
+  type SelectorAtom,
 } from "../../domain/models/Selector";
 import { SelectorEditor } from "./SelectorEditor";
-
 import { AppConfig } from "../../config/appConfig";
+import { store, syncManager } from "../../application/store/store";
+import {
+  upsertAtomInCode,
+  removeAtomFromCode,
+  upsertPresetInCode,
+  removePresetFromCode,
+} from "../utils/selectorCodeUtils";
 
 const MODE_CYCLE: FilterMode[] = ["color", "dim", "hide"];
-
 const PALETTE = AppConfig.ui.COLOR_PALETTE;
 
 function randomColor(): string {
@@ -43,7 +49,7 @@ function freshDraft(): FilterPreset {
     label: "New preset",
     selector: emptySelector(),
     mode: "color",
-    isActive: false,
+    isActive: true,
     color: randomColor(),
   };
 }
@@ -63,12 +69,14 @@ function PresetRow({
   isFirst,
   isLast,
   onEdit,
+  onDelete,
 }: {
   preset: FilterPreset;
   isEditing: boolean;
   isFirst: boolean;
   isLast: boolean;
   onEdit: () => void;
+  onDelete: () => void;
 }) {
   const dispatch = useAppDispatch();
   const nextMode = (m: FilterMode): FilterMode =>
@@ -166,7 +174,7 @@ function PresetRow({
       <DangerIconBtn
         onClick={(e) => {
           e.stopPropagation();
-          dispatch(removePreset(preset.id));
+          onDelete();
         }}
         title="Delete"
         className="p-1.5! shrink-0"
@@ -180,6 +188,7 @@ function PresetRow({
 export function FiltersPanel() {
   const dispatch = useAppDispatch();
   const { presets } = useAppSelector((s) => s.filter);
+  const globalAtoms = useAppSelector((s) => s.diagram.model.atoms ?? []);
   const importRef = useRef<HTMLInputElement>(null);
 
   const [draft, setDraft] = useState<FilterPreset>(() => freshDraft());
@@ -190,18 +199,19 @@ export function FiltersPanel() {
 
   const handleEdit = (preset: FilterPreset) => {
     setEditingId(preset.id);
-    setDraft({
-      ...preset,
-      selector: { ...preset.selector, atoms: [...preset.selector.atoms] },
-    });
+    setDraft({ ...preset, selector: { ...preset.selector } });
   };
 
   const handleSave = () => {
+    const currentCode = store.getState().diagram.code;
     if (isNew) {
-      dispatch(addPreset(draft));
+      const saved: FilterPreset = { ...draft, id: draft.label || draft.id };
+      dispatch(addPreset(saved));
+      syncManager.syncFromCode(upsertPresetInCode(saved, currentCode));
       setDraft(freshDraft());
     } else {
       dispatch(updatePreset(draft));
+      syncManager.syncFromCode(upsertPresetInCode(draft, currentCode));
       setEditingId(null);
       setDraft(freshDraft());
     }
@@ -241,6 +251,16 @@ export function FiltersPanel() {
     };
     reader.readAsText(file);
     e.target.value = "";
+  };
+
+  const handleAtomSave = (atom: SelectorAtom) => {
+    const code = store.getState().diagram.code;
+    syncManager.syncFromCode(upsertAtomInCode(atom, code));
+  };
+
+  const handleAtomDelete = (id: string) => {
+    const code = store.getState().diagram.code;
+    syncManager.syncFromCode(removeAtomFromCode(id, code));
   };
 
   return (
@@ -285,6 +305,15 @@ export function FiltersPanel() {
                 isFirst={i === 0}
                 isLast={i === visiblePresets.length - 1}
                 onEdit={() => handleEdit(preset)}
+                onDelete={() => {
+                  dispatch(removePreset(preset.id));
+                  syncManager.syncFromCode(
+                    removePresetFromCode(
+                      preset.id,
+                      store.getState().diagram.code,
+                    ),
+                  );
+                }}
               />
             ))}
           </div>
@@ -339,7 +368,10 @@ export function FiltersPanel() {
 
           <SelectorEditor
             selector={draft.selector}
+            atoms={globalAtoms}
             onChange={(sel) => setDraft((d) => ({ ...d, selector: sel }))}
+            onAtomSave={handleAtomSave}
+            onAtomDelete={handleAtomDelete}
           />
         </div>
       </div>

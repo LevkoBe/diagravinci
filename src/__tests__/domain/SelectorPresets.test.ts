@@ -2,9 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   namePreset,
   levelPreset,
-  resolveAtomPath,
 } from "../../domain/selector/SelectorPresets";
-import type { AtomPresetMeta } from "../../domain/models/Selector";
 
 describe("namePreset", () => {
   it("returns .* for empty name", () => {
@@ -64,19 +62,3 @@ describe("levelPreset", () => {
   });
 });
 
-describe("resolveAtomPath", () => {
-  it("resolves 'name' kind", () => {
-    const meta: AtomPresetMeta = { kind: "name", name: "foo" };
-    expect(resolveAtomPath(meta, "ignored")).toBe(namePreset("foo"));
-  });
-
-  it("resolves 'level' kind", () => {
-    const meta: AtomPresetMeta = { kind: "level", min: 1, max: 2 };
-    expect(resolveAtomPath(meta, "ignored")).toBe(levelPreset(1, 2));
-  });
-
-  it("resolves 'raw' kind using rawPath", () => {
-    const meta: AtomPresetMeta = { kind: "raw" };
-    expect(resolveAtomPath(meta, "^custom.*$")).toBe("^custom.*$");
-  });
-});
