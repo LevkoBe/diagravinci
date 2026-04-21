@@ -75,6 +75,16 @@ const filterSlice = createSlice({
       }
       state._rev++;
     },
+    setPresetColor(
+      state,
+      { payload: { id, color } }: PayloadAction<{ id: string; color: string }>,
+    ) {
+      const preset = state.presets.find((p) => p.id === id);
+      if (preset) {
+        preset.color = color;
+      }
+      state._rev++;
+    },
 
     setFoldLevel(state, { payload: level }: PayloadAction<number>) {
       state.foldLevel = Math.max(1, level);
@@ -123,6 +133,49 @@ const filterSlice = createSlice({
       console.log("[filterSlice] clearFoldOverrides");
       state._rev++;
     },
+
+    movePresetUp(state, { payload: id }: PayloadAction<string>) {
+      const idx = state.presets.findIndex((p) => p.id === id);
+      if (idx <= 0) return;
+      const tmp = state.presets[idx - 1];
+      state.presets[idx - 1] = state.presets[idx];
+      state.presets[idx] = tmp;
+      state._rev++;
+    },
+    movePresetDown(state, { payload: id }: PayloadAction<string>) {
+      const idx = state.presets.findIndex((p) => p.id === id);
+      if (idx < 0 || idx >= state.presets.length - 1) return;
+      const tmp = state.presets[idx + 1];
+      state.presets[idx + 1] = state.presets[idx];
+      state.presets[idx] = tmp;
+      state._rev++;
+    },
+    cyclePreset(state, { payload: id }: PayloadAction<string>) {
+      const preset = state.presets.find((p) => p.id === id);
+      if (!preset) return;
+      if (!preset.isActive) {
+        preset.isActive = true;
+        preset.mode = "color";
+      } else if (preset.mode === "color") {
+        preset.mode = "dim";
+      } else if (preset.mode === "dim") {
+        preset.mode = "hide";
+      } else {
+        preset.isActive = false;
+      }
+      state._rev++;
+    },
+    syncPresetsFromTab(
+      state,
+      { payload }: PayloadAction<Array<Omit<FilterPreset, "isActive">>>,
+    ) {
+      const localActives = new Map(state.presets.map((p) => [p.id, p.isActive]));
+      state.presets = payload.map((p) => ({
+        ...p,
+        isActive: localActives.get(p.id) ?? false,
+      }));
+      state._rev++;
+    },
   },
 });
 
@@ -135,11 +188,16 @@ export const {
   removePreset,
   togglePresetActive,
   setPresetMode,
+  setPresetColor,
   setFoldLevel,
   setFoldActive,
   toggleFoldActive,
   toggleElementFold,
   clearFoldOverrides,
+  movePresetUp,
+  movePresetDown,
+  cyclePreset,
+  syncPresetsFromTab,
 } = filterSlice.actions;
 
 export default filterSlice.reducer;

@@ -27,6 +27,12 @@ import {
   Square,
   Hexagon,
   Menu,
+  Lock,
+  Scissors,
+  Undo2,
+  Redo2,
+  GitCompare,
+  CheckCheck,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { toggleTheme } from "../../application/store/themeSlice";
@@ -43,15 +49,30 @@ import {
   setViewState,
   setCode,
   setViewMode,
+  pruneElements,
 } from "../../application/store/diagramSlice";
 import {
   openFilterModal,
   setFoldLevel,
   toggleFoldActive,
+  cyclePreset,
 } from "../../application/store/filterSlice";
+import {
+  setDiff,
+  clearAllAdded,
+  clearAllRemoved,
+  clearDiff,
+} from "../../application/store/diffSlice";
+import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
+import { Lexer } from "../../infrastructure/parser/Lexer";
+import { Parser } from "../../infrastructure/parser/Parser";
+import { ViewStateMerger } from "../../domain/sync/ViewStateMerger";
 import { FilterModal } from "./FilterModal";
 import { ELEMENT_SVGS } from "../ElementConfigs";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
+import type { Element } from "../../domain/models/Element";
+import { useUndoRedo } from "../hooks/useUndoRedo";
+import { store } from "../../application/store/store";
 
 const ELEMENT_TYPES = [
   { type: "object" },
@@ -102,9 +123,11 @@ const PillOpenContext = createContext(false);
 function Pill({
   label,
   children,
+  activeSlot,
 }: {
   label: string;
   children: React.ReactNode;
+  activeSlot?: React.ReactNode;
 }) {
   const forceOpen = useContext(PillOpenContext);
   const [open, setOpen] = useState(false);
@@ -122,16 +145,23 @@ function Pill({
       onMouseEnter={() => !forceOpen && setOpen(true)}
       onMouseLeave={() => !forceOpen && setOpen(false)}
     >
-      {/* Label — slides away as buttons appear */}
+      {/* Label + active indicators — slide away as buttons appear */}
       <div
         className={`${slide} ${isOpen ? "grid-cols-[0fr]" : "grid-cols-[1fr]"}`}
       >
-        <button
-          className="overflow-hidden min-w-0 text-[9px] font-bold text-accent/70 tracking-widest uppercase select-none whitespace-nowrap focus:outline-none"
-          onClick={() => !forceOpen && setOpen((v) => !v)}
-        >
-          {label}
-        </button>
+        <div className="overflow-hidden min-w-0 flex items-center gap-1">
+          <button
+            className="overflow-hidden min-w-0 mr-2 text-[9px] font-bold text-accent/70 tracking-widest uppercase select-none whitespace-nowrap focus:outline-none"
+            onClick={() => !forceOpen && setOpen((v) => !v)}
+          >
+            {label}
+          </button>
+          {activeSlot && (
+            <div className="flex items-center gap-0.5 shrink-0">
+              {activeSlot}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Buttons — slide in as label disappears */}
@@ -146,16 +176,45 @@ function Pill({
   );
 }
 
+function ActiveIndicator({
+  children,
+  danger,
+  title,
+  style,
+}: {
+  children: React.ReactNode;
+  danger?: boolean;
+  title?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <span
+      className={[
+        "btn-icon active pointer-events-none select-none shrink-0",
+        danger ? "danger" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={style}
+      title={title}
+    >
+      {children}
+    </span>
+  );
+}
+
 function Btn({
   children,
   active,
   danger,
+  disabled,
   title,
   onClick,
 }: {
   children: React.ReactNode;
   active?: boolean;
   danger?: boolean;
+  disabled?: boolean;
   title?: string;
   onClick?: () => void;
 }) {
@@ -163,6 +222,7 @@ function Btn({
     <button
       title={title}
       onClick={onClick}
+      disabled={disabled}
       className={["btn-icon", active ? "active" : "", danger ? "danger" : ""]
         .filter(Boolean)
         .join(" ")}
@@ -189,6 +249,7 @@ type FoldMode = "expanded" | "collapsed" | "edited";
 export function ToolBar() {
   const dispatch = useAppDispatch();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { canUndo, canRedo, undo, redo } = useUndoRedo();
 
   const isDark = useAppSelector((s) => s.theme.isDark);
   const { model, viewState, code } = useAppSelector((s) => s.diagram);
@@ -207,8 +268,10 @@ export function ToolBar() {
     manuallyFolded,
     manuallyUnfolded,
   } = useAppSelector((s) => s.filter);
+  const diffState = useAppSelector((s) => s.diff);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
+  const updateCodeInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -264,6 +327,117 @@ export function ToolBar() {
     );
   };
 
+  const handleUpdateCode = () => updateCodeInputRef.current?.click();
+
+  const handleUpdateCodeFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    readFile(e, (text) => {
+      try {
+        const tokens = new Lexer(text).tokenize();
+        const newModel = new Parser(tokens).parse();
+        const {
+          model: oldModel,
+          viewState: currentViewState,
+          canvasSize,
+        } = store.getState().diagram;
+
+        const oldIds = new Set(Object.keys(oldModel.elements));
+        const newIds = new Set(Object.keys(newModel.elements));
+
+        const addedIds = [...newIds].filter((id) => !oldIds.has(id));
+        const removedIds = [...oldIds].filter(
+          (id) => !newIds.has(id) && id !== oldModel.root.id,
+        );
+
+        const removedElements: Record<string, Element> = {};
+        for (const id of removedIds) {
+          if (oldModel.elements[id])
+            removedElements[id] = oldModel.elements[id];
+        }
+
+        const mergedModel = {
+          ...newModel,
+          elements: { ...newModel.elements, ...removedElements },
+          root: {
+            ...newModel.root,
+            childIds: [
+              ...newModel.root.childIds,
+              ...removedIds.filter(
+                (id) => !newModel.root.childIds.includes(id),
+              ),
+            ],
+          },
+        };
+
+        const mergedViewState = ViewStateMerger.merge(
+          currentViewState,
+          mergedModel,
+          canvasSize,
+        );
+
+        // Preserve old positions for removed elements (root-level path = element id)
+        const positions = { ...mergedViewState.positions };
+        for (const id of removedIds) {
+          if (currentViewState.positions[id]) {
+            positions[id] = currentViewState.positions[id];
+          }
+        }
+
+        dispatch(setModel(mergedModel));
+        dispatch(setViewState({ ...mergedViewState, positions }));
+        dispatch(setCode(text));
+        dispatch(setDiff({ addedIds, removedIds }));
+      } catch (err) {
+        console.error("[ToolBar] handleUpdateCodeFile error:", err);
+      }
+    });
+    e.target.value = "";
+  };
+
+  const handleAcceptAllAdded = () => dispatch(clearAllAdded());
+  const handleAcceptAllRemoved = () => {
+    dispatch(pruneElements(diffState.removedIds));
+    dispatch(clearAllRemoved());
+  };
+
+  const handleExportSubset = () => {
+    const hiddenSet = new Set(viewState.hiddenPaths);
+    const visibleIds = new Set(
+      Object.keys(viewState.positions)
+        .filter((p) => !hiddenSet.has(p))
+        .map((p) => p.split(".").at(-1)!),
+    );
+    const filteredElements: typeof model.elements = {};
+    for (const id of Object.keys(model.elements)) {
+      if (visibleIds.has(id))
+        filteredElements[id] = {
+          ...model.elements[id],
+          childIds: model.elements[id].childIds.filter((c) =>
+            visibleIds.has(c),
+          ),
+        };
+    }
+    const filteredRoot = {
+      ...model.root,
+      childIds: model.root.childIds.filter((c) => visibleIds.has(c)),
+    };
+    const filteredRelationships: typeof model.relationships = {};
+    for (const [id, r] of Object.entries(model.relationships)) {
+      if (visibleIds.has(r.source) && visibleIds.has(r.target))
+        filteredRelationships[id] = r;
+    }
+    const subsetModel = {
+      ...model,
+      root: filteredRoot,
+      elements: filteredElements,
+      relationships: filteredRelationships,
+    };
+    const subsetCode = new CodeGenerator(subsetModel).generate();
+    trigger(
+      new Blob([subsetCode], { type: "text/plain" }),
+      `subset_${today()}.dg`,
+    );
+  };
+
   const createBtns = ELEMENT_TYPES.map(({ type }) => (
     <Btn
       key={type}
@@ -314,6 +488,15 @@ export function ToolBar() {
       >
         <Unlink size={15} />
       </Btn>
+      <Btn
+        title="Read-only / pan only"
+        active={is("readonly")}
+        onClick={() =>
+          dispatch(setInteractionMode(is("readonly") ? "select" : "readonly"))
+        }
+      >
+        <Lock size={15} />
+      </Btn>
     </>
   );
 
@@ -330,11 +513,13 @@ export function ToolBar() {
     </Btn>
   ));
 
+  const visiblePresets = presets.filter((p) => p.id !== "__fold__");
+
   const selectBtns = (
     <>
       <div className="relative">
         <Btn
-          title="Filter presets"
+          title="Selector presets"
           active={isModalOpen || activePresetCount > 0}
           onClick={() => dispatch(openFilterModal())}
         >
@@ -346,6 +531,27 @@ export function ToolBar() {
           </span>
         )}
       </div>
+      {visiblePresets.map((preset) => (
+        <button
+          key={preset.id}
+          title={`${preset.label} — ${preset.isActive ? preset.mode : "off"} (click to cycle)`}
+          onClick={() => dispatch(cyclePreset(preset.id))}
+          className="btn-icon relative overflow-hidden"
+          style={
+            preset.isActive
+              ? { color: preset.color, borderColor: preset.color }
+              : {}
+          }
+        >
+          <span
+            className="absolute inset-0 rounded-[inherit] opacity-15 transition-opacity"
+            style={preset.isActive ? { background: preset.color } : {}}
+          />
+          <span className="relative text-[9px] font-bold leading-none select-none truncate max-w-[5ch]">
+            {preset.label.slice(0, 4)}
+          </span>
+        </button>
+      ))}
       <input
         type="number"
         min={1}
@@ -374,6 +580,9 @@ export function ToolBar() {
       <Btn title="Load diagram (.json)" onClick={handleLoadDiagram}>
         <Upload size={15} />
       </Btn>
+      <Btn title="Export visible subset (.dg)" onClick={handleExportSubset}>
+        <Scissors size={15} />
+      </Btn>
       <Btn title="New diagram" onClick={handleNew}>
         <FilePlus size={15} />
       </Btn>
@@ -387,6 +596,13 @@ export function ToolBar() {
       </Btn>
       <Btn title="Load code (.dg)" onClick={handleLoadCode}>
         <FileInput size={15} />
+      </Btn>
+      <Btn
+        title="Update code — diff & merge with current diagram"
+        active={diffState.active}
+        onClick={handleUpdateCode}
+      >
+        <GitCompare size={15} />
       </Btn>
     </>
   );
@@ -463,6 +679,12 @@ export function ToolBar() {
 
   const viewBtns = (
     <>
+      <Btn title="Undo (Ctrl+Z)" onClick={undo} disabled={!canUndo}>
+        <Undo2 size={15} />
+      </Btn>
+      <Btn title="Redo (Ctrl+Shift+Z)" onClick={redo} disabled={!canRedo}>
+        <Redo2 size={15} />
+      </Btn>
       <Btn title="Zoom in" onClick={() => dispatch(sendZoomCommand("in"))}>
         <ZoomIn size={15} />
       </Btn>
@@ -497,9 +719,59 @@ export function ToolBar() {
         className="hidden"
         onChange={handleCodeFile}
       />
+      <input
+        ref={updateCodeInputRef}
+        type="file"
+        accept=".dg,.txt"
+        className="hidden"
+        onChange={handleUpdateCodeFile}
+      />
       {isModalOpen && <FilterModal />}
 
       <div className="border-b-2 border-fg-ternary/60">
+        {diffState.active && (
+          <div className="flex items-center gap-3 px-4 py-1.5 bg-bg-secondary/60 border-b border-fg-ternary/20 text-xs">
+            <span className="font-semibold text-fg-secondary">Diff view</span>
+            <span style={{ color: "#4caf50" }} className="font-medium">
+              +{diffState.addedIds.length} added
+            </span>
+            <span style={{ color: "#ef5350" }} className="font-medium">
+              -{diffState.removedIds.length} removed
+            </span>
+            <span className="text-fg-ternary/60">
+              Right-click an element to accept individually
+            </span>
+            <div className="flex items-center gap-1.5 ml-auto">
+              <button
+                onClick={handleAcceptAllAdded}
+                disabled={diffState.addedIds.length === 0}
+                className="flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium transition-colors disabled:opacity-30"
+                style={{ borderColor: "#4caf50", color: "#4caf50" }}
+                title="Accept all added (remove green highlights)"
+              >
+                <CheckCheck size={11} />
+                Accept added
+              </button>
+              <button
+                onClick={handleAcceptAllRemoved}
+                disabled={diffState.removedIds.length === 0}
+                className="flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium transition-colors disabled:opacity-30"
+                style={{ borderColor: "#ef5350", color: "#ef5350" }}
+                title="Accept all removed (delete from diagram)"
+              >
+                <CheckCheck size={11} />
+                Accept removed
+              </button>
+              <button
+                onClick={() => dispatch(clearDiff())}
+                className="flex items-center gap-1 px-2 py-0.5 rounded border border-fg-ternary/40 text-fg-secondary text-xs font-medium hover:bg-fg-ternary/10 transition-colors"
+                title="Clear diff — exit diff view without accepting"
+              >
+                Clear diff
+              </button>
+            </div>
+          </div>
+        )}
         {/* Mobile header — visible only on small screens */}
         <div className="flex sm:hidden items-center px-4 py-2">
           <Btn
@@ -513,21 +785,137 @@ export function ToolBar() {
 
         {/* Desktop toolbar — hidden on small screens */}
         <div className="hidden w-full sm:flex items-center justify-around gap-2 px-4 py-2.5 flex-wrap">
-          <Pill label="Create">{createBtns}</Pill>
+          <Pill
+            label="Create"
+            activeSlot={
+              is("create") ? (
+                <ActiveIndicator title={`New ${activeElementType}`}>
+                  <ElementIcon type={activeElementType} />
+                </ActiveIndicator>
+              ) : undefined
+            }
+          >
+            {createBtns}
+          </Pill>
           <Divider />
-          <Pill label="Mode">{modeBtns}</Pill>
+          <Pill
+            label="Mode"
+            activeSlot={
+              <ActiveIndicator
+                title={interactionMode}
+                danger={is("delete") || is("disconnect")}
+              >
+                {
+                  {
+                    select: <MousePointer2 size={15} />,
+                    create: <Pencil size={15} />,
+                    connect: <Link2 size={15} />,
+                    delete: <Trash2 size={15} />,
+                    disconnect: <Unlink size={15} />,
+                    readonly: <Lock size={15} />,
+                  }[interactionMode]
+                }
+              </ActiveIndicator>
+            }
+          >
+            {modeBtns}
+          </Pill>
           <Divider />
-          <Pill label="Rel">{relBtns}</Pill>
+          <Pill
+            label="Rel"
+            activeSlot={
+              is("connect") ? (
+                <ActiveIndicator
+                  title={
+                    REL_TYPES.find((r) => r.type === activeRelationshipType)
+                      ?.label
+                  }
+                >
+                  <span className="text-[12px] font-bold font-mono leading-none select-none">
+                    {
+                      REL_TYPES.find((r) => r.type === activeRelationshipType)
+                        ?.glyph
+                    }
+                  </span>
+                </ActiveIndicator>
+              ) : undefined
+            }
+          >
+            {relBtns}
+          </Pill>
           <Divider />
-          <Pill label="Select">{selectBtns}</Pill>
+          <Pill
+            label="Select"
+            activeSlot={
+              visiblePresets.filter((p) => p.isActive).length > 0 ? (
+                <>
+                  {visiblePresets
+                    .filter((p) => p.isActive)
+                    .map((preset) => (
+                      <span
+                        key={preset.id}
+                        className="btn-icon active pointer-events-none select-none shrink-0 relative overflow-hidden"
+                        style={{
+                          color: preset.color,
+                          borderColor: preset.color,
+                        }}
+                        title={`${preset.label} — ${preset.mode}`}
+                      >
+                        <span
+                          className="absolute inset-0 rounded-[inherit] opacity-15"
+                          style={{ background: preset.color }}
+                        />
+                        <span className="relative text-[9px] font-bold leading-none select-none truncate max-w-[5ch]">
+                          {preset.label.slice(0, 4)}
+                        </span>
+                      </span>
+                    ))}
+                </>
+              ) : undefined
+            }
+          >
+            {selectBtns}
+          </Pill>
           <Divider />
           <Pill label="Project">{projectBtns}</Pill>
           <Divider />
           <Pill label="Code">{codeBtns}</Pill>
           <Divider />
-          <Pill label="Layout">{layoutBtns}</Pill>
+          <Pill
+            label="Layout"
+            activeSlot={
+              <ActiveIndicator title={viewMode}>
+                {
+                  {
+                    circular: <Circle size={15} />,
+                    basic: <Circle size={15} />,
+                    hierarchical: <TreePine size={15} />,
+                    timeline: <ArrowRightLeft size={15} />,
+                    pipeline: <Workflow size={15} />,
+                  }[viewMode]
+                }
+              </ActiveIndicator>
+            }
+          >
+            {layoutBtns}
+          </Pill>
           <Divider />
-          <Pill label="Style">{styleBtns}</Pill>
+          <Pill
+            label="Style"
+            activeSlot={
+              <ActiveIndicator title={renderStyle}>
+                {
+                  {
+                    svg: <Spline size={15} />,
+                    rect: <Square size={15} />,
+                    polygon: <Hexagon size={15} />,
+                  }[renderStyle]
+                }
+              </ActiveIndicator>
+            }
+          >
+            {styleBtns}
+          </Pill>
           <Divider />
           <Pill label="View">{viewBtns}</Pill>
         </div>

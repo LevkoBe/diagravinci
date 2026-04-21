@@ -26,6 +26,7 @@ export interface ViewState {
   hiddenPaths: string[];
   dimmedPaths: string[];
   foldedPaths: string[];
+  coloredPaths: Record<string, string>;
 }
 
 export function createEmptyViewState(): ViewState {
@@ -38,6 +39,7 @@ export function createEmptyViewState(): ViewState {
     hiddenPaths: [],
     dimmedPaths: [],
     foldedPaths: [],
+    coloredPaths: {},
   };
 }
 

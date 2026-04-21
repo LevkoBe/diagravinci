@@ -3,7 +3,10 @@ import diagramReducer from "./diagramSlice";
 import themeReducer from "./themeSlice";
 import uiReducer from "./uiSlice";
 import filterReducer from "./filterSlice";
+import historyReducer from "./historySlice";
+import diffReducer from "./diffSlice";
 import { SyncManager } from "../SyncManager";
+import { TabSyncManager } from "../TabSyncManager";
 import { loadState, saveState } from "./persistence";
 
 const preloadedState = loadState();
@@ -14,6 +17,8 @@ export const store = configureStore({
     diagram: diagramReducer,
     theme: themeReducer,
     ui: uiReducer,
+    history: historyReducer,
+    diff: diffReducer,
   },
   preloadedState,
 });
@@ -28,6 +33,7 @@ store.subscribe(() => {
 });
 
 export const syncManager = new SyncManager(store);
+export const tabSyncManager = new TabSyncManager(store);
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppStore = typeof store;

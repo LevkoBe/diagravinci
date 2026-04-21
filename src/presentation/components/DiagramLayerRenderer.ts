@@ -36,6 +36,8 @@ export class DiagramLayerRenderer {
   private readonly zoom: number;
   private readonly renderStyle: RenderStyle;
 
+  private readonly isReadonly: boolean;
+
   constructor(
     stage: Konva.Stage,
     model: DiagramModel,
@@ -47,6 +49,7 @@ export class DiagramLayerRenderer {
     prevPaths: Set<string>,
     zoom: number,
     renderStyle: RenderStyle = "polygon",
+    isReadonly = false,
   ) {
     this.stage = stage;
     this.model = model;
@@ -58,6 +61,7 @@ export class DiagramLayerRenderer {
     this.prevPaths = prevPaths;
     this.zoom = zoom;
     this.renderStyle = renderStyle;
+    this.isReadonly = isReadonly;
 
     const { pixelSizes, zoomHidden, zoomDimmed } = computeElementSizes(
       model,
@@ -118,7 +122,15 @@ export class DiagramLayerRenderer {
       console.log("[DiagramLayerRenderer] Rendering dimmed element:", path);
     }
 
-    const elementGroup = this.renderElement(element, path, parentPos, isDimmed);
+    const colorOverride = this.viewState.coloredPaths?.[path] ?? null;
+
+    const elementGroup = this.renderElement(
+      element,
+      path,
+      parentPos,
+      isDimmed,
+      colorOverride,
+    );
     if (!elementGroup) return;
 
     parentGroup.add(elementGroup);
@@ -167,6 +179,7 @@ export class DiagramLayerRenderer {
     path: string,
     parentPos?: { x: number; y: number },
     isDimmed = false,
+    colorOverride: string | null = null,
   ): Konva.Group | undefined {
     const isNew = !this.prevPaths.has(path);
     const size = this.getSize(path);
@@ -182,6 +195,7 @@ export class DiagramLayerRenderer {
       isDimmed,
       size,
       this.zoom,
+      colorOverride,
     ] as const;
 
     const elementRenderer =
@@ -198,6 +212,19 @@ export class DiagramLayerRenderer {
     this.groupMap.set(path, group);
     this.hoverIn.set(path, onHoverIn);
     this.hoverOut.set(path, onHoverOut);
+
+    if (this.isReadonly) {
+      group.draggable(false);
+      group.on("mouseenter", () => {
+        this.stage.container().style.cursor = "default";
+        this.setHovered(path);
+      });
+      group.on("mouseleave", () => {
+        this.stage.container().style.cursor = "default";
+        this.setHovered(null);
+      });
+      return group;
+    }
 
     const eventHandler = new ElementEventHandler(
       { id: element.id, path },

@@ -8,6 +8,7 @@ export interface FilterLists {
   hiddenPaths: string[];
   dimmedPaths: string[];
   foldedPaths: string[];
+  coloredPaths: Record<string, string>;
 }
 
 function pathDepth(path: string): number {
@@ -43,9 +44,19 @@ export class FilterResolver {
     const hiddenSet = new Set<string>();
     const dimmedSet = new Set<string>();
     const foldedSet = new Set<string>();
+    const coloredMap = new Map<string, string>();
 
     for (const preset of filterState.presets) {
       if (!preset.isActive) continue;
+
+      if (preset.mode === "color") {
+        for (const path of allPaths) {
+          if (matchesPreset(path, preset, model)) {
+            coloredMap.set(path, preset.color);
+          }
+        }
+        continue;
+      }
 
       const unmatched: string[] = [];
       for (const path of allPaths) {
@@ -119,6 +130,7 @@ export class FilterResolver {
       hiddenPaths: [...hiddenSet],
       dimmedPaths: [...dimmedSet],
       foldedPaths: [...foldedSet],
+      coloredPaths: Object.fromEntries(coloredMap),
     };
 
     console.log("[FilterResolver] Resolved:", {
@@ -131,10 +143,22 @@ export class FilterResolver {
   }
 
   static equal(a: FilterLists, b: FilterLists): boolean {
+    const coloredEqual =
+      JSON.stringify(
+        Object.entries(a.coloredPaths ?? {}).sort(([k1], [k2]) =>
+          k1.localeCompare(k2),
+        ),
+      ) ===
+      JSON.stringify(
+        Object.entries(b.coloredPaths ?? {}).sort(([k1], [k2]) =>
+          k1.localeCompare(k2),
+        ),
+      );
     return (
       arraysEqual([...a.hiddenPaths].sort(), [...b.hiddenPaths].sort()) &&
       arraysEqual([...a.dimmedPaths].sort(), [...b.dimmedPaths].sort()) &&
-      arraysEqual([...a.foldedPaths].sort(), [...b.foldedPaths].sort())
+      arraysEqual([...a.foldedPaths].sort(), [...b.foldedPaths].sort()) &&
+      coloredEqual
     );
   }
 }

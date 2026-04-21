@@ -7,7 +7,8 @@ export type InteractionMode =
   | "create"
   | "connect"
   | "delete"
-  | "disconnect";
+  | "disconnect"
+  | "readonly";
 export type ZoomCommand = { type: "in" | "out" | "reset"; ts: number };
 export type RenderStyle = "svg" | "rect" | "polygon";
 

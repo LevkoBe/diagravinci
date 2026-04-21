@@ -7,11 +7,20 @@ import type { ViewState } from "../../domain/models/ViewState";
 const STATE_KEY = "diagravinci_state";
 const SPLITTER_KEY = "diagravinci_splitter_width";
 
-type PersistedFilter = Pick<FilterState, "presets" | "foldLevel" | "foldActive" | "manuallyFolded" | "manuallyUnfolded">;
+type PersistedFilter = Pick<
+  FilterState,
+  "presets" | "foldLevel" | "foldActive" | "manuallyFolded" | "manuallyUnfolded"
+>;
 
 type PersistedState = {
   theme: { isDark: boolean };
-  ui: Pick<UIState, "renderStyle" | "interactionMode" | "activeElementType" | "activeRelationshipType">;
+  ui: Pick<
+    UIState,
+    | "renderStyle"
+    | "interactionMode"
+    | "activeElementType"
+    | "activeRelationshipType"
+  >;
   filter: PersistedFilter;
   diagram: { code: string; model: DiagramModel; viewState: ViewState };
 };
@@ -26,19 +35,62 @@ type AppState = {
   theme: { isDark: boolean };
   ui: UIState;
   filter: FilterState;
-  diagram: { code: string; model: DiagramModel; viewState: ViewState; canvasSize: { width: number; height: number } };
+  diagram: {
+    code: string;
+    model: DiagramModel;
+    viewState: ViewState;
+    canvasSize: { width: number; height: number };
+  };
 };
+
+const FALLBACK_COLORS = [
+  "#e05c5c",
+  "#e07a2f",
+  "#d4a017",
+  "#5cb85c",
+  "#2f9ee0",
+  "#7b5ce0",
+  "#d45cb8",
+  "#5ce0c8",
+];
 
 export function loadState(): HydratedState | undefined {
   try {
     const raw = localStorage.getItem(STATE_KEY);
     if (!raw) return undefined;
     const parsed = JSON.parse(raw) as PersistedState;
+    const presets = (parsed.filter.presets ?? []).map((p, i) => ({
+      ...p,
+      color:
+        (p as { color?: string }).color ??
+        FALLBACK_COLORS[i % FALLBACK_COLORS.length],
+    }));
+    const viewState = {
+      ...parsed.diagram.viewState,
+      coloredPaths:
+        (parsed.diagram.viewState as { coloredPaths?: Record<string, string> })
+          .coloredPaths ?? {},
+    };
     return {
       ...parsed,
-      filter: { ...parsed.filter, isModalOpen: false, activeModalPresetId: null, _rev: 0 },
-      diagram: { ...parsed.diagram, canvasSize: { width: 800, height: 600 } },
-      ui: { ...parsed.ui, connectingFromId: null, selectedElementId: null, zoomCommand: null },
+      filter: {
+        ...parsed.filter,
+        presets,
+        isModalOpen: false,
+        activeModalPresetId: null,
+        _rev: 0,
+      },
+      diagram: {
+        ...parsed.diagram,
+        viewState,
+        canvasSize: { width: 800, height: 600 },
+      },
+      ui: {
+        ...parsed.ui,
+        connectingFromId: null,
+        selectedElementId: null,
+        zoomCommand: null,
+      },
     };
   } catch {
     return undefined;
@@ -56,7 +108,10 @@ export function saveState(state: AppState): void {
         activeRelationshipType: state.ui.activeRelationshipType,
       },
       filter: {
-        presets: state.filter.presets,
+        presets: state.filter.presets.map(({ ...rest }) => ({
+          ...rest,
+          isActive: false,
+        })),
         foldLevel: state.filter.foldLevel,
         foldActive: state.filter.foldActive,
         manuallyFolded: state.filter.manuallyFolded,

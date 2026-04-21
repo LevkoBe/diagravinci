@@ -20,6 +20,7 @@ export class PolygonElementRenderer extends BaseElementRenderer {
     isDimmed: boolean,
     size: number,
     zoom: number,
+    colorOverride: string | null = null,
   ) {
     super(
       element,
@@ -32,6 +33,7 @@ export class PolygonElementRenderer extends BaseElementRenderer {
       isDimmed,
       size,
       zoom,
+      colorOverride,
     );
   }
 
@@ -60,10 +62,7 @@ export class PolygonElementRenderer extends BaseElementRenderer {
     const { size } = this;
     const r = size / 2;
     const strokeWidth = 2 / Math.max(this.zoom, 0.1);
-    const stroke =
-      this.selectedElementId === this.element.id
-        ? this.colors.selected
-        : this.colors.accent;
+    const stroke = this.resolveStroke();
     const opacity = this.isDimmed ? DIM_OPACITY : 1;
 
     let shape: Konva.Shape;
