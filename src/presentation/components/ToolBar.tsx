@@ -37,6 +37,7 @@ import {
   Pause,
   RotateCcw,
   StepForward,
+  Table2,
 } from "lucide-react";
 import { AppConfig } from "../../config/appConfig";
 import {
@@ -61,6 +62,7 @@ import {
   setActiveRelationshipType,
   sendZoomCommand,
   setRenderStyle,
+  toggleClassDiagramMode,
   type RenderStyle,
 } from "../../application/store/uiSlice";
 import {
@@ -359,6 +361,7 @@ export function ToolBar() {
     activeElementType,
     activeRelationshipType,
     renderStyle,
+    classDiagramMode,
   } = useAppSelector((s) => s.ui);
   const { presets, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
     useAppSelector((s) => s.filter);
@@ -892,21 +895,32 @@ export function ToolBar() {
   );
 
   const styleBtns = (
-    [
-      { value: "svg", title: "SVG paths", icon: <Spline size={15} /> },
-      { value: "rect", title: "Rectangles", icon: <Square size={15} /> },
-      { value: "polygon", title: "Polygons", icon: <Hexagon size={15} /> },
-    ] as { value: RenderStyle; title: string; icon: React.ReactNode }[]
-  ).map(({ value, title, icon }) => (
-    <Btn
-      key={value}
-      title={title}
-      active={renderStyle === value}
-      onClick={() => dispatch(setRenderStyle(value))}
-    >
-      {icon}
-    </Btn>
-  ));
+    <>
+      {(
+        [
+          { value: "svg", title: "SVG paths", icon: <Spline size={15} /> },
+          { value: "rect", title: "Rectangles", icon: <Square size={15} /> },
+          { value: "polygon", title: "Polygons", icon: <Hexagon size={15} /> },
+        ] as { value: RenderStyle; title: string; icon: React.ReactNode }[]
+      ).map(({ value, title, icon }) => (
+        <Btn
+          key={value}
+          title={title}
+          active={renderStyle === value}
+          onClick={() => dispatch(setRenderStyle(value))}
+        >
+          {icon}
+        </Btn>
+      ))}
+      <Btn
+        title={classDiagramMode ? "Class diagram mode: on" : "Class diagram mode: off"}
+        active={classDiagramMode}
+        onClick={() => dispatch(toggleClassDiagramMode())}
+      >
+        <Table2 size={15} />
+      </Btn>
+    </>
+  );
 
   const viewBtns = (
     <>

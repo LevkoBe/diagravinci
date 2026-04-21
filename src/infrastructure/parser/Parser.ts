@@ -140,6 +140,14 @@ export class Parser {
           break;
         }
         case "x": {
+          if (this.peek()?.value === "_") {
+            this.next();
+            while (this.peek()?.type === "FLAG") this.next();
+            if (lastRel) this.updateRelationship(lastRel.id, "_");
+            lastRel = null;
+            lastEl = null;
+            break;
+          }
           lastEl = this.parseElement(WRAPPERS[wrapper].defaultChildType);
 
           if (lastRel) this.updateRelationship(lastRel.id, lastEl.id);

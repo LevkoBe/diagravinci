@@ -110,6 +110,7 @@ export function VisualCanvas() {
     connectingFromId,
     selectedElementIds,
     renderStyle,
+    classDiagramMode,
   } = useAppSelector((s) => s.ui);
 
   const modeRef = useRef(interactionMode);
@@ -622,6 +623,7 @@ export function VisualCanvas() {
       renderStyle,
       interactionMode === "readonly",
       getExecutionColorMap(execInstances, execColor),
+      classDiagramMode,
       elementSizes,
       geometryCacheRef.current,
     );
@@ -705,6 +707,7 @@ export function VisualCanvas() {
     zoom,
     stagePan,
     renderStyle,
+    classDiagramMode,
     interactionMode,
     dispatch,
     execInstances,

@@ -20,6 +20,11 @@ import {
   computeElementSizes,
   type ElementSizes,
 } from "./rendering/elementSizing";
+import {
+  computeClassDiagramContent,
+  computeTextModeSuppressedPaths,
+  shouldUseClassDiagramMode,
+} from "./rendering/elements/classDiagramUtils";
 
 function createElementRenderer(
   renderStyle: RenderStyle,
@@ -71,6 +76,7 @@ export class DiagramLayerRenderer {
   private readonly hoverOut = new Map<string, () => void>();
 
   private readonly hiddenSet: Set<string>;
+  private readonly filterHiddenSet: Set<string>;
   private readonly dimmedSet: Set<string>;
 
   private readonly pixelSizes: Map<string, number>;
@@ -81,6 +87,7 @@ export class DiagramLayerRenderer {
 
   private readonly isReadonly: boolean;
   private readonly executionColorMap: Record<string, string>;
+  private readonly classDiagramMode: boolean;
 
   constructor(
     stage: Konva.Stage,
@@ -94,6 +101,7 @@ export class DiagramLayerRenderer {
     renderStyle: RenderStyle = "polygon",
     isReadonly = false,
     executionColorMap: Record<string, string> = {},
+    classDiagramMode = true,
     elementSizes?: ElementSizes,
     geometryCache?: GeometryCache,
   ) {
@@ -108,12 +116,14 @@ export class DiagramLayerRenderer {
     this.renderStyle = renderStyle;
     this.isReadonly = isReadonly;
     this.executionColorMap = executionColorMap;
+    this.classDiagramMode = classDiagramMode;
 
     const { pixelSizes, zoomHidden, zoomDimmed } =
       elementSizes ?? computeElementSizes(model, this.viewState, zoom);
     this.pixelSizes = pixelSizes;
 
     this.hiddenSet = new Set([...viewState.hiddenPaths, ...zoomHidden]);
+    this.filterHiddenSet = new Set(this.hiddenSet);
     this.dimmedSet = new Set([...viewState.dimmedPaths, ...zoomDimmed]);
 
     const stagePos = stage.position();
@@ -132,6 +142,16 @@ export class DiagramLayerRenderer {
       this.viewportRect,
       geometryCache,
     );
+
+    if (classDiagramMode) {
+      const suppressed = computeTextModeSuppressedPaths(
+        model,
+        viewState,
+        this.filterHiddenSet,
+        this.dimmedSet,
+      );
+      for (const p of suppressed) this.hiddenSet.add(p);
+    }
   }
 
   render(relationshipLayer: Konva.Layer, elementLayer: Konva.Layer): void {
@@ -178,9 +198,9 @@ export class DiagramLayerRenderer {
     if (this.hiddenSet.has(path)) return;
 
     const skipRender = this.isOffScreen(path);
+    const isDimmed = this.dimmedSet.has(path);
 
     if (!skipRender) {
-      const isDimmed = this.dimmedSet.has(path);
       const colorOverride =
         this.executionColorMap[element.id] ??
         this.viewState.coloredPaths?.[path] ??
@@ -196,6 +216,12 @@ export class DiagramLayerRenderer {
         elementLayer.add(elementGroup);
       }
     }
+
+    if (
+      this.classDiagramMode &&
+      !isDimmed &&
+      shouldUseClassDiagramMode(element, path, this.viewState, this.filterHiddenSet, this.model)
+    ) return;
 
     if (visited.has(element.id)) return;
     if (this.viewState.foldedPaths.includes(path)) return;
@@ -242,6 +268,16 @@ export class DiagramLayerRenderer {
       this.zoom,
       colorOverride,
     );
+
+    if (
+      this.classDiagramMode &&
+      !isDimmed &&
+      shouldUseClassDiagramMode(element, path, this.viewState, this.filterHiddenSet, this.model)
+    ) {
+      elementRenderer.setClassDiagramContent(
+        computeClassDiagramContent(element, path, this.model, this.filterHiddenSet),
+      );
+    }
 
     const renderResult = elementRenderer.render();
     if (!renderResult) return;
