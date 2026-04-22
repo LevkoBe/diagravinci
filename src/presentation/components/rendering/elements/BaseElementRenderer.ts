@@ -267,7 +267,6 @@ export abstract class BaseElementRenderer implements IElementRenderer {
 
     const pathDepth = this.path.split(".").length;
     const hasVisibleChildren =
-      !isZoomDimmed &&
       Object.keys(this.viewState.positions).some((p) => {
         if (!p.startsWith(this.path + ".")) return false;
         if (p.split(".").length !== pathDepth + 1) return false;
@@ -301,31 +300,33 @@ export abstract class BaseElementRenderer implements IElementRenderer {
 
   protected addDecorationsIfNeeded(group: Konva.Group): void {
     const { size } = this;
+    const zoomFactor = Math.max(this.zoom, 0.01);
     const pos = this.viewState.positions[this.path];
     if (!pos) return;
 
     this.addContainerBackground(group);
 
     if (pos.isRecursive) {
+      const ringOffset = dc.RECURSIVE_RING_OFFSET / zoomFactor;
       group.add(
         new Konva.Circle({
-          radius: size / 2 + dc.RECURSIVE_RING_OFFSET,
+          radius: size / 2 + ringOffset,
           stroke: dc.RECURSIVE_COLOR,
-          strokeWidth: dc.RECURSIVE_RING_WIDTH,
-          dash: dc.RECURSIVE_RING_DASH as number[],
+          strokeWidth: dc.RECURSIVE_RING_WIDTH / zoomFactor,
+          dash: (dc.RECURSIVE_RING_DASH as number[]).map((d) => d / zoomFactor),
           listening: false,
         }),
       );
       group.add(
         new Konva.Text({
           text: "↺",
-          fontSize: Math.max(
-            ec.LABEL_MIN_FONT,
-            size * dc.RECURSIVE_TEXT_SIZE_RATIO,
+          fontSize: Math.min(
+            ec.LABEL_MAX_FONT_THRESHOLD / zoomFactor,
+            Math.max(ec.LABEL_MIN_FONT / zoomFactor, size * dc.RECURSIVE_TEXT_SIZE_RATIO),
           ),
           fill: dc.RECURSIVE_COLOR,
           x: size * dc.RECURSIVE_TEXT_X_RATIO,
-          y: -(size / 2 + dc.RECURSIVE_TEXT_OFFSET),
+          y: -(size / 2 + ringOffset + dc.RECURSIVE_TEXT_OFFSET / zoomFactor),
           listening: false,
         }),
       );
@@ -338,9 +339,9 @@ export abstract class BaseElementRenderer implements IElementRenderer {
             size / 2 +
             (pos.isRecursive
               ? dc.CONNECTING_RING_OFFSET_RECURSIVE
-              : dc.CONNECTING_RING_OFFSET),
+              : dc.CONNECTING_RING_OFFSET) / zoomFactor,
           stroke: dc.CONNECTING_COLOR,
-          strokeWidth: dc.CONNECTING_RING_WIDTH,
+          strokeWidth: dc.CONNECTING_RING_WIDTH / zoomFactor,
           listening: false,
         }),
       );

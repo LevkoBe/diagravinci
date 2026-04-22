@@ -76,38 +76,38 @@ describe("isDashed", () => {
 
 describe("createDecoration", () => {
   it("returns a Konva.Line for arrow", () => {
-    const shape = createDecoration("arrow", false, 100, 100, 1, 0, "#000");
+    const shape = createDecoration("arrow", false, 100, 100, 1, 0, "#000", 1.5, 1);
     expect(shape).toBeInstanceOf(Konva.Line);
   });
 
   it("returns a Konva.Line for triangle (unfilled)", () => {
-    const shape = createDecoration("triangle", false, 100, 100, 1, 0, "#000");
+    const shape = createDecoration("triangle", false, 100, 100, 1, 0, "#000", 1.5, 1);
     expect(shape).toBeInstanceOf(Konva.Line);
   });
 
   it("returns a filled Konva.Line for triangle (filled)", () => {
-    const shape = createDecoration("triangle", true, 100, 100, 1, 0, "#f00") as Konva.Line;
+    const shape = createDecoration("triangle", true, 100, 100, 1, 0, "#f00", 1.5, 1) as Konva.Line;
     expect(shape).toBeInstanceOf(Konva.Line);
     expect(shape.fill()).toBe("#f00");
   });
 
   it("returns a Konva.Line for diamond (unfilled)", () => {
-    const shape = createDecoration("diamond", false, 100, 100, 1, 0, "#000");
+    const shape = createDecoration("diamond", false, 100, 100, 1, 0, "#000", 1.5, 1);
     expect(shape).toBeInstanceOf(Konva.Line);
   });
 
   it("returns a filled Konva.Line for diamond (filled)", () => {
-    const shape = createDecoration("diamond", true, 100, 100, 1, 0, "#0f0") as Konva.Line;
+    const shape = createDecoration("diamond", true, 100, 100, 1, 0, "#0f0", 1.5, 1) as Konva.Line;
     expect(shape?.fill()).toBe("#0f0");
   });
 
   it("returns a Konva.Circle for circle", () => {
-    const shape = createDecoration("circle", false, 100, 100, 1, 0, "#000");
+    const shape = createDecoration("circle", false, 100, 100, 1, 0, "#000", 1.5, 1);
     expect(shape).toBeInstanceOf(Konva.Circle);
   });
 
   it("returns null for none", () => {
-    expect(createDecoration("none", false, 0, 0, 1, 0, "#000")).toBeNull();
+    expect(createDecoration("none", false, 0, 0, 1, 0, "#000", 1.5, 1)).toBeNull();
   });
 });
 
@@ -148,23 +148,28 @@ describe("screenToWorld", () => {
 });
 
 describe("decorationInset", () => {
-  it("returns 8 for arrow", () => {
-    expect(decorationInset("arrow")).toBe(8);
+  it("returns 8 for arrow at zoom=1", () => {
+    expect(decorationInset("arrow", 1)).toBe(8);
   });
 
-  it("returns 12 for triangle", () => {
-    expect(decorationInset("triangle")).toBe(12);
+  it("returns 12 for triangle at zoom=1", () => {
+    expect(decorationInset("triangle", 1)).toBe(12);
   });
 
-  it("returns 20 for diamond", () => {
-    expect(decorationInset("diamond")).toBe(20);
+  it("returns 20 for diamond at zoom=1", () => {
+    expect(decorationInset("diamond", 1)).toBe(20);
   });
 
-  it("returns 10 for circle", () => {
-    expect(decorationInset("circle")).toBe(10);
+  it("returns 10 for circle at zoom=1", () => {
+    expect(decorationInset("circle", 1)).toBe(10);
   });
 
   it("returns 0 for none", () => {
-    expect(decorationInset("none")).toBe(0);
+    expect(decorationInset("none", 1)).toBe(0);
+  });
+
+  it("scales inset down at higher zoom", () => {
+    expect(decorationInset("arrow", 2)).toBe(4);
+    expect(decorationInset("triangle", 4)).toBe(3);
   });
 });
