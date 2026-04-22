@@ -6,6 +6,7 @@ import {
   decorationInset,
   createDecoration,
   screenToWorld,
+  computeRelPoints,
 } from "../../presentation/components/rendering/relationships/arrowUtils";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
 import { KonvaTestHelper } from "../utils";
@@ -59,7 +60,17 @@ describe("parseEndSpec", () => {
 
 describe("isDashed", () => {
   const dashedTypes: RelationshipType[] = ["..>", "..|>", "<..", "<|..", ".."];
-  const solidTypes: RelationshipType[] = ["-->", "--|>", "<--", "<|--", "o--", "*--", "--o", "--*", "--"];
+  const solidTypes: RelationshipType[] = [
+    "-->",
+    "--|>",
+    "<--",
+    "<|--",
+    "o--",
+    "*--",
+    "--o",
+    "--*",
+    "--",
+  ];
 
   for (const t of dashedTypes) {
     it(`returns true for ${t}`, () => {
@@ -76,38 +87,100 @@ describe("isDashed", () => {
 
 describe("createDecoration", () => {
   it("returns a Konva.Line for arrow", () => {
-    const shape = createDecoration("arrow", false, 100, 100, 1, 0, "#000", 1.5, 1);
+    const shape = createDecoration(
+      "arrow",
+      false,
+      100,
+      100,
+      1,
+      0,
+      "#000",
+      1.5,
+      1,
+    );
     expect(shape).toBeInstanceOf(Konva.Line);
   });
 
   it("returns a Konva.Line for triangle (unfilled)", () => {
-    const shape = createDecoration("triangle", false, 100, 100, 1, 0, "#000", 1.5, 1);
+    const shape = createDecoration(
+      "triangle",
+      false,
+      100,
+      100,
+      1,
+      0,
+      "#000",
+      1.5,
+      1,
+    );
     expect(shape).toBeInstanceOf(Konva.Line);
   });
 
   it("returns a filled Konva.Line for triangle (filled)", () => {
-    const shape = createDecoration("triangle", true, 100, 100, 1, 0, "#f00", 1.5, 1) as Konva.Line;
+    const shape = createDecoration(
+      "triangle",
+      true,
+      100,
+      100,
+      1,
+      0,
+      "#f00",
+      1.5,
+      1,
+    ) as Konva.Line;
     expect(shape).toBeInstanceOf(Konva.Line);
     expect(shape.fill()).toBe("#f00");
   });
 
   it("returns a Konva.Line for diamond (unfilled)", () => {
-    const shape = createDecoration("diamond", false, 100, 100, 1, 0, "#000", 1.5, 1);
+    const shape = createDecoration(
+      "diamond",
+      false,
+      100,
+      100,
+      1,
+      0,
+      "#000",
+      1.5,
+      1,
+    );
     expect(shape).toBeInstanceOf(Konva.Line);
   });
 
   it("returns a filled Konva.Line for diamond (filled)", () => {
-    const shape = createDecoration("diamond", true, 100, 100, 1, 0, "#0f0", 1.5, 1) as Konva.Line;
+    const shape = createDecoration(
+      "diamond",
+      true,
+      100,
+      100,
+      1,
+      0,
+      "#0f0",
+      1.5,
+      1,
+    ) as Konva.Line;
     expect(shape?.fill()).toBe("#0f0");
   });
 
   it("returns a Konva.Circle for circle", () => {
-    const shape = createDecoration("circle", false, 100, 100, 1, 0, "#000", 1.5, 1);
+    const shape = createDecoration(
+      "circle",
+      false,
+      100,
+      100,
+      1,
+      0,
+      "#000",
+      1.5,
+      1,
+    );
     expect(shape).toBeInstanceOf(Konva.Circle);
   });
 
   it("returns null for none", () => {
-    expect(createDecoration("none", false, 0, 0, 1, 0, "#000", 1.5, 1)).toBeNull();
+    expect(
+      createDecoration("none", false, 0, 0, 1, 0, "#000", 1.5, 1),
+    ).toBeNull();
   });
 });
 
@@ -171,5 +244,46 @@ describe("decorationInset", () => {
   it("scales inset down at higher zoom", () => {
     expect(decorationInset("arrow", 2)).toBe(4);
     expect(decorationInset("triangle", 4)).toBe(3);
+  });
+});
+
+describe("computeRelPoints", () => {
+  it("returns null points when source and target are at the same position", () => {
+    const result = computeRelPoints(100, 100, 0, 100, 100, 0, "-->", 1);
+    expect(result.points).toBeNull();
+  });
+
+  it("returns a 4-element points array for normal positions", () => {
+    const result = computeRelPoints(0, 0, 0, 100, 0, 0, "-->", 1);
+    expect(result.points).toHaveLength(4);
+  });
+
+  it("returns correct normal vector for horizontal line", () => {
+    const result = computeRelPoints(0, 0, 0, 100, 0, 0, "-->", 1);
+    expect(result.nx).toBeCloseTo(1);
+    expect(result.ny).toBeCloseTo(0);
+  });
+
+  it("computes edge exit points accounting for node radii", () => {
+    const result = computeRelPoints(0, 0, 60, 100, 0, 60, "-->", 1);
+    expect(result.ex1).toBeCloseTo(30);
+    expect(result.ex2).toBeCloseTo(70);
+  });
+
+  it("pulls line endpoints inward by decoration inset (zoom=1)", () => {
+    const result = computeRelPoints(0, 0, 60, 100, 0, 60, "-->", 1);
+    expect(result.points![0]).toBeCloseTo(30);
+    expect(result.points![2]).toBeCloseTo(62);
+  });
+
+  it("scales decoration insets with zoom — higher zoom reduces world-unit inset", () => {
+    const result = computeRelPoints(0, 0, 60, 100, 0, 60, "-->", 2);
+    expect(result.points![2]).toBeCloseTo(66);
+  });
+
+  it("applies insets on both ends for bidirectional decorations (<|--)", () => {
+    const result = computeRelPoints(0, 0, 60, 100, 0, 60, "<|--", 1);
+    expect(result.points![0]).toBeCloseTo(42);
+    expect(result.points![2]).toBeCloseTo(70);
   });
 });
