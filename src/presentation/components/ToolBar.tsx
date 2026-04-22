@@ -26,7 +26,6 @@ import {
   Spline,
   Square,
   Hexagon,
-  Menu,
   Lock,
   Scissors,
   Undo2,
@@ -285,7 +284,6 @@ type FoldMode = "expanded" | "collapsed" | "edited";
 
 export function ToolBar() {
   const dispatch = useAppDispatch();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const { canUndo, canRedo, undo, redo } = useUndoRedo();
   const { colors, setColors, injectTokens } = useC7One();
   const isDark = detectIsDark(colors["--color-bg-base"]);
@@ -354,8 +352,7 @@ export function ToolBar() {
   }, [toolbarWidth, toolbarHeight, tree, moveDivider]);
 
   const isWideBar = toolbarWidth / Math.max(toolbarHeight, 1) > 2;
-  const isMobile = isWideBar && toolbarWidth < 380;
-  const isCompact = isWideBar && !isMobile && toolbarWidth < 720;
+  const isCompact = isWideBar && toolbarWidth < 720;
 
   const { model, viewState, code } = useAppSelector((s) => s.diagram);
   const viewMode = viewState.viewMode;
@@ -1078,16 +1075,6 @@ export function ToolBar() {
               {viewBtns}
             </Pill>
           </div>
-        ) : isMobile ? (
-          <div className="flex items-center px-4 py-2">
-            <Btn
-              title="Toggle menu"
-              active={mobileOpen}
-              onClick={() => setMobileOpen((v) => !v)}
-            >
-              <Menu size={15} />
-            </Btn>
-          </div>
         ) : (
           <div
             className={`w-full flex items-center gap-2 px-4 py-2.5 overflow-x-auto flex-nowrap ${isCompact ? "" : "justify-around"}`}
@@ -1266,22 +1253,7 @@ export function ToolBar() {
           </div>
         )}
 
-        {isMobile && mobileOpen && (
-          <PillOpenContext.Provider value={true}>
-            <div className="flex flex-wrap justify-around gap-2 px-4 py-3">
-              <Pill label="Create">{createBtns}</Pill>
-              <Pill label="Mode">{modeBtns}</Pill>
-              <Pill label="Rel">{relBtns}</Pill>
-              <Pill label="Select">{selectBtns}</Pill>
-              <Pill label="Project">{projectBtns}</Pill>
-              <Pill label="Code">{codeBtns}</Pill>
-              <Pill label="Layout">{layoutBtns}</Pill>
-              <Pill label="Run">{execBtns}</Pill>
-              <Pill label="Style">{styleBtns}</Pill>
-              <Pill label="View">{viewBtns}</Pill>
-            </div>
-          </PillOpenContext.Provider>
-        )}
+
       </div>
 
       <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
