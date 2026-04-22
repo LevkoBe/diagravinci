@@ -5,7 +5,7 @@ import {
   parseEndSpec,
   isDashed,
   createDecoration,
-  decorationInset,
+  computeRelPoints,
 } from "./arrowUtils";
 import type { Colors } from "../types";
 import { VConfig } from "../../visualConfig";
@@ -48,6 +48,7 @@ export class RelationshipRenderer {
   private readonly relGroups = new Map<string, Konva.Group>();
   private readonly viewportRect: ViewportRect | null;
   private readonly geometryCache: GeometryCache | null;
+  private readonly zoom: number;
 
   constructor(
     viewState: ViewState,
@@ -56,6 +57,7 @@ export class RelationshipRenderer {
     dimmedSet: Set<string>,
     viewportRect?: ViewportRect,
     geometryCache?: GeometryCache,
+    zoom = 1,
   ) {
     this.viewState = viewState;
     this.colors = colors;
@@ -63,6 +65,7 @@ export class RelationshipRenderer {
     this.dimmedSet = dimmedSet;
     this.viewportRect = viewportRect ?? null;
     this.geometryCache = geometryCache ?? null;
+    this.zoom = Math.max(zoom, 0.01);
   }
 
   private populateRelGroup(
@@ -74,14 +77,19 @@ export class RelationshipRenderer {
   ): void {
     const stroke = this.colors.relationship;
     const spec = parseEndSpec(relType);
+    const zoom = this.zoom;
+    const strokeWidth = RC.REL_STROKE_WIDTH / zoom;
+    const decoStrokeWidth = RC.DECORATION_STROKE_WIDTH / zoom;
 
     group.add(
       new Konva.Line({
         points: result.points,
         stroke,
-        strokeWidth: RC.REL_STROKE_WIDTH,
+        strokeWidth,
         lineCap: "round",
-        dash: isDashed(relType) ? (RC.REL_DASH as number[]) : undefined,
+        dash: isDashed(relType)
+          ? (RC.REL_DASH as number[]).map((d) => d / zoom)
+          : undefined,
       }),
     );
 
@@ -94,6 +102,8 @@ export class RelationshipRenderer {
         -result.nx,
         -result.ny,
         stroke,
+        decoStrokeWidth,
+        zoom,
       );
       if (sourceDeco) group.add(sourceDeco);
     }
@@ -106,6 +116,8 @@ export class RelationshipRenderer {
         result.nx,
         result.ny,
         stroke,
+        decoStrokeWidth,
+        zoom,
       );
       if (targetDeco) group.add(targetDeco);
     }
@@ -117,10 +129,11 @@ export class RelationshipRenderer {
         adaptiveRelLabel(
           label,
           result.points,
-          midX - result.ny * RC.REL_LABEL_OFFSET,
-          midY + result.nx * RC.REL_LABEL_OFFSET,
+          midX - result.ny * (RC.REL_LABEL_OFFSET / zoom),
+          midY + result.nx * (RC.REL_LABEL_OFFSET / zoom),
           stroke,
           opacity,
+          zoom,
         ),
       );
     }
@@ -140,16 +153,27 @@ export class RelationshipRenderer {
 
       if (
         this.viewportRect &&
-        isPositionOutsideViewport(sourcePos.position.x, sourcePos.position.y, sourcePos.size, this.viewportRect) &&
-        isPositionOutsideViewport(targetPos.position.x, targetPos.position.y, targetPos.size, this.viewportRect)
-      ) return;
+        isPositionOutsideViewport(
+          sourcePos.position.x,
+          sourcePos.position.y,
+          sourcePos.size,
+          this.viewportRect,
+        ) &&
+        isPositionOutsideViewport(
+          targetPos.position.x,
+          targetPos.position.y,
+          targetPos.size,
+          this.viewportRect,
+        )
+      )
+        return;
 
       const isDimmed =
         this.dimmedSet.has(sourcePath) || this.dimmedSet.has(targetPath);
       const opacity = isDimmed ? RC.REL_DIM_OPACITY : RC.REL_NORMAL_OPACITY;
 
       const cacheKey = this.geometryCache
-        ? `${rel.id}|${sourcePos.position.x},${sourcePos.position.y},${sourcePos.size}|${targetPos.position.x},${targetPos.position.y},${targetPos.size}`
+        ? `${rel.id}|${sourcePos.position.x},${sourcePos.position.y},${sourcePos.size}|${targetPos.position.x},${targetPos.position.y},${targetPos.size}|z${this.zoom}`
         : null;
 
       let result = cacheKey ? this.geometryCache!.get(cacheKey) : undefined;
@@ -162,6 +186,7 @@ export class RelationshipRenderer {
           targetPos.position.y,
           targetPos.size,
           rel.type,
+          this.zoom,
         );
         if (cacheKey) this.geometryCache!.set(cacheKey, result);
       }
@@ -208,6 +233,7 @@ export class RelationshipRenderer {
         tp.y,
         targetSize,
         rel.type,
+        this.zoom,
       );
       if (!result.points) return;
 
@@ -239,6 +265,7 @@ function adaptiveRelLabel(
   y: number,
   fill: string,
   opacity: number,
+  zoom: number,
 ): Konva.Text {
   const lineLen = Math.sqrt(
     (points[2] - points[0]) ** 2 + (points[3] - points[1]) ** 2,
@@ -248,11 +275,12 @@ function adaptiveRelLabel(
   const heuristicFont =
     (maxWidth * VConfig.elements.LABEL_TARGET_WIDTH_RATIO) /
     (text.length * VConfig.elements.CHAR_WIDTH_RATIO);
-  const fontSize = Math.max(
-    RC.REL_LABEL_MIN_FONT,
-    Math.min(RC.REL_LABEL_MAX_FONT_THRESHOLD, heuristicFont),
-  );
-  const useEllipsis = heuristicFont < RC.REL_LABEL_MIN_FONT;
+  const minFont = RC.REL_LABEL_MIN_FONT / zoom;
+  const maxFont = RC.REL_LABEL_MAX_FONT_THRESHOLD / zoom;
+  const fontSize = Math.max(minFont, Math.min(maxFont, heuristicFont));
+  const useEllipsis = heuristicFont < minFont;
+
+  const textPadding = 2 / zoom;
 
   const label = new Konva.Text({
     x,
@@ -262,53 +290,13 @@ function adaptiveRelLabel(
     fontFamily: "system-ui, sans-serif",
     fill,
     opacity,
-    offsetY: fontSize / 2,
+    offsetY: fontSize / 2 + textPadding,
     align: "center",
     width: maxWidth,
     ellipsis: useEllipsis,
     wrap: "none",
-    padding: 2,
+    padding: textPadding,
   });
   label.offsetX(label.width() / 2);
   return label;
-}
-
-function computeRelPoints(
-  sx: number,
-  sy: number,
-  sSize: number,
-  tx: number,
-  ty: number,
-  tSize: number,
-  relType: RelationshipType,
-): {
-  points: number[] | null;
-  nx: number;
-  ny: number;
-  ex1: number;
-  ey1: number;
-  ex2: number;
-  ey2: number;
-} {
-  const dx = tx - sx,
-    dy = ty - sy;
-  const len = Math.sqrt(dx * dx + dy * dy);
-
-  if (len === 0)
-    return { points: null, nx: 0, ny: 0, ex1: sx, ey1: sy, ex2: tx, ey2: ty };
-
-  const nx = dx / len,
-    ny = dy / len;
-  const spec = parseEndSpec(relType);
-  const ex1 = sx + nx * (sSize / 2),
-    ey1 = sy + ny * (sSize / 2);
-  const ex2 = tx - nx * (tSize / 2),
-    ey2 = ty - ny * (tSize / 2);
-
-  const lx1 = ex1 + nx * decorationInset(spec.source),
-    ly1 = ey1 + ny * decorationInset(spec.source);
-  const lx2 = ex2 - nx * decorationInset(spec.target),
-    ly2 = ey2 - ny * decorationInset(spec.target);
-
-  return { points: [lx1, ly1, lx2, ly2], nx, ny, ex1, ey1, ex2, ey2 };
 }

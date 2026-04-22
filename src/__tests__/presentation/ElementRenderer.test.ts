@@ -857,6 +857,158 @@ describe("ElementRenderer", () => {
     });
   });
 
+  describe("Label Placement", () => {
+    it("places label below the element when it has visible direct children", () => {
+      const element = MockElementFactory.createElement("a", "object");
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .addElement("a.b", 120, 120, 60)
+        .build();
+
+      const renderer = new SvgPathElementRenderer(
+        element,
+        "a",
+        viewState,
+        null,
+        defaultColors,
+        false,
+        false,
+        60,
+        1,
+      );
+      const result = renderer.render();
+
+      const label = result?.group
+        .getChildren()
+        .find((c) => c instanceof Konva.Text) as Konva.Text;
+      expect(label).toBeDefined();
+      expect(label.y()).toBeCloseTo(38);
+    });
+
+    it("centers label when element has no children in viewState", () => {
+      const element = MockElementFactory.createElement("a", "object");
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .build();
+
+      const renderer = new SvgPathElementRenderer(
+        element,
+        "a",
+        viewState,
+        null,
+        defaultColors,
+        false,
+        false,
+        60,
+        1,
+      );
+      const result = renderer.render();
+
+      const label = result?.group
+        .getChildren()
+        .find((c) => c instanceof Konva.Text) as Konva.Text;
+      expect(label).toBeDefined();
+      expect(label.y()).toBeLessThan(0);
+    });
+
+    it("places label below for a dimmed element that has visible direct children", () => {
+      const element = MockElementFactory.createElement("a", "object");
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .addElement("a.b", 120, 120, 60)
+        .build();
+
+      const renderer = new SvgPathElementRenderer(
+        element,
+        "a",
+        viewState,
+        null,
+        defaultColors,
+        false,
+        true,
+        60,
+        10,
+      );
+      const result = renderer.render();
+
+      const label = result?.group
+        .getChildren()
+        .find((c) => c instanceof Konva.Text) as Konva.Text;
+      expect(label).toBeDefined();
+      expect(label.y()).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Zoom Normalization — Decorations", () => {
+    it("recursion ring strokeWidth is proportionally smaller at higher zoom", () => {
+      const element = MockElementFactory.createElement("a", "object");
+
+      const findRecursiveRing = (zoom: number): Konva.Circle => {
+        const viewState = new ViewStateBuilder()
+          .addElement("a", 100, 100, 60, true)
+          .build();
+        const result = new SvgPathElementRenderer(
+          element,
+          "a",
+          viewState,
+          null,
+          defaultColors,
+          false,
+          false,
+          60,
+          zoom,
+        ).render();
+        return result?.group
+          .getChildren()
+          .find(
+            (c) =>
+              c instanceof Konva.Circle &&
+              (c as Konva.Circle).stroke() === "#f97316",
+          ) as Konva.Circle;
+      };
+
+      const ring1 = findRecursiveRing(1);
+      const ring10 = findRecursiveRing(10);
+
+      expect(ring1).toBeDefined();
+      expect(ring10).toBeDefined();
+      expect(ring10.strokeWidth()).toBeCloseTo(ring1.strokeWidth() / 10);
+    });
+
+    it("recursion icon fontSize is capped proportionally at high zoom", () => {
+      const element = MockElementFactory.createElement("a", "object");
+
+      const makeIconFontSize = (zoom: number): number => {
+        const viewState = new ViewStateBuilder()
+          .addElement("a", 100, 100, 60, true)
+          .build();
+        const result = new SvgPathElementRenderer(
+          element,
+          "a",
+          viewState,
+          null,
+          defaultColors,
+          false,
+          false,
+          60,
+          zoom,
+        ).render();
+        const iconText = result?.group
+          .getChildren()
+          .find(
+            (c) => c instanceof Konva.Text && (c as Konva.Text).text() === "↺",
+          ) as Konva.Text;
+        return iconText?.fontSize() ?? 0;
+      };
+
+      const fs1 = makeIconFontSize(1);
+      const fs10 = makeIconFontSize(10);
+
+      expect(fs10).toBeLessThan(fs1);
+      expect(fs10).toBeCloseTo(2);
+    });
+  });
+
   describe("Icon Element Rendering", () => {
     it("renders icon element (_database_) without a text label", () => {
       const element = MockElementFactory.createElement("_database_", "object");

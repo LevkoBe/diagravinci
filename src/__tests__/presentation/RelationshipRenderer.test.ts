@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Konva from "konva";
-import { RelationshipRenderer, type GeometryCache, type ViewportRect } from "../../presentation/components/rendering/relationships/RelationshipRenderer";
+import {
+  RelationshipRenderer,
+  type GeometryCache,
+  type ViewportRect,
+} from "../../presentation/components/rendering/relationships/RelationshipRenderer";
 import type { ViewState } from "../../domain/models/ViewState";
 import { createEmptyViewState } from "../../domain/models/ViewState";
 import type { Colors } from "../../presentation/components/rendering/types";
@@ -377,7 +381,13 @@ describe("RelationshipRenderer", () => {
         .addRelationship("r", "a", "b", "-->")
         .build();
 
-      const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set(), viewport);
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        viewport,
+      );
       renderer.render(layer);
       expect(layer.getChildren().length).toBe(0);
     });
@@ -392,7 +402,13 @@ describe("RelationshipRenderer", () => {
           .addRelationship(`r${i}`, `a${i}`, `b${i}`, "-->");
       }
 
-      const renderer = new RelationshipRenderer(builder.build(), defaultColors, new Set(), new Set(), viewport);
+      const renderer = new RelationshipRenderer(
+        builder.build(),
+        defaultColors,
+        new Set(),
+        new Set(),
+        viewport,
+      );
       renderer.render(layer);
       expect(layer.getChildren().length).toBe(0);
     });
@@ -408,7 +424,13 @@ describe("RelationshipRenderer", () => {
         .addRelationship("r1", "a", "b", "-->")
         .build();
 
-      const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set(), viewport);
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        viewport,
+      );
       renderer.render(layer);
       expect(layer.getChildren().length).toBe(0);
     });
@@ -420,7 +442,13 @@ describe("RelationshipRenderer", () => {
         .addRelationship("r1", "a", "b", "-->")
         .build();
 
-      const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set(), viewport);
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        viewport,
+      );
       renderer.render(layer);
       expect(layer.getChildren().length).toBeGreaterThan(0);
     });
@@ -432,7 +460,13 @@ describe("RelationshipRenderer", () => {
         .addRelationship("r1", "a", "b", "-->")
         .build();
 
-      const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set(), viewport);
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        viewport,
+      );
       renderer.render(layer);
       expect(layer.getChildren().length).toBeGreaterThan(0);
     });
@@ -444,7 +478,13 @@ describe("RelationshipRenderer", () => {
         .addRelationship("r1", "a", "b", "-->")
         .build();
 
-      const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set(), viewport);
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        viewport,
+      );
       renderer.render(layer);
       expect(layer.getChildren().length).toBeGreaterThan(0);
     });
@@ -462,7 +502,13 @@ describe("RelationshipRenderer", () => {
           .addRelationship(`r_off${i}`, `off_a${i}`, `off_b${i}`, "-->");
       }
 
-      const renderer = new RelationshipRenderer(builder.build(), defaultColors, new Set(), new Set(), viewport);
+      const renderer = new RelationshipRenderer(
+        builder.build(),
+        defaultColors,
+        new Set(),
+        new Set(),
+        viewport,
+      );
       renderer.render(layer);
       expect(layer.getChildren().length).toBe(1);
     });
@@ -474,9 +520,131 @@ describe("RelationshipRenderer", () => {
         .addRelationship("r1", "a", "b", "-->")
         .build();
 
-      const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set());
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+      );
       renderer.render(layer);
       expect(layer.getChildren().length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Zoom Normalization", () => {
+    it("stroke width on line is smaller at higher zoom", () => {
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .addElement("b", 300, 100, 60)
+        .addRelationship("r1", "a", "b", "-->")
+        .build();
+
+      const layer1 = layer;
+      const layer2 = new Konva.Layer();
+      helper.getStage().add(layer2);
+
+      new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+      ).render(layer1);
+      new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        10,
+      ).render(layer2);
+
+      const getLine = (l: Konva.Layer) =>
+        (l.getChildren()[0] as Konva.Group)
+          .getChildren()
+          .find((c) => c instanceof Konva.Line) as Konva.Line;
+
+      const sw1 = getLine(layer1).strokeWidth();
+      const sw10 = getLine(layer2).strokeWidth();
+      expect(sw10).toBeCloseTo(sw1 / 10);
+    });
+
+    it("dash pattern scales proportionally with zoom", () => {
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .addElement("b", 300, 100, 60)
+        .addRelationship("r1", "a", "b", "..>")
+        .build();
+
+      const layer2 = new Konva.Layer();
+      helper.getStage().add(layer2);
+
+      new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+      ).render(layer);
+      new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        2,
+      ).render(layer2);
+
+      const getDash = (l: Konva.Layer) =>
+        (l.getChildren()[0] as Konva.Group)
+          .getChildren()
+          .find((c) => c instanceof Konva.Line) as Konva.Line;
+
+      const dash1 = getDash(layer).dash();
+      const dash2 = getDash(layer2).dash();
+
+      expect(dash1.length).toBeGreaterThan(0);
+      expect(dash2[0]).toBeCloseTo(dash1[0] / 2);
+      expect(dash2[1]).toBeCloseTo(dash1[1] / 2);
+    });
+
+    it("geometry cache creates separate entries for different zoom levels", () => {
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .addElement("b", 300, 100, 60)
+        .addRelationship("r1", "a", "b", "-->")
+        .build();
+
+      const cache: GeometryCache = new Map();
+      const layer2 = new Konva.Layer();
+      helper.getStage().add(layer2);
+
+      new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        cache,
+        1,
+      ).render(layer);
+      new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        cache,
+        2,
+      ).render(layer2);
+
+      expect(cache.size).toBe(2);
     });
   });
 
@@ -489,7 +657,14 @@ describe("RelationshipRenderer", () => {
         .build();
 
       const cache: GeometryCache = new Map();
-      const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set(), undefined, cache);
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        cache,
+      );
       renderer.render(layer);
       expect(cache.size).toBe(1);
     });
@@ -506,8 +681,20 @@ describe("RelationshipRenderer", () => {
       helper.getStage().add(layer2);
 
       const cache: GeometryCache = new Map();
-      new RelationshipRenderer(viewState, defaultColors, new Set(), new Set(), undefined, cache).render(layer);
-      new RelationshipRenderer(viewState, defaultColors, new Set(), new Set()).render(layer2);
+      new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        cache,
+      ).render(layer);
+      new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+      ).render(layer2);
 
       expect(layer.getChildren().length).toBe(layer2.getChildren().length);
     });
@@ -520,7 +707,14 @@ describe("RelationshipRenderer", () => {
         .build();
 
       const cache: GeometryCache = new Map();
-      const renderer = new RelationshipRenderer(viewState, defaultColors, new Set(), new Set(), undefined, cache);
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        cache,
+      );
 
       const layer2 = new Konva.Layer();
       helper.getStage().add(layer2);
@@ -548,8 +742,22 @@ describe("RelationshipRenderer", () => {
       const layer2 = new Konva.Layer();
       helper.getStage().add(layer2);
 
-      new RelationshipRenderer(viewState1, defaultColors, new Set(), new Set(), undefined, cache).render(layer);
-      new RelationshipRenderer(viewState2, defaultColors, new Set(), new Set(), undefined, cache).render(layer2);
+      new RelationshipRenderer(
+        viewState1,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        cache,
+      ).render(layer);
+      new RelationshipRenderer(
+        viewState2,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        cache,
+      ).render(layer2);
 
       expect(cache.size).toBe(2);
     });

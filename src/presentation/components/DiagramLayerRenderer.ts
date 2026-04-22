@@ -141,6 +141,7 @@ export class DiagramLayerRenderer {
       this.dimmedSet,
       this.viewportRect,
       geometryCache,
+      zoom,
     );
 
     if (classDiagramMode) {
