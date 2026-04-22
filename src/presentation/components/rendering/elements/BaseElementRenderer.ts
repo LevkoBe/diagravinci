@@ -103,7 +103,9 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     const { fields, methods } = this.classDiagramContent!;
     const { size } = this;
     const FONT = ec.LABEL_FONT_FAMILY;
-    const OPACITY = this.isDimmed ? ec.DIM_OPACITY : 1;
+    const isZoomDimmed =
+      this.isDimmed && this.size * this.zoom > VConfig.sizing.MAX_SCREEN_PX;
+    const OPACITY = this.isDimmed && !isZoomDimmed ? ec.DIM_OPACITY : 1;
     const fill = this.colors.fgPrimary;
     const maxW = size * 0.6;
     const xStart = -maxW / 2;
@@ -259,14 +261,25 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     const fontSize = Math.max(minFont, Math.min(maxFont, heuristicFont));
     const useEllipsis = heuristicFont < minFont;
 
-    const hasVisibleChildren = Object.keys(this.viewState.positions).some(
-      (p) =>
-        p.startsWith(this.path + ".") &&
-        p.split(".").length === this.path.split(".").length + 1,
-    );
+    const isZoomDimmed =
+      this.isDimmed && this.size * this.zoom > VConfig.sizing.MAX_SCREEN_PX;
+    const labelOpacity = this.isDimmed && !isZoomDimmed ? ec.DIM_OPACITY : 1;
+
+    const pathDepth = this.path.split(".").length;
+    const hasVisibleChildren =
+      !isZoomDimmed &&
+      Object.keys(this.viewState.positions).some((p) => {
+        if (!p.startsWith(this.path + ".")) return false;
+        if (p.split(".").length !== pathDepth + 1) return false;
+        const childScreenSize =
+          (this.viewState.positions[p]?.size ?? 0) * this.zoom;
+        return childScreenSize >= VConfig.sizing.MIN_SCREEN_PX;
+      });
+
+    const textPadding = 2 / zoomFactor;
     const labelY = hasVisibleChildren
-      ? this.size / 2 + ec.LABEL_BELOW_OFFSET
-      : -fontSize / 2;
+      ? this.size / 2 + ec.LABEL_BELOW_OFFSET / zoomFactor - textPadding
+      : -fontSize / 2 - textPadding;
 
     const textNode = new Konva.Text({
       text: labelText,
@@ -279,8 +292,8 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       y: labelY,
       ellipsis: useEllipsis,
       wrap: "none",
-      padding: 2,
-      opacity: this.isDimmed ? ec.DIM_OPACITY : 1,
+      padding: textPadding,
+      opacity: labelOpacity,
     });
 
     group.add(textNode);
