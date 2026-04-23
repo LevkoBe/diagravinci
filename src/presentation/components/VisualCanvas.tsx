@@ -199,9 +199,6 @@ export function VisualCanvas() {
     stage.on("dragstart", () => {
       stage.container().style.cursor = "grabbing";
     });
-    stage.on("dragmove", () => {
-      setStagePan((n) => n + 1);
-    });
     stage.on("dragend", () => {
       stage.container().style.cursor =
         modeRef.current === "select" ? "default" : "crosshair";
