@@ -213,7 +213,7 @@ describe("shouldUseClassDiagramMode", () => {
       );
       const vs = makeVS(["p", "p.q", "p.q.r"]);
       const hiddenQ = new Set(["p.q"]);
-      // q is hidden → p has no visible children with grandchildren → text mode
+
       expect(
         shouldUseClassDiagramMode(
           model.elements["p"]!,
@@ -252,7 +252,7 @@ describe("shouldUseClassDiagramMode", () => {
         ],
         ["p"],
       );
-      // r is NOT in positions
+
       const vs = makeVS(["p", "p.q"]);
       expect(
         shouldUseClassDiagramMode(model.elements["p"]!, "p", vs, hidden, model),
@@ -262,6 +262,181 @@ describe("shouldUseClassDiagramMode", () => {
 });
 
 describe("computeClassDiagramContent", () => {
+  it("returns empty fields and methods when element has no children", () => {
+    const model = makeModel([{ id: "cls" }], ["cls"]);
+    const content = computeClassDiagramContent(
+      model.elements["cls"]!,
+      "cls",
+      model,
+      new Set(),
+    );
+    expect(content.fields).toEqual([]);
+    expect(content.methods).toEqual([]);
+  });
+
+  it("skips anonymous children (anon_ prefix)", () => {
+    const model = makeModel(
+      [
+        { id: "cls", children: ["anon_xyz", "real"] },
+        { id: "anon_xyz" },
+        { id: "real" },
+      ],
+      ["cls"],
+    );
+    const content = computeClassDiagramContent(
+      model.elements["cls"]!,
+      "cls",
+      model,
+      new Set(),
+    );
+    expect(content.fields).toEqual(["real"]);
+  });
+
+  it("skips children absent from the model", () => {
+    const model = makeModel(
+      [{ id: "cls", children: ["ghost", "real"] }, { id: "real" }],
+      ["cls"],
+    );
+
+    const content = computeClassDiagramContent(
+      model.elements["cls"]!,
+      "cls",
+      model,
+      new Set(),
+    );
+    expect(content.fields).toEqual(["real"]);
+  });
+
+  it("formats function child with no params as 'name(): void'", () => {
+    const model = makeModel(
+      [
+        { id: "cls", children: ["fn"] },
+        { id: "fn", type: "function" },
+      ],
+      ["cls"],
+    );
+    const content = computeClassDiagramContent(
+      model.elements["cls"]!,
+      "cls",
+      model,
+      new Set(),
+    );
+    expect(content.methods).toEqual(["fn(): void"]);
+  });
+
+  it("formats function child with parameters listing their ids", () => {
+    const model = makeModel(
+      [
+        { id: "cls", children: ["fn"] },
+        { id: "fn", type: "function", children: ["x", "y"] },
+        { id: "x" },
+        { id: "y" },
+      ],
+      ["cls"],
+    );
+    const content = computeClassDiagramContent(
+      model.elements["cls"]!,
+      "cls",
+      model,
+      new Set(),
+    );
+    expect(content.methods).toEqual(["fn(x, y): void"]);
+  });
+
+  it("resolves return type from a flow element referenced by relationship", () => {
+    const model = makeModel(
+      [
+        { id: "cls", children: ["fn"] },
+        { id: "fn", type: "function" },
+        { id: "ret", type: "flow", children: ["String"] },
+        { id: "String" },
+      ],
+      ["cls"],
+    );
+    model.relationships["r1"] = {
+      id: "r1",
+      source: "fn",
+      target: "ret",
+      type: "-->",
+    };
+
+    const content = computeClassDiagramContent(
+      model.elements["cls"]!,
+      "cls",
+      model,
+      new Set(),
+    );
+    expect(content.methods).toEqual(["fn(): String"]);
+  });
+
+  it("formats empty collection child as 'name[]'", () => {
+    const model = makeModel(
+      [
+        { id: "cls", children: ["col"] },
+        { id: "col", type: "collection" },
+      ],
+      ["cls"],
+    );
+    const content = computeClassDiagramContent(
+      model.elements["cls"]!,
+      "cls",
+      model,
+      new Set(),
+    );
+    expect(content.methods).toEqual(["col[]"]);
+  });
+
+  it("formats choice child as 'name(): enum'", () => {
+    const model = makeModel(
+      [
+        { id: "cls", children: ["st"] },
+        { id: "st", type: "choice" },
+      ],
+      ["cls"],
+    );
+    const content = computeClassDiagramContent(
+      model.elements["cls"]!,
+      "cls",
+      model,
+      new Set(),
+    );
+    expect(content.methods).toEqual(["st(): enum"]);
+  });
+
+  it("formats state child as 'name||'", () => {
+    const model = makeModel(
+      [
+        { id: "cls", children: ["s"] },
+        { id: "s", type: "state" },
+      ],
+      ["cls"],
+    );
+    const content = computeClassDiagramContent(
+      model.elements["cls"]!,
+      "cls",
+      model,
+      new Set(),
+    );
+    expect(content.methods).toEqual(["s||"]);
+  });
+
+  it("formats flow child as just its id", () => {
+    const model = makeModel(
+      [
+        { id: "cls", children: ["f"] },
+        { id: "f", type: "flow" },
+      ],
+      ["cls"],
+    );
+    const content = computeClassDiagramContent(
+      model.elements["cls"]!,
+      "cls",
+      model,
+      new Set(),
+    );
+    expect(content.methods).toEqual(["f"]);
+  });
+
   it("separates object children into fields, others into methods", () => {
     const model = makeModel(
       [
@@ -381,7 +556,7 @@ describe("computeTextModeSuppressedPaths", () => {
       new Set(),
       dimmed,
     );
-    // b is dimmed → traversal skips it → b.c not suppressed
+
     expect(suppressed.has("a.b.c")).toBe(false);
   });
 
