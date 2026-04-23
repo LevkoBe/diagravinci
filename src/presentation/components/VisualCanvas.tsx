@@ -480,13 +480,22 @@ export function VisualCanvas() {
           } else syncManager.syncFromVis(model);
         },
         onReparent: (elementId, oldParentPath, newParentPath) => {
+          const rootId = model.root.id;
+          const oldPrefix =
+            oldParentPath === rootId
+              ? elementId
+              : `${oldParentPath}.${elementId}`;
+          const newPrefix =
+            newParentPath === rootId
+              ? elementId
+              : `${newParentPath}.${elementId}`;
           const updatedModel = applyReparent(
             model,
             elementId,
             oldParentPath,
             newParentPath,
           );
-          syncManager.syncFromVis(updatedModel, true);
+          syncManager.syncFromVis(updatedModel, true, { oldPrefix, newPrefix });
         },
         onClick: (elementId, shiftKey, ctrlKey) => {
           const mode = modeRef.current;

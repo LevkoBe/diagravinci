@@ -93,7 +93,11 @@ export class SyncManager {
     }
   }
 
-  syncFromVis(updatedModel: DiagramModel, preservePositions = false): void {
+  syncFromVis(
+    updatedModel: DiagramModel,
+    preservePositions = false,
+    pathRemapping?: { oldPrefix: string; newPrefix: string },
+  ): void {
     const {
       model: currentModel,
       viewState: currentViewState,
@@ -103,8 +107,20 @@ export class SyncManager {
     const diff = ModelDiffer.diff(currentModel, updatedModel);
     if (ModelDiffer.isEmpty(diff)) return;
 
+    let mergeViewState = currentViewState;
+    if (preservePositions && pathRemapping) {
+      const { oldPrefix, newPrefix } = pathRemapping;
+      const remappedPositions = { ...currentViewState.positions };
+      for (const [path, pe] of Object.entries(currentViewState.positions)) {
+        if (path === oldPrefix || path.startsWith(oldPrefix + ".")) {
+          remappedPositions[newPrefix + path.slice(oldPrefix.length)] = pe;
+        }
+      }
+      mergeViewState = { ...currentViewState, positions: remappedPositions };
+    }
+
     const newViewState = ViewStateMerger.merge(
-      currentViewState,
+      mergeViewState,
       updatedModel,
       canvasSize,
       preservePositions,
