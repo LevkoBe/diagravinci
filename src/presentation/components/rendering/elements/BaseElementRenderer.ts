@@ -293,6 +293,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       wrap: "none",
       padding: textPadding,
       opacity: labelOpacity,
+      listening: false,
     });
 
     group.add(textNode);

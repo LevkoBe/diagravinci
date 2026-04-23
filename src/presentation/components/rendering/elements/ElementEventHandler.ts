@@ -72,9 +72,14 @@ export class ElementEventHandler {
             ? this.callbacks.getRootId()
             : segments.slice(0, -1).join(".");
 
+        const pointer = this.stage.getPointerPosition();
+        const mouseWorldPos = pointer
+          ? screenToWorld(pointer, this.stage)
+          : worldPos;
+
         const newParentPath = this.callbacks.findNewParentPath(
           this.element.path,
-          worldPos,
+          mouseWorldPos,
         );
 
         if (oldParentPath !== newParentPath) {
