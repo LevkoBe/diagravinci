@@ -322,6 +322,15 @@ export class DiagramLayerRenderer {
       },
     );
 
+    group.dragBoundFunc(() => {
+      const target = this.stage.getPointerPosition() ?? group.getAbsolutePosition();
+      const cur = group.getAbsolutePosition();
+      return {
+        x: cur.x + (target.x - cur.x) * 0.2,
+        y: cur.y + (target.y - cur.y) * 0.2,
+      };
+    });
+
     const handlers = eventHandler.createHandlers();
     group.on("click", handlers.onClick);
     group.on("mouseenter", handlers.onMouseEnter);

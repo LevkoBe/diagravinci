@@ -6,6 +6,22 @@ const { DIM_OPACITY } = VConfig.elements;
 const es = VConfig.elementShapes;
 
 export class SimpleRectElementRenderer extends BaseElementRenderer {
+  protected override addBackground(group: Konva.Group): void {
+    const { size } = this;
+    group.add(
+      new Konva.Rect({
+        width: size,
+        height: size,
+        x: -size / 2,
+        y: -size / 2,
+        fill: this.resolveStroke(),
+        opacity: 0.15,
+        cornerRadius: es.CORNER_RADIUS,
+        listening: false,
+      }),
+    );
+  }
+
   protected addElementShape(group: Konva.Group): Konva.Rect {
     const { size } = this;
 

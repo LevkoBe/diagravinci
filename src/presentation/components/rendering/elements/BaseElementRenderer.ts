@@ -64,11 +64,23 @@ export abstract class BaseElementRenderer implements IElementRenderer {
 
   protected abstract addElementShape(group: Konva.Group): Konva.Shape;
 
+  protected addBackground(group: Konva.Group): void {
+    group.add(
+      new Konva.Circle({
+        radius: this.size / 2,
+        fill: this.resolveStroke(),
+        opacity: 0.15,
+        listening: false,
+      }),
+    );
+  }
+
   render(): ElementRenderResult | undefined {
     const pos = this.viewState.positions[this.path];
     if (!pos) return;
 
     const group = this.createElementGroup();
+    this.addBackground(group);
     const shapeNode = this.addElementShape(group);
     this.addLabel(group);
     this.addDecorationsIfNeeded(group);
