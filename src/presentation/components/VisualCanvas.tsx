@@ -35,6 +35,7 @@ import type { Position } from "../../domain/models/Element";
 import { AppConfig } from "../../config/appConfig";
 import { VConfig } from "./visualConfig";
 import { lightStateTokens, darkStateTokens } from "../../themes";
+import { stageRegistry } from "../../shared/stageRegistry";
 
 function hexToRgba(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -190,6 +191,7 @@ export function VisualCanvas() {
     stage.add(elementLayer);
     stage.add(selectionLayer);
     stageRef.current = stage;
+    stageRegistry.set(stage);
     relationshipLayerRef.current = relationshipLayer;
     elementLayerRef.current = elementLayer;
     selectionLayerRef.current = selectionLayer;
@@ -417,6 +419,7 @@ export function VisualCanvas() {
     return () => {
       ro.disconnect();
       stage.destroy();
+      stageRegistry.set(null);
     };
   }, [dispatch]);
 
@@ -659,7 +662,7 @@ export function VisualCanvas() {
         if (!oldPos) {
           const spawnPos = spawnOriginsRef.current.get(elementId);
           if (spawnPos) {
-            const group = groupMap.get(path); // groupMap hoisted above
+            const group = groupMap.get(path);
             if (group) {
               const newPos = posEntry.position;
               group.x(spawnPos.x);
@@ -724,6 +727,90 @@ export function VisualCanvas() {
     tickIntervalMs,
     spawnOriginsRef,
     elementSizes,
+  ]);
+
+  useEffect(() => {
+    stageRegistry.setExportFn(async () => {
+      const stage = stageRef.current;
+      if (!stage) return null;
+
+      const positions = Object.values(viewState.positions);
+      if (!positions.length) return null;
+
+      const PAD = 80;
+      const cx = positions.map((p) => p.position.x);
+      const cy = positions.map((p) => p.position.y);
+      const radii = positions.map((p) => p.size / 2);
+
+      const minWX = Math.min(...cx.map((x, i) => x - radii[i])) - PAD;
+      const minWY = Math.min(...cy.map((y, i) => y - radii[i])) - PAD;
+      const maxWX = Math.max(...cx.map((x, i) => x + radii[i])) + PAD;
+      const maxWY = Math.max(...cy.map((y, i) => y + radii[i])) + PAD;
+      const W = maxWX - minWX;
+      const H = maxWY - minWY;
+
+      const container = document.createElement("div");
+      container.style.cssText =
+        "position:absolute;top:-9999px;left:-9999px;visibility:hidden;";
+      document.body.appendChild(container);
+
+      const exportStage = new Konva.Stage({
+        container,
+        width: W * zoom,
+        height: H * zoom,
+      });
+      exportStage.position({ x: -minWX * zoom, y: -minWY * zoom });
+      exportStage.scale({ x: zoom, y: zoom });
+
+      const relLayer = new Konva.Layer();
+      const elemLayer = new Konva.Layer();
+      exportStage.add(relLayer);
+      exportStage.add(elemLayer);
+
+      const { DiagramLayerRenderer } = await import("./DiagramLayerRenderer");
+      const renderer = new DiagramLayerRenderer(
+        exportStage,
+        model,
+        viewState,
+        null,
+        canvasColors,
+        { onPositionChange: () => {}, onReparent: () => {}, onClick: () => {} },
+        new Set(),
+        zoom,
+        renderStyle,
+        true,
+        {},
+        classDiagramMode,
+        elementSizes,
+        geometryCacheRef.current,
+      );
+      renderer.render(relLayer, elemLayer);
+
+      const exportCanvas = await exportStage.toCanvas({ pixelRatio: 2 });
+
+      const bgColor = isDark ? "#0b0d10" : "#f5e8c0";
+      const out = document.createElement("canvas");
+      out.width = Math.round(W * zoom * 2);
+      out.height = Math.round(H * zoom * 2);
+      const ctx = out.getContext("2d")!;
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, out.width, out.height);
+      ctx.drawImage(exportCanvas as HTMLCanvasElement, 0, 0);
+
+      exportStage.destroy();
+      document.body.removeChild(container);
+
+      return out.toDataURL("image/png");
+    });
+  }, [
+    model,
+    viewState,
+    canvasColors,
+    zoom,
+    renderStyle,
+    classDiagramMode,
+    elementSizes,
+    isDark,
   ]);
 
   const dotSpacing = 24;

@@ -38,8 +38,10 @@ import {
   StepForward,
   Table2,
   HelpCircle,
+  ImageDown,
 } from "lucide-react";
 import { AppConfig } from "../../config/appConfig";
+import { stageRegistry } from "../../shared/stageRegistry";
 import {
   Button,
   Modal,
@@ -454,6 +456,15 @@ export function ToolBar() {
       `diagram_${today()}.jsonl`,
     );
   };
+  const handleExportPng = async () => {
+    const dataUrl = await stageRegistry.exportPng();
+    if (!dataUrl) return;
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = `diagram_${today()}.png`;
+    a.click();
+  };
+
   const handleLoadDiagram = () => fileInputRef.current?.click();
   const handleDiagramFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     readFile(e, (text) => {
@@ -767,6 +778,9 @@ export function ToolBar() {
       </Btn>
       <Btn title="Export visible subset (.dg)" onClick={handleExportSubset}>
         <Scissors size={15} />
+      </Btn>
+      <Btn title="Export as PNG" onClick={handleExportPng}>
+        <ImageDown size={15} />
       </Btn>
       <Btn title="New diagram" onClick={handleNew}>
         <FilePlus size={15} />
