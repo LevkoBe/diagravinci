@@ -434,19 +434,7 @@ Zeta *-- Alpha`,
       "One of each element type: object, collection, function, state, choice, flow",
     tags: ["edge-case", "element-types", "syntax"],
     preferredView: "circular",
-    code: `obj{}
-coll[]
-fn()
-st||
-ch<>
-fl>>
-
-obj --> coll
-coll --> fn
-fn --> st
-st --> ch
-ch --> fl
-fl --> obj`,
+    code: `obj{} >> coll[] --> fn() --> st|| --> ch<> --> obj`,
   },
   {
     id: "edge-cycle",
