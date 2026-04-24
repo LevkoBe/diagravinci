@@ -15,6 +15,7 @@ export interface EmbedParams {
   diagram: string;
   theme: EmbedTheme;
   viewMode: ViewState["viewMode"];
+  classDiagram: boolean;
 }
 
 export function parseEmbedParams(): EmbedParams {
@@ -29,5 +30,6 @@ export function parseEmbedParams(): EmbedParams {
     diagram: params.get("diagram") ?? "",
     theme: params.get("theme") === "dark" ? "dark" : "light",
     viewMode,
+    classDiagram: params.get("classDiagram") !== "off",
   };
 }
