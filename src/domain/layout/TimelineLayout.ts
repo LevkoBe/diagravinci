@@ -2,6 +2,7 @@ import type { Element } from "../models/Element";
 import type { DiagramModel } from "../models/DiagramModel";
 import { ELEMENT_FILL } from "./BaseLayout";
 import { TopologicalLayout } from "./TopologicalLayout";
+import { sortByRelationshipAffinity } from "./LayoutUtils";
 
 export class TimelineLayout extends TopologicalLayout {
   name = "timeline";
@@ -40,10 +41,14 @@ export class TimelineLayout extends TopologicalLayout {
 
     const rawById = new Map<string, { x: number; y: number; size: number }>();
     byColumn.forEach((colIds, c_) => {
-      colIds.forEach((id, i) => {
-        rawById.set(id, {
+      const colElements = colIds
+        .map((id) => model.elements[id])
+        .filter((e): e is NonNullable<typeof e> => !!e);
+      const sorted = sortByRelationshipAffinity(colElements, model);
+      sorted.forEach((el, i) => {
+        rawById.set(el.id, {
           x: (c_ - (numCols - 1) / 2) * cellW,
-          y: (i - (colIds.length - 1) / 2) * cellH,
+          y: (i - (sorted.length - 1) / 2) * cellH,
           size,
         });
       });

@@ -1,6 +1,7 @@
 import type { Element } from "../models/Element";
 import type { DiagramModel } from "../models/DiagramModel";
 import { BaseLayout, ELEMENT_FILL } from "./BaseLayout";
+import { sortByRelationshipAffinity } from "./LayoutUtils";
 
 export class PipelineLayout extends BaseLayout {
   name = "pipeline";
@@ -51,10 +52,14 @@ export class PipelineLayout extends BaseLayout {
 
     const rawById = new Map<string, { x: number; y: number; size: number }>();
     lanes.forEach((laneIds, laneIdx) => {
-      laneIds.forEach((id, i) => {
-        rawById.set(id, {
+      const laneElements = laneIds
+        .map((id) => model.elements[id])
+        .filter((e): e is NonNullable<typeof e> => !!e);
+      const sorted = sortByRelationshipAffinity(laneElements, model);
+      sorted.forEach((el, i) => {
+        rawById.set(el.id, {
           x: (laneIdx - 1) * cellW,
-          y: (i - (laneIds.length - 1) / 2) * cellH,
+          y: (i - (sorted.length - 1) / 2) * cellH,
           size,
         });
       });

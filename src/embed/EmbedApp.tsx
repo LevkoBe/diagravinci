@@ -45,7 +45,7 @@ function EmbedCanvas() {
 export default function EmbedApp() {
   const params = useMemo(() => parseEmbedParams(), []);
   const store = useMemo(
-    () => createEmbedStore(params.diagram, params.viewMode),
+    () => createEmbedStore(params.diagram, params.viewMode, params.classDiagram),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
