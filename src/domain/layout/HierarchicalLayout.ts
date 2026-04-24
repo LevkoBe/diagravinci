@@ -2,7 +2,6 @@ import type { Element } from "../models/Element";
 import type { DiagramModel } from "../models/DiagramModel";
 import { ELEMENT_FILL } from "./BaseLayout";
 import { TopologicalLayout } from "./TopologicalLayout";
-import { sortByRelationshipAffinity } from "./LayoutUtils";
 
 export class HierarchicalLayout extends TopologicalLayout {
   name = "hierarchical";
@@ -41,13 +40,9 @@ export class HierarchicalLayout extends TopologicalLayout {
 
     const rawById = new Map<string, { x: number; y: number; size: number }>();
     byLevel.forEach((levelIds, d) => {
-      const levelElements = levelIds
-        .map((id) => model.elements[id])
-        .filter((e): e is NonNullable<typeof e> => !!e);
-      const sorted = sortByRelationshipAffinity(levelElements, model);
-      sorted.forEach((el, i) => {
-        rawById.set(el.id, {
-          x: (i - (sorted.length - 1) / 2) * cellW,
+      levelIds.forEach((id, i) => {
+        rawById.set(id, {
+          x: (i - (levelIds.length - 1) / 2) * cellW,
           y: (d - (numLevels - 1) / 2) * cellH,
           size,
         });

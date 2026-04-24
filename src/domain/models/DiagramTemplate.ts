@@ -23,15 +23,15 @@ export const BUILT_IN_TEMPLATES: DiagramTemplate[] = [
   Schema
   Repository
 }
-View{
-  Template
-  Component
-  Stylesheet
-}
 Controller{
   Router
   Handler
   Middleware
+}
+View{
+  Template
+  Component
+  Stylesheet
 }
 
 Model --> Controller
