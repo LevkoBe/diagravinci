@@ -20,7 +20,7 @@ import {
   AlignJustify,
   SlidersHorizontal,
   Circle,
-  TreePine,
+  Network,
   ArrowRightLeft,
   Workflow,
   Spline,
@@ -65,8 +65,10 @@ import {
   setActiveRelationshipType,
   sendZoomCommand,
   setRenderStyle,
+  setRelLineStyle,
   toggleClassDiagramMode,
   type RenderStyle,
+  type RelLineStyle,
 } from "../../application/store/uiSlice";
 import {
   setModel,
@@ -93,7 +95,11 @@ import {
   tickAdvance,
   setMaterialize,
 } from "../../application/store/executionSlice";
-import { computeExecutionStep, applyDeltaToModel, buildCleanedModel } from "../../application/ExecutionEngine";
+import {
+  computeExecutionStep,
+  applyDeltaToModel,
+  buildCleanedModel,
+} from "../../application/ExecutionEngine";
 import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 import { Lexer } from "../../infrastructure/parser/Lexer";
 import { Parser } from "../../infrastructure/parser/Parser";
@@ -363,6 +369,7 @@ export function ToolBar() {
     activeElementType,
     activeRelationshipType,
     renderStyle,
+    relLineStyle,
     classDiagramMode,
   } = useAppSelector((s) => s.ui);
   const { presets, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
@@ -718,7 +725,11 @@ export function ToolBar() {
   const selectBtns = (
     <>
       <div className="relative">
-        <Btn title="Selector presets" active={activePresetCount > 0} onClick={() => setSelectorModalOpen(true)}>
+        <Btn
+          title="Selector presets"
+          active={activePresetCount > 0}
+          onClick={() => setSelectorModalOpen(true)}
+        >
           <ListFilter size={15} />
         </Btn>
         {activePresetCount > 0 && (
@@ -830,7 +841,7 @@ export function ToolBar() {
           );
         }}
       >
-        <TreePine size={15} />
+        <Network size={15} />
       </Btn>
       <Btn
         title="Timeline layout"
@@ -896,7 +907,9 @@ export function ToolBar() {
           <Btn
             title="Reset"
             onClick={cleanupAndReset}
-            disabled={execState.status === "stopped" && execState.tickCount === 0}
+            disabled={
+              execState.status === "stopped" && execState.tickCount === 0
+            }
           >
             <RotateCcw size={15} />
           </Btn>
@@ -935,12 +948,34 @@ export function ToolBar() {
         </Btn>
       ))}
       <Btn
-        title={classDiagramMode ? "Class diagram mode: on" : "Class diagram mode: off"}
+        title={
+          classDiagramMode
+            ? "Class diagram mode: on"
+            : "Class diagram mode: off"
+        }
         active={classDiagramMode}
         onClick={() => dispatch(toggleClassDiagramMode())}
       >
         <Table2 size={15} />
       </Btn>
+      {(
+        [
+          { value: "straight", title: "Straight lines", label: "─" },
+          { value: "curved", title: "Curved lines", label: "⌒" },
+          { value: "orthogonal", title: "Orthogonal lines", label: "⌐" },
+        ] as { value: RelLineStyle; title: string; label: string }[]
+      ).map(({ value, title, label }) => (
+        <Btn
+          key={value}
+          title={title}
+          active={relLineStyle === value}
+          onClick={() => dispatch(setRelLineStyle(value))}
+        >
+          <span className="text-[12px] font-bold font-mono leading-none select-none">
+            {label}
+          </span>
+        </Btn>
+      ))}
     </>
   );
 
@@ -1016,10 +1051,16 @@ export function ToolBar() {
         {diffState.active && (
           <div className="flex items-center gap-3 px-4 py-1.5 bg-bg-elevated/60 border-b border-border/20 text-xs shrink-0">
             <span className="font-semibold text-fg-muted">Diff view</span>
-            <span style={{ color: AppConfig.canvas.DIFF_ADDED_COLOR }} className="font-medium">
+            <span
+              style={{ color: AppConfig.canvas.DIFF_ADDED_COLOR }}
+              className="font-medium"
+            >
               +{diffState.addedIds.length} added
             </span>
-            <span style={{ color: AppConfig.canvas.DIFF_REMOVED_COLOR }} className="font-medium">
+            <span
+              style={{ color: AppConfig.canvas.DIFF_REMOVED_COLOR }}
+              className="font-medium"
+            >
               -{diffState.removedIds.length} removed
             </span>
             <span className="text-fg-disabled/60">
@@ -1030,7 +1071,10 @@ export function ToolBar() {
                 onClick={handleAcceptAllAdded}
                 disabled={diffState.addedIds.length === 0}
                 className="flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium transition-colors disabled:opacity-30"
-                style={{ borderColor: AppConfig.canvas.DIFF_ADDED_COLOR, color: AppConfig.canvas.DIFF_ADDED_COLOR }}
+                style={{
+                  borderColor: AppConfig.canvas.DIFF_ADDED_COLOR,
+                  color: AppConfig.canvas.DIFF_ADDED_COLOR,
+                }}
                 title="Accept all added (remove green highlights)"
               >
                 <CheckCheck size={11} />
@@ -1040,7 +1084,10 @@ export function ToolBar() {
                 onClick={handleAcceptAllRemoved}
                 disabled={diffState.removedIds.length === 0}
                 className="flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium transition-colors disabled:opacity-30"
-                style={{ borderColor: AppConfig.canvas.DIFF_REMOVED_COLOR, color: AppConfig.canvas.DIFF_REMOVED_COLOR }}
+                style={{
+                  borderColor: AppConfig.canvas.DIFF_REMOVED_COLOR,
+                  color: AppConfig.canvas.DIFF_REMOVED_COLOR,
+                }}
                 title="Accept all removed (delete from diagram)"
               >
                 <CheckCheck size={11} />
@@ -1210,7 +1257,7 @@ export function ToolBar() {
                       {
                         circular: <Circle size={15} />,
                         basic: <Circle size={15} />,
-                        hierarchical: <TreePine size={15} />,
+                        hierarchical: <Network size={15} />,
                         timeline: <ArrowRightLeft size={15} />,
                         pipeline: <Workflow size={15} />,
                         execute: <Play size={15} />,
@@ -1266,8 +1313,6 @@ export function ToolBar() {
             </Pill>
           </div>
         )}
-
-
       </div>
 
       <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />

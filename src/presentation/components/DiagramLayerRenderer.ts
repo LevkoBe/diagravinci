@@ -14,7 +14,7 @@ import { SvgPathElementRenderer } from "./rendering/elements/SvgPathElementRende
 import { SimpleRectElementRenderer } from "./rendering/elements/SimpleRectElementRenderer";
 import { PolygonElementRenderer } from "./rendering/elements/PolygonElementRenderer";
 import type { IElementRenderer } from "./rendering/elements/BaseElementRenderer";
-import type { RenderStyle } from "../../application/store/uiSlice";
+import type { RenderStyle, RelLineStyle } from "../../application/store/uiSlice";
 
 import {
   computeElementSizes,
@@ -83,6 +83,7 @@ export class DiagramLayerRenderer {
 
   private readonly zoom: number;
   private readonly renderStyle: RenderStyle;
+  private readonly relLineStyle: RelLineStyle;
   private readonly viewportRect: ViewportRect;
 
   private readonly isReadonly: boolean;
@@ -99,6 +100,7 @@ export class DiagramLayerRenderer {
     prevPaths: Set<string>,
     zoom: number,
     renderStyle: RenderStyle = "polygon",
+    relLineStyle: RelLineStyle = "straight",
     isReadonly = false,
     executionColorMap: Record<string, string> = {},
     classDiagramMode = true,
@@ -114,6 +116,7 @@ export class DiagramLayerRenderer {
     this.prevPaths = prevPaths;
     this.zoom = zoom;
     this.renderStyle = renderStyle;
+    this.relLineStyle = relLineStyle;
     this.isReadonly = isReadonly;
     this.executionColorMap = executionColorMap;
     this.classDiagramMode = classDiagramMode;
@@ -142,6 +145,7 @@ export class DiagramLayerRenderer {
       this.viewportRect,
       geometryCache,
       zoom,
+      relLineStyle,
     );
 
     if (classDiagramMode) {

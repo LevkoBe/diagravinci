@@ -12,6 +12,7 @@ export type InteractionMode =
   | "readonly";
 export type ZoomCommand = { type: "in" | "out" | "reset"; ts: number };
 export type RenderStyle = "svg" | "rect" | "polygon";
+export type RelLineStyle = "straight" | "curved" | "orthogonal";
 
 export interface UIState {
   interactionMode: InteractionMode;
@@ -21,6 +22,7 @@ export interface UIState {
   selectedElementIds: string[];
   zoomCommand: ZoomCommand | null;
   renderStyle: RenderStyle;
+  relLineStyle: RelLineStyle;
   classDiagramMode: boolean;
 }
 
@@ -34,6 +36,7 @@ const initialState: UIState = {
   selectedElementIds: [],
   zoomCommand: null,
   renderStyle: ui.DEFAULT_RENDER_STYLE,
+  relLineStyle: "straight",
   classDiagramMode: true,
 };
 
@@ -86,6 +89,9 @@ const uiSlice = createSlice({
     setRenderStyle(state, action: PayloadAction<RenderStyle>) {
       state.renderStyle = action.payload;
     },
+    setRelLineStyle(state, action: PayloadAction<RelLineStyle>) {
+      state.relLineStyle = action.payload;
+    },
     toggleClassDiagramMode(state) {
       state.classDiagramMode = !state.classDiagramMode;
     },
@@ -103,6 +109,7 @@ export const {
   clearSelection,
   sendZoomCommand,
   setRenderStyle,
+  setRelLineStyle,
   toggleClassDiagramMode,
 } = uiSlice.actions;
 
