@@ -3,6 +3,7 @@ import {
   COMPLEX_TEMPLATES,
   EDGE_CASE_TEMPLATES,
   EXECUTION_TEMPLATES,
+  ICON_SHOWCASE_TEMPLATE,
   SELECTOR_SHOWCASE_TEMPLATES,
   STRESS_TEMPLATES,
   type DiagramTemplate,
@@ -39,7 +40,7 @@ export const EDGE_CASES_COLLECTION: TemplateCollection = {
   id: EDGE_CASES_COLLECTION_ID,
   name: "Edge Cases",
   isBuiltIn: true,
-  templates: EDGE_CASE_TEMPLATES,
+  templates: [ICON_SHOWCASE_TEMPLATE, ...EDGE_CASE_TEMPLATES],
 };
 
 export const SELECTOR_SHOWCASE_COLLECTION_ID = "__selector_showcase__";
