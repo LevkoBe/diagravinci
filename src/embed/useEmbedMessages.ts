@@ -5,16 +5,20 @@ import { Parser } from "../infrastructure/parser/Parser";
 import { ViewStateMerger } from "../domain/sync/ViewStateMerger";
 import { AppConfig } from "../config/appConfig";
 import { setCode, setModel, setViewState } from "../application/store/diagramSlice";
+import { syncPresetsFromCode } from "../application/store/filterSlice";
 import type { RootState } from "../application/store/store";
 import type { EmbedDispatch } from "./embedStore";
 
 export function useEmbedMessages() {
   const dispatch = useDispatch<EmbedDispatch>();
   const viewState = useSelector((s: RootState) => s.diagram.viewState);
+  const model = useSelector((s: RootState) => s.diagram.model);
   const viewStateRef = useRef(viewState);
+  const modelRef = useRef(model);
 
   useEffect(() => {
     viewStateRef.current = viewState;
+    modelRef.current = model;
   });
 
   useEffect(() => {
@@ -32,6 +36,10 @@ export function useEmbedMessages() {
           ...ViewStateMerger.merge(viewStateRef.current, model, canvasSize),
           viewMode: viewStateRef.current.viewMode,
         };
+        dispatch(syncPresetsFromCode({
+          modelPresets: model.filterPresets ?? [],
+          prevModelPresetIds: (modelRef.current.filterPresets ?? []).map((p) => p.id),
+        }));
         dispatch(setModel(model));
         dispatch(setViewState(newViewState));
         dispatch(setCode(diagram));

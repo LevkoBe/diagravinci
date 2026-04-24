@@ -7,7 +7,7 @@ import { createEmptyViewState } from "../domain/models/ViewState";
 import type { ViewState } from "../domain/models/ViewState";
 import diagramReducer, { setCode, setModel, setViewState } from "../application/store/diagramSlice";
 import uiReducer, { setInteractionMode } from "../application/store/uiSlice";
-import filterReducer from "../application/store/filterSlice";
+import filterReducer, { syncPresetsFromCode } from "../application/store/filterSlice";
 import historyReducer from "../application/store/historySlice";
 import diffReducer from "../application/store/diffSlice";
 import executionReducer from "../application/store/executionSlice";
@@ -41,6 +41,7 @@ export function createEmbedStore(
         ...ViewStateMerger.merge(createEmptyViewState(), model, canvasSize),
         viewMode,
       };
+      store.dispatch(syncPresetsFromCode({ modelPresets: model.filterPresets ?? [], prevModelPresetIds: [] }));
       store.dispatch(setModel(model));
       store.dispatch(setViewState(viewState));
       store.dispatch(setCode(diagramCode));
