@@ -184,9 +184,69 @@ export abstract class BaseLayout implements LayoutAlgorithm {
     );
 
     if (preservePositions && previousViewState) {
+      const newSizes = new Map<string, number>();
+      const newLayoutPos = new Map<string, { x: number; y: number }>();
+      for (const path of Object.keys(positions)) {
+        newSizes.set(path, positions[path].size);
+        newLayoutPos.set(path, { ...positions[path].position });
+      }
+
       for (const path of Object.keys(positions)) {
         const prev = previousViewState.positions[path];
         if (prev) positions[path].position = prev.position;
+      }
+
+      const sortedPaths = Object.keys(positions).sort(
+        (a, b) => (a.match(/\./g) ?? []).length - (b.match(/\./g) ?? []).length,
+      );
+
+      for (const path of sortedPaths) {
+        const dotIdx = path.lastIndexOf(".");
+        if (dotIdx === -1) continue;
+
+        const parentPath = path.slice(0, dotIdx);
+        const parentCurrent = positions[parentPath];
+        const oldParentPe = previousViewState.positions[parentPath];
+        if (!parentCurrent || !oldParentPe) continue;
+
+        const oldChildPe = previousViewState.positions[path];
+
+        if (!oldChildPe) {
+          const parentLayoutPos = newLayoutPos.get(parentPath);
+          const childLayoutPos = newLayoutPos.get(path);
+          if (parentLayoutPos && childLayoutPos) {
+            positions[path].position = {
+              x:
+                parentCurrent.position.x +
+                (childLayoutPos.x - parentLayoutPos.x),
+              y:
+                parentCurrent.position.y +
+                (childLayoutPos.y - parentLayoutPos.y),
+            };
+          }
+          continue;
+        }
+
+        const oldParentSize = oldParentPe.size;
+        const newParentSize = newSizes.get(parentPath) ?? oldParentSize;
+        const scale = newParentSize / oldParentSize;
+
+        const parentShiftX = parentCurrent.position.x - oldParentPe.position.x;
+        const parentShiftY = parentCurrent.position.y - oldParentPe.position.y;
+        if (
+          Math.abs(parentShiftX) < 0.001 &&
+          Math.abs(parentShiftY) < 0.001 &&
+          Math.abs(scale - 1) < 0.001
+        )
+          continue;
+
+        const relX = oldChildPe.position.x - oldParentPe.position.x;
+        const relY = oldChildPe.position.y - oldParentPe.position.y;
+
+        positions[path].position = {
+          x: parentCurrent.position.x + relX * scale,
+          y: parentCurrent.position.y + relY * scale,
+        };
       }
     }
 

@@ -28,6 +28,87 @@ const VIEW_COLORS: Record<ViewState["viewMode"], string> = {
   execute: "bg-indigo-500/15 text-indigo-800",
 };
 
+type ThumbSpec = {
+  bg: string;
+  dot: string;
+  dots: { x: number; y: number; r?: number }[];
+  lines?: [number, number][];
+};
+
+const THUMB: Record<ViewState["viewMode"], ThumbSpec> = {
+  circular: {
+    bg: "#f3e8ff", dot: "#a855f7",
+    dots: [0, 72, 144, 216, 288].map((deg) => ({
+      x: 50 + 30 * Math.cos((deg * Math.PI) / 180),
+      y: 50 + 30 * Math.sin((deg * Math.PI) / 180),
+    })),
+  },
+  hierarchical: {
+    bg: "#dbeafe", dot: "#3b82f6",
+    dots: [{ x: 50, y: 20 }, { x: 25, y: 72 }, { x: 50, y: 72 }, { x: 75, y: 72 }],
+    lines: [[0, 1], [0, 2], [0, 3]],
+  },
+  timeline: {
+    bg: "#fef3c7", dot: "#f59e0b",
+    dots: [{ x: 10, y: 50 }, { x: 30, y: 50 }, { x: 50, y: 50 }, { x: 70, y: 50 }, { x: 90, y: 50 }],
+    lines: [[0, 1], [1, 2], [2, 3], [3, 4]],
+  },
+  pipeline: {
+    bg: "#dcfce7", dot: "#22c55e",
+    dots: [{ x: 12, y: 50, r: 10 }, { x: 38, y: 50, r: 10 }, { x: 62, y: 50, r: 10 }, { x: 88, y: 50, r: 10 }],
+    lines: [[0, 1], [1, 2], [2, 3]],
+  },
+  execute: {
+    bg: "#e0e7ff", dot: "#6366f1",
+    dots: [{ x: 15, y: 50 }, { x: 40, y: 28 }, { x: 40, y: 72 }, { x: 65, y: 50 }, { x: 88, y: 50 }],
+    lines: [[0, 1], [0, 2], [1, 3], [2, 3], [3, 4]],
+  },
+  basic: {
+    bg: "#f1f5f9", dot: "#64748b",
+    dots: [{ x: 20, y: 33 }, { x: 50, y: 33 }, { x: 80, y: 33 }, { x: 20, y: 67 }, { x: 50, y: 67 }, { x: 80, y: 67 }],
+  },
+};
+
+function ThumbnailPreview({ mode }: { mode: ViewState["viewMode"] }) {
+  const { dot, dots, lines = [] } = THUMB[mode];
+  return (
+    <div style={{ position: "relative", width: "100%", height: 48, background: "var(--color-bg-elevated)", borderRadius: "6px 6px 0 0", overflow: "hidden", flexShrink: 0 }}>
+      <svg viewBox="0 0 100 100" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+        {lines.map(([a, b], i) => (
+          <line key={i} x1={dots[a].x} y1={dots[a].y} x2={dots[b].x} y2={dots[b].y} stroke={dot} strokeWidth="2" opacity="0.35" />
+        ))}
+        {dots.map((d, i) => (
+          <circle key={i} cx={d.x} cy={d.y} r={d.r ?? 6} fill={dot} opacity="0.75" />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function CollectionThumbnail({ templates }: { templates: DiagramTemplate[] }) {
+  const sample = templates.slice(0, 25);
+  const cols = Math.ceil(Math.sqrt(sample.length)) || 1;
+  const rows = Math.ceil(sample.length / cols);
+  const size = 64;
+
+  return (
+    <div style={{ width: size, minWidth: size, height: size, background: "var(--color-bg-elevated)", borderRadius: "6px 0 0 6px", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <svg viewBox={`0 0 ${cols * 13} ${rows * 13}`} style={{ width: "80%", height: "80%" }}>
+        {sample.map((t, i) => (
+          <circle
+            key={t.id}
+            cx={(i % cols) * 13 + 6.5}
+            cy={Math.floor(i / cols) * 13 + 6.5}
+            r={4.5}
+            fill={THUMB[t.preferredView].dot}
+            opacity="0.85"
+          />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 function TemplateBadge({ mode }: { mode: ViewState["viewMode"] }) {
   return (
     <span
@@ -76,26 +157,32 @@ function CollectionsView({
 
       <div className="flex-1 overflow-y-auto px-3 pb-2 flex flex-col gap-2 min-h-0">
         {collections.map((col) => (
-          <button
+          <div
             key={col.id}
+            role="button"
+            tabIndex={0}
             onClick={() => onOpen(col)}
-            className="w-full text-left p-3 rounded-lg border border-border/30 hover:border-accent/60 hover:bg-accent/5 transition-all group"
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen(col)}
+            className="w-full text-left rounded-lg border border-border/30 hover:border-accent/60 hover:shadow-sm transition-all group cursor-pointer shrink-0 flex overflow-hidden"
           >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-fg-primary group-hover:text-accent transition-colors leading-tight">
-                {col.name}
-              </span>
-              {col.isBuiltIn && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-fg-ternary/15 text-fg-disabled">
-                  built-in
+            {col.templates.length > 0 && <CollectionThumbnail templates={col.templates} />}
+            <div className="p-3 flex flex-col justify-center min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-fg-primary group-hover:text-accent transition-colors leading-tight truncate">
+                  {col.name}
                 </span>
-              )}
+                {col.isBuiltIn && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-fg-ternary/15 text-fg-disabled shrink-0">
+                    built-in
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-fg-disabled mt-0.5">
+                {col.templates.length} template
+                {col.templates.length !== 1 ? "s" : ""}
+              </p>
             </div>
-            <p className="text-xs text-fg-disabled mt-0.5">
-              {col.templates.length} template
-              {col.templates.length !== 1 ? "s" : ""}
-            </p>
-          </button>
+          </div>
         ))}
       </div>
 
@@ -136,12 +223,14 @@ function TemplateCard({
     <div
       role="button"
       tabIndex={0}
-      className="w-full text-left p-3 rounded-lg border border-border/30 hover:border-accent/60 hover:bg-accent/5 transition-all group cursor-pointer"
+      className="w-full text-left rounded-lg border border-border/30 hover:border-accent/60 hover:shadow-sm transition-all group cursor-pointer overflow-hidden shrink-0"
       onClick={() => onApply(template)}
       onKeyDown={(e) =>
         (e.key === "Enter" || e.key === " ") && onApply(template)
       }
     >
+      <ThumbnailPreview mode={template.preferredView} />
+      <div className="p-3">
       <div className="flex items-start justify-between gap-2 mb-1">
         <span className="text-sm font-semibold text-fg-primary group-hover:text-accent transition-colors leading-tight">
           {template.name}
@@ -174,6 +263,7 @@ function TemplateCard({
             {tag}
           </span>
         ))}
+      </div>
       </div>
     </div>
   );

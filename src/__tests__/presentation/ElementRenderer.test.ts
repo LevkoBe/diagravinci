@@ -380,7 +380,7 @@ describe("ElementRenderer", () => {
         .getChildren()
         .filter((child) => child instanceof Konva.Circle);
 
-      expect(circles).toHaveLength(1);
+      expect(circles).toHaveLength(2);
     });
   });
 

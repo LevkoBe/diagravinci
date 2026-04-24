@@ -1,9 +1,9 @@
 import type { ThemeTokens } from "@levkobe/c7one";
 
 export const parchmentTheme: ThemeTokens = {
-  "--color-bg-base": "#e9cc8c",
-  "--color-bg-elevated": "#d9bd7a",
-  "--color-bg-overlay": "#f2dda8",
+  "--color-bg-base": "#f2dda8",
+  "--color-bg-elevated": "#e4c886",
+  "--color-bg-overlay": "#ecd08e",
   "--color-fg-primary": "#4a3821",
   "--color-fg-muted": "#726a63",
   "--color-fg-disabled": "#978d84",
