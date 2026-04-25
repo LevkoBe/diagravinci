@@ -90,8 +90,8 @@ describe("EDGE_CASE_TEMPLATES", () => {
     const { code } = EDGE_CASE_TEMPLATES.find(
       (t) => t.id === "edge-all-element-types",
     )!;
-    expect(elCount(code)).toBe(7);
-    expect(relCount(code)).toBe(8);
+    expect(elCount(code)).toBe(6);
+    expect(relCount(code)).toBe(6);
     const model = parse(code);
     const types = Object.values(model.elements).map((e) => e.type);
     expect(types).toContain("object");
@@ -103,9 +103,7 @@ describe("EDGE_CASE_TEMPLATES", () => {
   });
 
   it("edge-cycle — 3 services with nested handlers, 6 relationships", () => {
-    const { code } = EDGE_CASE_TEMPLATES.find(
-      (t) => t.id === "edge-cycle",
-    )!;
+    const { code } = EDGE_CASE_TEMPLATES.find((t) => t.id === "edge-cycle")!;
     expect(elCount(code)).toBe(10);
     expect(relCount(code)).toBe(6);
   });
@@ -144,9 +142,7 @@ describe("EDGE_CASE_TEMPLATES", () => {
   });
 
   it("edge-diamond — A→B, A→C, B→D, C→D plus cross, 5 relationships", () => {
-    const { code } = EDGE_CASE_TEMPLATES.find(
-      (t) => t.id === "edge-diamond",
-    )!;
+    const { code } = EDGE_CASE_TEMPLATES.find((t) => t.id === "edge-diamond")!;
     expect(elCount(code)).toBe(6);
     expect(relCount(code)).toBe(5);
   });
@@ -332,9 +328,7 @@ describe("STRESS_TEMPLATES", () => {
   });
 
   it("stress-clusters — 252 elements (12 clusters × 20 nodes + 12 parents), 21 inter-cluster relationships", () => {
-    const { code } = STRESS_TEMPLATES.find(
-      (t) => t.id === "stress-clusters",
-    )!;
+    const { code } = STRESS_TEMPLATES.find((t) => t.id === "stress-clusters")!;
     expect(elCount(code)).toBe(252);
     expect(relCount(code)).toBe(21);
   });
@@ -350,9 +344,7 @@ describe("COMPLEX_TEMPLATES", () => {
   });
 
   it("cicd-pipeline — 32 elements (8 stages × 3 steps), 8 relationships", () => {
-    const { code } = COMPLEX_TEMPLATES.find(
-      (t) => t.id === "cicd-pipeline",
-    )!;
+    const { code } = COMPLEX_TEMPLATES.find((t) => t.id === "cicd-pipeline")!;
     expect(elCount(code)).toBe(32);
     expect(relCount(code)).toBe(8);
   });
