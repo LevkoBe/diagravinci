@@ -83,7 +83,6 @@ export class DiagramLayerRenderer {
 
   private readonly zoom: number;
   private readonly renderStyle: RenderStyle;
-  private readonly relLineStyle: RelLineStyle;
   private readonly viewportRect: ViewportRect;
 
   private readonly isReadonly: boolean;
@@ -116,7 +115,6 @@ export class DiagramLayerRenderer {
     this.prevPaths = prevPaths;
     this.zoom = zoom;
     this.renderStyle = renderStyle;
-    this.relLineStyle = relLineStyle;
     this.isReadonly = isReadonly;
     this.executionColorMap = executionColorMap;
     this.classDiagramMode = classDiagramMode;

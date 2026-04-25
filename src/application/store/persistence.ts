@@ -19,6 +19,7 @@ type PersistedState = {
   ui: Pick<
     UIState,
     | "renderStyle"
+    | "relLineStyle"
     | "interactionMode"
     | "activeElementType"
     | "activeRelationshipType"
@@ -123,6 +124,7 @@ function hydratePersistedState(parsed: PersistedState): HydratedState {
     ui: {
       ...parsed.ui,
       classDiagramMode: parsed.ui.classDiagramMode ?? true,
+      relLineStyle: parsed.ui.relLineStyle ?? "straight",
       connectingFromId: null,
       selectedElementIds: [],
       zoomCommand: null,
@@ -155,6 +157,7 @@ export function saveState(state: AppState): void {
   const persisted: PersistedState = {
     ui: {
       renderStyle: state.ui.renderStyle,
+      relLineStyle: state.ui.relLineStyle,
       interactionMode: state.ui.interactionMode,
       activeElementType: state.ui.activeElementType,
       activeRelationshipType: state.ui.activeRelationshipType,
