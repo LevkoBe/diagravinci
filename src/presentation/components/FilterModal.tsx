@@ -414,7 +414,7 @@ export function FiltersPanel() {
     const first = visibleSelectors[0];
     return first ? { ...first } : freshSelector();
   });
-  const [isNew, setIsNew] = useState(() => visibleSelectors.length === 0);
+  const [isNew, setIsNew] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
@@ -612,7 +612,10 @@ export function FiltersPanel() {
     if (remaining.length > 0) {
       selectTab(remaining[0]);
     } else {
-      startNew();
+      setActiveId(null);
+      setDraft(freshSelector());
+      setIsNew(false);
+      setIsDirty(false);
     }
   };
 
@@ -724,6 +727,42 @@ export function FiltersPanel() {
         </button>
       </div>
 
+      {visibleSelectors.length === 0 && !isNew ? (
+        <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center text-center px-6 py-8 gap-6">
+          <p className="text-[12px] text-fg-muted leading-relaxed max-w-xs">
+            Selectors let you highlight, dim, or hide diagram elements based on matching rules.
+          </p>
+          <ol className="flex flex-col gap-3 text-left w-full max-w-xs">
+            <li className="flex items-start gap-3">
+              <span className="w-5 h-5 rounded-full bg-accent/15 text-accent text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5 select-none">
+                1
+              </span>
+              <span className="text-[12px] text-fg-muted leading-snug">
+                Click <strong className="text-fg-primary font-semibold">+</strong> above to create a new selector
+              </span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="w-5 h-5 rounded-full bg-accent/15 text-accent text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5 select-none">
+                2
+              </span>
+              <span className="text-[12px] text-fg-muted leading-snug">
+                Define <strong className="text-fg-primary font-semibold">rules</strong> — match elements by path, name, or hierarchy level
+              </span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="w-5 h-5 rounded-full bg-accent/15 text-accent text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5 select-none">
+                3
+              </span>
+              <span className="text-[12px] text-fg-muted leading-snug">
+                Choose a mode —{" "}
+                <strong className="text-fg-primary font-semibold">Color</strong> highlights,{" "}
+                <strong className="text-fg-primary font-semibold">Dim</strong> fades unmatched,{" "}
+                <strong className="text-fg-primary font-semibold">Hide</strong> removes unmatched
+              </span>
+            </li>
+          </ol>
+        </div>
+      ) : (
       <div className="flex-1 overflow-y-auto flex flex-col">
         <div className="flex items-center gap-3 px-4 pt-2.5 pb-2 border-b border-border/30 shrink-0">
           <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider shrink-0 w-20">
@@ -851,7 +890,9 @@ export function FiltersPanel() {
           </div>
         </div>
       </div>
+      )}
 
+      {(visibleSelectors.length > 0 || isNew) && (
       <div className="flex items-center gap-2 px-3 py-2 border-t border-border shrink-0 bg-bg-elevated">
         {!isNew && (
           <DangerIconBtn
@@ -901,6 +942,7 @@ export function FiltersPanel() {
           {isNew ? "Create" : "Save"}
         </button>
       </div>
+      )}
     </div>
   );
 }

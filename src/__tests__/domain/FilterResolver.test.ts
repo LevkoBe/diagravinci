@@ -455,6 +455,20 @@ describe("FilterResolver.resolve — edge cases", () => {
       expect(result.coloredPaths["plain"]).toBeUndefined();
     });
 
+    it("matches a quoted flag with spaces against the slugified selector id", () => {
+      const positions = makePositions(["flagged", "plain"]);
+      const model = makeModel(["flagged", "plain"]);
+      model.elements["flagged"].flags = ["My Selector"];
+      const filterState = makeFilterState({
+        selectors: [
+          { id: "my_selector", label: "My Selector", mode: "color", color: "#abcdef", expression: "" },
+        ],
+      });
+      const result = FilterResolver.resolve(filterState, positions, model);
+      expect(result.coloredPaths["flagged"]).toBe("#abcdef");
+      expect(result.coloredPaths["plain"]).toBeUndefined();
+    });
+
     it("flags matching takes precedence over a non-matching expression", () => {
       const positions = makePositions(["flagged"]);
       const model = makeModel(["flagged"]);

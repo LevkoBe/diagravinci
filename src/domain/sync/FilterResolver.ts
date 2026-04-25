@@ -1,4 +1,5 @@
 import type { Selector, Rule } from "../../domain/models/Selector";
+import { toSelectorId } from "../../domain/models/Selector";
 import type { PositionedElement } from "../../domain/models/ViewState";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { FilterState } from "../../application/store/filterSlice";
@@ -32,7 +33,7 @@ function matchesSelector(
     }
   }
 
-  if (element?.flags?.includes(selector.id)) return true;
+  if (element?.flags?.some((f) => toSelectorId(f) === selector.id)) return true;
 
   const type = element?.type ?? "";
   return evaluateSelector(selector.expression, path, type, rules);
