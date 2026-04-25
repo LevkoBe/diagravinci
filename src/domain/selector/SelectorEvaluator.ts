@@ -1,8 +1,10 @@
-import type { Selector, SelectorAtom } from "../models/Selector";
+import type { Rule } from "../models/Selector";
 
-type CombTK = { k: "id"; v: string } | { k: "+" | "&" | "-" | "lp" | "rp" };
+type CombTK =
+  | { k: "id"; v: string }
+  | { k: "+" | "|" | "&" | "-" | "lp" | "rp" };
 
-function lexCombiner(expr: string): CombTK[] {
+function lexFormula(expr: string): CombTK[] {
   const out: CombTK[] = [];
   let i = 0;
   while (i < expr.length) {
@@ -23,6 +25,11 @@ function lexCombiner(expr: string): CombTK[] {
     }
     if (ch === "+") {
       out.push({ k: "+" });
+      i++;
+      continue;
+    }
+    if (ch === "|") {
+      out.push({ k: "|" });
       i++;
       continue;
     }
@@ -47,7 +54,7 @@ function lexCombiner(expr: string): CombTK[] {
   return out;
 }
 
-class CombinerParser {
+class FormulaParser {
   private i = 0;
   private tks: CombTK[];
   private results: Map<string, boolean>;
@@ -62,7 +69,7 @@ class CombinerParser {
 
   private parseOr(): boolean {
     let v = this.parseAnd();
-    while (this.peek()?.k === "+") {
+    while (this.peek()?.k === "+" || this.peek()?.k === "|") {
       this.advance();
       const rhs = this.parseAnd();
       v = v || rhs;
@@ -122,6 +129,7 @@ function matchPatternValue(
 ): boolean {
   if (suffix === "name") {
     const name = path.split(".").at(-1) ?? path;
+    if (value.startsWith("c:")) return name.includes(value.slice(2));
     try {
       return new RegExp(value).test(name);
     } catch {
@@ -134,7 +142,6 @@ function matchPatternValue(
     const max = dash === -1 ? min : parseInt(value.slice(dash + 1), 10);
     return depth >= min && depth <= max;
   }
-
   try {
     return new RegExp(value).test(path);
   } catch {
@@ -142,14 +149,14 @@ function matchPatternValue(
   }
 }
 
-export function matchesAtom(
-  atom: SelectorAtom,
+export function matchesRule(
+  rule: Rule,
   path: string,
   elementType: string,
 ): boolean {
   const depth = path.split(".").length;
 
-  for (const [key, value] of Object.entries(atom.patterns)) {
+  for (const [key, value] of Object.entries(rule.patterns)) {
     const underIdx = key.lastIndexOf("_");
     let type: string;
     let suffix: string;
@@ -176,23 +183,21 @@ export function matchesAtom(
 }
 
 export function evaluateSelector(
-  selector: Selector,
+  formula: string,
   path: string,
   elementType: string,
-  globalAtoms: SelectorAtom[],
+  rules: Rule[],
 ): boolean {
-  const combiner = selector.combiner.trim();
-  if (!combiner) return false;
+  const trimmed = formula.trim();
+  if (!trimmed) return false;
 
   const results = new Map<string, boolean>();
-  for (const atom of globalAtoms) {
-    const result = matchesAtom(atom, path, elementType);
-    results.set(atom.id, result);
-    if (atom.name) results.set(atom.name, result);
+  for (const rule of rules) {
+    results.set(rule.id, matchesRule(rule, path, elementType));
   }
 
   try {
-    return new CombinerParser(lexCombiner(combiner), results).parse();
+    return new FormulaParser(lexFormula(trimmed), results).parse();
   } catch {
     return false;
   }

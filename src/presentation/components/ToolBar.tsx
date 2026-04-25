@@ -80,7 +80,7 @@ import {
 import {
   setFoldLevel,
   toggleFoldActive,
-  cyclePreset,
+  cycleSelector,
 } from "../../application/store/filterSlice";
 import {
   setDiff,
@@ -372,7 +372,7 @@ export function ToolBar() {
     relLineStyle,
     classDiagramMode,
   } = useAppSelector((s) => s.ui);
-  const { presets, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
+  const { selectors, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
     useAppSelector((s) => s.filter);
   const diffState = useAppSelector((s) => s.diff);
   const execState = useAppSelector((s) => s.execution);
@@ -443,7 +443,7 @@ export function ToolBar() {
       ? "edited"
       : "collapsed";
 
-  const activePresetCount = presets.filter((p) => p.isActive).length;
+  const activePresetCount = selectors.filter((s) => s.mode !== "off" && s.id !== "__fold__" && s.id !== "__selection__").length;
 
   const handleSaveDiagram = () => {
     const lines: string[] = [
@@ -720,7 +720,7 @@ export function ToolBar() {
     </Btn>
   ));
 
-  const visiblePresets = presets.filter((p) => p.id !== "__fold__");
+  const visibleSelectors = selectors.filter((s) => s.id !== "__fold__" && s.id !== "__selection__");
 
   const selectBtns = (
     <>
@@ -738,24 +738,24 @@ export function ToolBar() {
           </span>
         )}
       </div>
-      {visiblePresets.map((preset) => (
+      {visibleSelectors.map((selector) => (
         <button
-          key={preset.id}
-          title={`${preset.label} — ${preset.isActive ? preset.mode : "off"} (click to cycle)`}
-          onClick={() => dispatch(cyclePreset(preset.id))}
+          key={selector.id}
+          title={`${selector.label} — ${selector.mode} (click to cycle)`}
+          onClick={() => dispatch(cycleSelector(selector.id))}
           className="btn-icon relative overflow-hidden"
           style={
-            preset.isActive
-              ? { color: preset.color, borderColor: preset.color }
+            selector.mode !== "off"
+              ? { color: selector.color, borderColor: selector.color }
               : {}
           }
         >
           <span
             className="absolute inset-0 rounded-[inherit] opacity-15 transition-opacity"
-            style={preset.isActive ? { background: preset.color } : {}}
+            style={selector.mode !== "off" ? { background: selector.color } : {}}
           />
           <span className="relative text-[9px] font-bold leading-none select-none truncate max-w-[5ch]">
-            {preset.label.slice(0, 4)}
+            {selector.label.slice(0, 4)}
           </span>
         </button>
       ))}
@@ -1209,26 +1209,26 @@ export function ToolBar() {
               compact={isCompact}
               activeSlot={
                 !isCompact &&
-                visiblePresets.filter((p) => p.isActive).length > 0 ? (
+                visibleSelectors.filter((s) => s.mode !== "off").length > 0 ? (
                   <>
-                    {visiblePresets
-                      .filter((p) => p.isActive)
-                      .map((preset) => (
+                    {visibleSelectors
+                      .filter((s) => s.mode !== "off")
+                      .map((selector) => (
                         <span
-                          key={preset.id}
+                          key={selector.id}
                           className="btn-icon active pointer-events-none select-none bg-bg-base shrink-0 relative overflow-hidden"
                           style={{
-                            color: preset.color,
-                            borderColor: preset.color,
+                            color: selector.color,
+                            borderColor: selector.color,
                           }}
-                          title={`${preset.label} — ${preset.mode}`}
+                          title={`${selector.label} — ${selector.mode}`}
                         >
                           <span
                             className="absolute inset-0 rounded-[inherit] opacity-15"
-                            style={{ background: preset.color }}
+                            style={{ background: selector.color }}
                           />
                           <span className="relative text-[9px] font-bold leading-none select-none truncate max-w-[5ch]">
-                            {preset.label.slice(0, 6)}
+                            {selector.label.slice(0, 6)}
                           </span>
                         </span>
                       ))}

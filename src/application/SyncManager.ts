@@ -3,7 +3,7 @@ import type { ViewState } from "../domain/models/ViewState";
 import { ModelDiffer } from "../domain/sync/ModelDiffer";
 import { ViewStateMerger } from "../domain/sync/ViewStateMerger";
 import { setCode, setModel, setViewState } from "./store/diagramSlice";
-import { syncPresetsFromCode } from "./store/filterSlice";
+import { syncSelectorsFromCode } from "./store/filterSlice";
 import type { AppStore } from "./store/store";
 
 export interface ICodeParser {
@@ -52,13 +52,13 @@ export class SyncManager {
       } = this.store.getState().diagram;
 
       const diff = ModelDiffer.diff(currentModel, newModel);
-      const presetsChanged =
-        JSON.stringify(currentModel.filterPresets ?? []) !==
-        JSON.stringify(newModel.filterPresets ?? []);
-      const atomsChanged =
-        JSON.stringify(currentModel.atoms ?? []) !==
-        JSON.stringify(newModel.atoms ?? []);
-      if (ModelDiffer.isEmpty(diff) && !presetsChanged && !atomsChanged) {
+      const selectorsChanged =
+        JSON.stringify(currentModel.selectors ?? []) !==
+        JSON.stringify(newModel.selectors ?? []);
+      const rulesChanged =
+        JSON.stringify(currentModel.rules ?? []) !==
+        JSON.stringify(newModel.rules ?? []);
+      if (ModelDiffer.isEmpty(diff) && !selectorsChanged && !rulesChanged) {
         this.store.dispatch(setCode(code));
         return;
       }
@@ -69,11 +69,11 @@ export class SyncManager {
         canvasSize,
       );
 
-      if (presetsChanged) {
+      if (selectorsChanged) {
         this.store.dispatch(
-          syncPresetsFromCode({
-            modelPresets: newModel.filterPresets ?? [],
-            prevModelPresetIds: (currentModel.filterPresets ?? []).map((p) => p.id),
+          syncSelectorsFromCode({
+            modelSelectors: newModel.selectors ?? [],
+            prevModelSelectorIds: (currentModel.selectors ?? []).map((s) => s.id),
           }),
         );
       }

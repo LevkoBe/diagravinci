@@ -573,18 +573,18 @@ bishop --> pawn`,
   },
   {
     id: "selector-atoms-type",
-    name: "Atom: Match by Element Type",
+    name: "Rule: Match by Element Type",
     description:
-      "Atoms that select by element type — functions, states, and deep elements highlighted",
-    tags: ["selector", "atoms", "type-match"],
+      "Rules that select by element type — functions, states, and deep elements highlighted",
+    tags: ["selector", "rules", "type-match"],
     preferredView: "hierarchical",
-    code: `!atom  id=fn  function_name=.*
-!atom  id=st  state_name=.*
-!atom  id=deep  all_level=3-4
+    code: `!rule  id=fn  function_name=.*
+!rule  id=st  state_name=.*
+!rule  id=deep  all_level=3-4
 
-!selector  name=functions  combiner=fn  color=#ff6b35  mode=color
-!selector  name=states  combiner=st  color=#4caf50  mode=color
-!selector  name=deep_elements  combiner=deep  color=#9c27b0  mode=color
+!selector  name=functions  expression=fn  color=#ff6b35  mode=color
+!selector  name=states  expression=st  color=#4caf50  mode=color
+!selector  name=deep_elements  expression=deep  color=#9c27b0  mode=color
 
 Pipeline{
   transform()
@@ -606,18 +606,18 @@ Idle --> transform`,
   },
   {
     id: "selector-atoms-name",
-    name: "Atom: Match by Name Pattern",
+    name: "Rule: Match by Name Pattern",
     description:
-      "Atoms using regex to highlight services, databases, and caches by name",
-    tags: ["selector", "atoms", "name-pattern"],
+      "Rules using regex to highlight services, databases, and caches by name",
+    tags: ["selector", "rules", "name-pattern"],
     preferredView: "pipeline",
-    code: `!atom  id=svc  all_name=.*Service
-!atom  id=db   object_name=.*DB
-!atom  id=cch  all_name=Cache.*
+    code: `!rule  id=svc  all_name=.*Service
+!rule  id=db   object_name=.*DB
+!rule  id=cch  all_name=Cache.*
 
-!selector  name=services   combiner=svc  color=#2196f3  mode=color
-!selector  name=databases  combiner=db   color=#ff9800  mode=color
-!selector  name=caches     combiner=cch  color=#4caf50  mode=color
+!selector  name=services   expression=svc  color=#2196f3  mode=color
+!selector  name=databases  expression=db   color=#ff9800  mode=color
+!selector  name=caches     expression=cch  color=#4caf50  mode=color
 
 UserService{}
 OrderService{}
@@ -640,20 +640,20 @@ OrderService --> MessageBus`,
   },
   {
     id: "selector-atoms-combine",
-    name: "Atom: Boolean Combiners",
+    name: "Rule: Boolean Expressions",
     description:
-      "Combining atoms with + (OR), & (AND), - (NOT) operators to build compound selectors",
-    tags: ["selector", "atoms", "boolean-logic"],
+      "Combining rules with | (OR), & (AND), - (NOT) operators to build compound selectors",
+    tags: ["selector", "rules", "boolean-logic"],
     preferredView: "basic",
-    code: `!atom  id=backend   all_name=.*Service
-!atom  id=storage   object_name=.*DB
-!atom  id=external  all_name=.*Gateway.*
+    code: `!rule  id=backend   all_name=.*Service
+!rule  id=storage   object_name=.*DB
+!rule  id=external  all_name=.*Gateway.*
 
-!selector  name=backend          combiner=backend            color=#2196f3  mode=color
-!selector  name=storage          combiner=storage            color=#ff9800  mode=color
-!selector  name=external         combiner=external           color=#e91e63  mode=color
-!selector  name=backend_or_store combiner=backend+storage    color=#00bcd4  mode=dim
-!selector  name=not_external     combiner=-external          color=#9e9e9e  mode=dim
+!selector  name=backend          expression=backend            color=#2196f3  mode=color
+!selector  name=storage          expression=storage            color=#ff9800  mode=color
+!selector  name=external         expression=external           color=#e91e63  mode=color
+!selector  name=backend_or_store expression="backend | storage"  color=#00bcd4  mode=dim
+!selector  name=not_external     expression=-external           color=#9e9e9e  mode=dim
 
 AuthService{}
 UserService{}

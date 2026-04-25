@@ -7,7 +7,7 @@ import { AppConfig } from "../config/appConfig";
 import { setCode, setModel, setViewState } from "../application/store/diagramSlice";
 import { setRelLineStyle } from "../application/store/uiSlice";
 import type { RelLineStyle } from "../application/store/uiSlice";
-import { syncPresetsFromCode } from "../application/store/filterSlice";
+import { syncSelectorsFromCode } from "../application/store/filterSlice";
 import type { RootState } from "../application/store/store";
 import type { EmbedDispatch } from "./embedStore";
 
@@ -50,9 +50,9 @@ export function useEmbedMessages() {
           ...ViewStateMerger.merge(viewStateRef.current, model, canvasSize),
           viewMode: viewStateRef.current.viewMode,
         };
-        dispatch(syncPresetsFromCode({
-          modelPresets: model.filterPresets ?? [],
-          prevModelPresetIds: (modelRef.current.filterPresets ?? []).map((p) => p.id),
+        dispatch(syncSelectorsFromCode({
+          modelSelectors: model.selectors ?? [],
+          prevModelSelectorIds: (modelRef.current.selectors ?? []).map((s) => s.id),
         }));
         dispatch(setModel(model));
         dispatch(setViewState(newViewState));

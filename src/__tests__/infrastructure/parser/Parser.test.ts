@@ -638,37 +638,52 @@ describe("Parser edge cases", () => {
     expect(ids).toContain("server");
   });
 
-  it("parses !atom and !selector directives", () => {
+  it("parses !atom (legacy) and !rule directives and !selector directives", () => {
     const code =
-      "!atom  id=1  all=*.db.*\n!selector  name=warn  color=#f00  mode=dim  combiner=1";
+      "!atom  id=1  all=*.db.*\n!selector  name=warn  color=#f00  mode=dim  expression=1";
     const model = parse(code);
-    expect(model.atoms ?? []).toHaveLength(1);
-    expect((model.atoms ?? [])[0].patterns["all"]).toBe("*.db.*");
-    expect(model.filterPresets ?? []).toHaveLength(1);
-    const p = (model.filterPresets ?? [])[0];
-    expect(p.id).toBe("warn");
-    expect(p.color).toBe("#f00");
-    expect(p.mode).toBe("dim");
-    expect(p.selector.combiner).toBe("1");
+    expect(model.rules ?? []).toHaveLength(1);
+    expect((model.rules ?? [])[0].patterns["all"]).toBe("*.db.*");
+    expect(model.selectors ?? []).toHaveLength(1);
+    const s = (model.selectors ?? [])[0];
+    expect(s.id).toBe("warn");
+    expect(s.color).toBe("#f00");
+    expect(s.mode).toBe("dim");
+    expect(s.expression).toBe("1");
+  });
+
+  it("parses !rule directive", () => {
+    const code = "!rule  id=royals  all=root\\.queen\\..*";
+    const model = parse(code);
+    expect(model.rules ?? []).toHaveLength(1);
+    expect((model.rules ?? [])[0].id).toBe("royals");
+    expect((model.rules ?? [])[0].patterns["all"]).toBe("root\\.queen\\..*");
+  });
+
+  it("parses !selector with legacy combiner/formula fields (migration compat)", () => {
+    const code = "!selector  name=old  color=#f00  mode=dim  combiner=1";
+    const model = parse(code);
+    const s = (model.selectors ?? [])[0];
+    expect(s.expression).toBe("1");
   });
 
   it("ignores !directive with unknown type", () => {
     const model = parse("!unknown foo=bar");
-    expect(model.filterPresets ?? []).toHaveLength(0);
+    expect(model.selectors ?? []).toHaveLength(0);
   });
 
   it("ignores !selector directive missing name", () => {
     const model = parse("!selector path=*.db.*");
-    expect(model.filterPresets ?? []).toHaveLength(0);
+    expect(model.selectors ?? []).toHaveLength(0);
   });
 
   it("deduplicates !selector directives with same name", () => {
     const model = parse(
       "!selector name=warn color=#f00 mode=color\n!selector name=warn color=#0f0 mode=dim",
     );
-    const presets = model.filterPresets ?? [];
-    expect(presets).toHaveLength(1);
-    expect(presets[0].color).toBe("#f00");
+    const selectors = model.selectors ?? [];
+    expect(selectors).toHaveLength(1);
+    expect(selectors[0].color).toBe("#f00");
   });
 
   it("parses empty input without error", () => {

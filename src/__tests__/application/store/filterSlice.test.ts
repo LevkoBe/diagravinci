@@ -1,42 +1,40 @@
 import { describe, it, expect } from "vitest";
 import reducer, {
-  addPreset,
-  updatePreset,
-  removePreset,
-  togglePresetActive,
-  setPresetMode,
-  setPresetColor,
+  addSelector,
+  updateSelector,
+  removeSelector,
+  setSelectorMode,
+  setSelectorColor,
   setFoldLevel,
   setFoldActive,
   toggleFoldActive,
   toggleElementFold,
   clearFoldOverrides,
-  movePresetUp,
-  movePresetDown,
-  cyclePreset,
-  syncPresetsFromTab,
-  setSelectionPreset,
+  moveSelectorUp,
+  moveSelectorDown,
+  cycleSelector,
+  syncSelectorsFromTab,
+  setSelectionSelector,
   restoreFilterState,
-  syncPresetsFromCode,
+  syncSelectorsFromCode,
 } from "../../../application/store/filterSlice";
-import { SELECTION_PRESET_ID } from "../../../domain/models/Selector";
-import type { FilterPreset } from "../../../domain/models/Selector";
+import { SELECTION_SELECTOR_ID } from "../../../domain/models/Selector";
+import type { Selector } from "../../../domain/models/Selector";
 
-function makePreset(id: string, active = false): FilterPreset {
+function makeSelector(id: string, mode: Selector["mode"] = "off"): Selector {
   return {
     id,
-    label: `Preset ${id}`,
-    mode: "hide",
-    isActive: active,
+    label: `Selector ${id}`,
+    mode,
     color: "#e05c5c",
-    selector: { combiner: "" },
+    expression: "",
   };
 }
 
 describe("filterSlice", () => {
   it("has correct initial state", () => {
     const state = reducer(undefined, { type: "@@INIT" });
-    expect(state.presets).toEqual([]);
+    expect(state.selectors).toEqual([]);
     expect(state.foldLevel).toBe(1);
     expect(state.foldActive).toBe(false);
     expect(state.manuallyFolded).toEqual([]);
@@ -44,51 +42,55 @@ describe("filterSlice", () => {
     expect(state._rev).toBe(0);
   });
 
-  describe("preset CRUD", () => {
-    it("addPreset appends a preset and increments _rev", () => {
-      const state = reducer(undefined, addPreset(makePreset("p1")));
-      expect(state.presets).toHaveLength(1);
-      expect(state.presets[0].id).toBe("p1");
+  describe("selector CRUD", () => {
+    it("addSelector appends a selector and increments _rev", () => {
+      const state = reducer(undefined, addSelector(makeSelector("p1")));
+      expect(state.selectors).toHaveLength(1);
+      expect(state.selectors[0].id).toBe("p1");
       expect(state._rev).toBe(1);
     });
 
-    it("updatePreset replaces preset by id", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const updated = { ...makePreset("p1"), label: "Updated" };
-      const s2 = reducer(s1, updatePreset(updated));
-      expect(s2.presets[0].label).toBe("Updated");
+    it("updateSelector replaces selector by id", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("p1")));
+      const updated = { ...makeSelector("p1"), label: "Updated" };
+      const s2 = reducer(s1, updateSelector(updated));
+      expect(s2.selectors[0].label).toBe("Updated");
     });
 
-    it("updatePreset does nothing for unknown id", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, updatePreset(makePreset("unknown")));
-      expect(s2.presets).toHaveLength(1);
+    it("updateSelector does nothing for unknown id", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("p1")));
+      const s2 = reducer(s1, updateSelector(makeSelector("unknown")));
+      expect(s2.selectors).toHaveLength(1);
     });
 
-    it("removePreset removes the preset", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, removePreset("p1"));
-      expect(s2.presets).toHaveLength(0);
+    it("removeSelector removes the selector", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("p1")));
+      const s2 = reducer(s1, removeSelector("p1"));
+      expect(s2.selectors).toHaveLength(0);
     });
 
-    it("togglePresetActive flips isActive", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1", false)));
-      const s2 = reducer(s1, togglePresetActive("p1"));
-      expect(s2.presets[0].isActive).toBe(true);
-      const s3 = reducer(s2, togglePresetActive("p1"));
-      expect(s3.presets[0].isActive).toBe(false);
+    it("setSelectorMode changes mode", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("p1")));
+      const s2 = reducer(s1, setSelectorMode({ id: "p1", mode: "dim" }));
+      expect(s2.selectors[0].mode).toBe("dim");
     });
 
-    it("setPresetMode changes mode", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, setPresetMode({ id: "p1", mode: "dim" }));
-      expect(s2.presets[0].mode).toBe("dim");
+    it("setSelectorMode does nothing for unknown id", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("p1", "hide")));
+      const s2 = reducer(s1, setSelectorMode({ id: "unknown", mode: "color" }));
+      expect(s2.selectors[0].mode).toBe("hide");
     });
 
-    it("setPresetColor changes color", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, setPresetColor({ id: "p1", color: "#00ff00" }));
-      expect(s2.presets[0].color).toBe("#00ff00");
+    it("setSelectorColor changes color", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("p1")));
+      const s2 = reducer(s1, setSelectorColor({ id: "p1", color: "#00ff00" }));
+      expect(s2.selectors[0].color).toBe("#00ff00");
+    });
+
+    it("setSelectorColor does nothing for unknown id", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("p1")));
+      const s2 = reducer(s1, setSelectorColor({ id: "unknown", color: "#fff" }));
+      expect(s2.selectors[0].color).toBe("#e05c5c");
     });
   });
 
@@ -179,168 +181,121 @@ describe("filterSlice", () => {
     });
   });
 
-  describe("preset ordering", () => {
-    it("movePresetUp swaps preset with the one above", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, addPreset(makePreset("p2")));
-      const s3 = reducer(s2, movePresetUp("p2"));
-      expect(s3.presets[0].id).toBe("p2");
-      expect(s3.presets[1].id).toBe("p1");
+  describe("selector ordering", () => {
+    it("moveSelectorUp swaps selector with the one above", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("p1")));
+      const s2 = reducer(s1, addSelector(makeSelector("p2")));
+      const s3 = reducer(s2, moveSelectorUp("p2"));
+      expect(s3.selectors[0].id).toBe("p2");
+      expect(s3.selectors[1].id).toBe("p1");
     });
 
-    it("movePresetUp does nothing when already at top", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, addPreset(makePreset("p2")));
-      const s3 = reducer(s2, movePresetUp("p1"));
-      expect(s3.presets[0].id).toBe("p1");
+    it("moveSelectorUp does nothing when already at top", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("p1")));
+      const s2 = reducer(s1, addSelector(makeSelector("p2")));
+      const s3 = reducer(s2, moveSelectorUp("p1"));
+      expect(s3.selectors[0].id).toBe("p1");
     });
 
-    it("movePresetDown swaps preset with the one below", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, addPreset(makePreset("p2")));
-      const s3 = reducer(s2, movePresetDown("p1"));
-      expect(s3.presets[0].id).toBe("p2");
-      expect(s3.presets[1].id).toBe("p1");
+    it("moveSelectorDown swaps selector with the one below", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("p1")));
+      const s2 = reducer(s1, addSelector(makeSelector("p2")));
+      const s3 = reducer(s2, moveSelectorDown("p1"));
+      expect(s3.selectors[0].id).toBe("p2");
+      expect(s3.selectors[1].id).toBe("p1");
     });
 
-    it("movePresetDown does nothing when already at bottom", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, addPreset(makePreset("p2")));
-      const s3 = reducer(s2, movePresetDown("p2"));
-      expect(s3.presets[1].id).toBe("p2");
+    it("moveSelectorDown does nothing when already at bottom", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("p1")));
+      const s2 = reducer(s1, addSelector(makeSelector("p2")));
+      const s3 = reducer(s2, moveSelectorDown("p2"));
+      expect(s3.selectors[1].id).toBe("p2");
     });
 
-    it("movePresetDown does nothing for unknown id", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, movePresetDown("unknown"));
-      expect(s2.presets).toHaveLength(1);
+    it("moveSelectorDown does nothing for unknown id", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("p1")));
+      const s2 = reducer(s1, moveSelectorDown("unknown"));
+      expect(s2.selectors).toHaveLength(1);
     });
   });
 
-  describe("cyclePreset", () => {
-    it("activates inactive preset in color mode", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1", false)));
-      const s2 = reducer(s1, cyclePreset("p1"));
-      expect(s2.presets[0].isActive).toBe(true);
-      expect(s2.presets[0].mode).toBe("color");
+  describe("cycleSelector", () => {
+    it("cycles off → color", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("p1", "off")));
+      const s2 = reducer(s1, cycleSelector("p1"));
+      expect(s2.selectors[0].mode).toBe("color");
     });
 
     it("cycles color → dim", () => {
-      const s1 = reducer(
-        undefined,
-        addPreset({ ...makePreset("p1"), mode: "color", isActive: true }),
-      );
-      const s2 = reducer(s1, cyclePreset("p1"));
-      expect(s2.presets[0].mode).toBe("dim");
-      expect(s2.presets[0].isActive).toBe(true);
+      const s1 = reducer(undefined, addSelector(makeSelector("p1", "color")));
+      const s2 = reducer(s1, cycleSelector("p1"));
+      expect(s2.selectors[0].mode).toBe("dim");
     });
 
     it("cycles dim → hide", () => {
-      const s1 = reducer(
-        undefined,
-        addPreset({ ...makePreset("p1"), mode: "dim", isActive: true }),
-      );
-      const s2 = reducer(s1, cyclePreset("p1"));
-      expect(s2.presets[0].mode).toBe("hide");
+      const s1 = reducer(undefined, addSelector(makeSelector("p1", "dim")));
+      const s2 = reducer(s1, cycleSelector("p1"));
+      expect(s2.selectors[0].mode).toBe("hide");
     });
 
-    it("cycles hide → inactive", () => {
-      const s1 = reducer(
-        undefined,
-        addPreset({ ...makePreset("p1"), mode: "hide", isActive: true }),
-      );
-      const s2 = reducer(s1, cyclePreset("p1"));
-      expect(s2.presets[0].isActive).toBe(false);
+    it("cycles hide → off", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("p1", "hide")));
+      const s2 = reducer(s1, cycleSelector("p1"));
+      expect(s2.selectors[0].mode).toBe("off");
     });
 
     it("does nothing for unknown id", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, cyclePreset("unknown"));
-      expect(s2.presets).toHaveLength(1);
+      const s1 = reducer(undefined, addSelector(makeSelector("p1")));
+      const s2 = reducer(s1, cycleSelector("unknown"));
+      expect(s2.selectors).toHaveLength(1);
     });
   });
 
-  describe("syncPresetsFromTab", () => {
-    it("syncs presets preserving local active state", () => {
-      const s1 = reducer(
-        undefined,
-        addPreset({ ...makePreset("p1"), isActive: true }),
-      );
+  describe("syncSelectorsFromTab", () => {
+    it("replaces all selectors from payload", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("old")));
       const s2 = reducer(
         s1,
-        syncPresetsFromTab([
-          {
-            id: "p1",
-            label: "Updated P1",
-            mode: "dim",
-            color: "#ff0000",
-            selector: { combiner: "" },
-          },
-          {
-            id: "p2",
-            label: "New P2",
-            mode: "hide",
-            color: "#00ff00",
-            selector: { combiner: "" },
-          },
-        ]),
+        syncSelectorsFromTab([makeSelector("new1"), makeSelector("new2")]),
       );
-      expect(s2.presets).toHaveLength(2);
-      expect(s2.presets[0].isActive).toBe(true);
-      expect(s2.presets[0].label).toBe("Updated P1");
-      expect(s2.presets[1].isActive).toBe(false);
-    });
-
-    it("new presets default to inactive", () => {
-      const s1 = reducer(
-        undefined,
-        syncPresetsFromTab([
-          {
-            id: "new",
-            label: "New",
-            mode: "hide",
-            color: "#aaa",
-            selector: { combiner: "" },
-          },
-        ]),
-      );
-      expect(s1.presets[0].isActive).toBe(false);
+      expect(s2.selectors).toHaveLength(2);
+      expect(s2.selectors[0].id).toBe("new1");
+      expect(s2.selectors[1].id).toBe("new2");
     });
   });
 
-  describe("setSelectionPreset", () => {
-    it("adds a selection preset for given ids", () => {
+  describe("setSelectionSelector", () => {
+    it("adds a selection selector for given ids", () => {
       const s1 = reducer(
         undefined,
-        setSelectionPreset({ ids: ["a", "b"], color: "#ff0000" }),
+        setSelectionSelector({ ids: ["a", "b"], color: "#ff0000" }),
       );
-      const sel = s1.presets.find((p) => p.id === SELECTION_PRESET_ID);
+      const sel = s1.selectors.find((s) => s.id === SELECTION_SELECTOR_ID);
       expect(sel).toBeDefined();
       expect(sel?.mode).toBe("color");
-      expect(sel?.isActive).toBe(true);
     });
 
-    it("removes selection preset when ids is empty", () => {
+    it("removes selection selector when ids is empty", () => {
       const s1 = reducer(
         undefined,
-        setSelectionPreset({ ids: ["a"], color: "#ff0000" }),
+        setSelectionSelector({ ids: ["a"], color: "#ff0000" }),
       );
-      const s2 = reducer(s1, setSelectionPreset({ ids: [], color: "#ff0000" }));
+      const s2 = reducer(s1, setSelectionSelector({ ids: [], color: "#ff0000" }));
       expect(
-        s2.presets.find((p) => p.id === SELECTION_PRESET_ID),
+        s2.selectors.find((s) => s.id === SELECTION_SELECTOR_ID),
       ).toBeUndefined();
     });
 
-    it("replaces existing selection preset", () => {
+    it("replaces existing selection selector", () => {
       const s1 = reducer(
         undefined,
-        setSelectionPreset({ ids: ["a"], color: "#ff0000" }),
+        setSelectionSelector({ ids: ["a"], color: "#ff0000" }),
       );
       const s2 = reducer(
         s1,
-        setSelectionPreset({ ids: ["b"], color: "#0000ff" }),
+        setSelectionSelector({ ids: ["b"], color: "#0000ff" }),
       );
-      const sels = s2.presets.filter((p) => p.id === SELECTION_PRESET_ID);
+      const sels = s2.selectors.filter((s) => s.id === SELECTION_SELECTOR_ID);
       expect(sels).toHaveLength(1);
       expect(sels[0].color).toBe("#0000ff");
     });
@@ -348,28 +303,28 @@ describe("filterSlice", () => {
     it("handles single id without alternation pattern", () => {
       const s1 = reducer(
         undefined,
-        setSelectionPreset({ ids: ["myNode"], color: "#aaa" }),
+        setSelectionSelector({ ids: ["myNode"], color: "#aaa" }),
       );
-      const sel = s1.presets.find((p) => p.id === SELECTION_PRESET_ID);
+      const sel = s1.selectors.find((s) => s.id === SELECTION_SELECTOR_ID);
       expect(sel?.selectionPattern).toMatch(/myNode/);
     });
   });
 
   describe("restoreFilterState", () => {
     it("restores full filter state from payload", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
+      const s1 = reducer(undefined, addSelector(makeSelector("p1")));
       const restored = reducer(
         s1,
         restoreFilterState({
-          presets: [makePreset("q1"), makePreset("q2")],
+          selectors: [makeSelector("q1"), makeSelector("q2")],
           foldLevel: 3,
           foldActive: true,
           manuallyFolded: ["a.b"],
           manuallyUnfolded: ["c.d"],
         }),
       );
-      expect(restored.presets).toHaveLength(2);
-      expect(restored.presets[0].id).toBe("q1");
+      expect(restored.selectors).toHaveLength(2);
+      expect(restored.selectors[0].id).toBe("q1");
       expect(restored.foldLevel).toBe(3);
       expect(restored.foldActive).toBe(true);
       expect(restored.manuallyFolded).toEqual(["a.b"]);
@@ -377,54 +332,12 @@ describe("filterSlice", () => {
     });
   });
 
-  describe("preset mutation no-ops for unknown id", () => {
-    it("togglePresetActive does nothing for unknown id", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1", true)));
-      const s2 = reducer(s1, togglePresetActive("unknown"));
-      expect(s2.presets[0].isActive).toBe(true);
-    });
-
-    it("setPresetMode does nothing for unknown id", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, setPresetMode({ id: "unknown", mode: "color" }));
-      expect(s2.presets[0].mode).toBe("hide");
-    });
-
-    it("setPresetColor does nothing for unknown id", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("p1")));
-      const s2 = reducer(s1, setPresetColor({ id: "unknown", color: "#fff" }));
-      expect(s2.presets[0].color).toBe("#e05c5c");
-    });
-  });
-
-  describe("cyclePreset — inactive dim and hide start at color:true", () => {
-    it("activates inactive dim-mode preset → color:true", () => {
-      const s1 = reducer(
-        undefined,
-        addPreset({ ...makePreset("p1"), mode: "dim", isActive: false }),
-      );
-      const s2 = reducer(s1, cyclePreset("p1"));
-      expect(s2.presets[0].mode).toBe("color");
-      expect(s2.presets[0].isActive).toBe(true);
-    });
-
-    it("activates inactive hide-mode preset → color:true", () => {
-      const s1 = reducer(
-        undefined,
-        addPreset({ ...makePreset("p1"), mode: "hide", isActive: false }),
-      );
-      const s2 = reducer(s1, cyclePreset("p1"));
-      expect(s2.presets[0].mode).toBe("color");
-      expect(s2.presets[0].isActive).toBe(true);
-    });
-  });
-
   describe("_rev counter", () => {
     it("increments _rev on every mutating action", () => {
       let state = reducer(undefined, { type: "@@INIT" });
       const actions = [
-        addPreset(makePreset("p1")),
-        togglePresetActive("p1"),
+        addSelector(makeSelector("p1")),
+        setSelectorMode({ id: "p1", mode: "color" }),
         setFoldLevel(2),
         setFoldActive(true),
         toggleFoldActive(),
@@ -440,90 +353,89 @@ describe("filterSlice", () => {
     });
   });
 
-  describe("syncPresetsFromCode", () => {
-    it("adds new model presets not previously in state", () => {
+  describe("syncSelectorsFromCode", () => {
+    it("adds new model selectors not previously in state", () => {
       const s1 = reducer(
         undefined,
-        syncPresetsFromCode({
-          modelPresets: [makePreset("code1")],
-          prevModelPresetIds: [],
+        syncSelectorsFromCode({
+          modelSelectors: [makeSelector("code1", "color")],
+          prevModelSelectorIds: [],
         }),
       );
-      expect(s1.presets.find((p) => p.id === "code1")).toBeDefined();
-      expect(s1.presets.find((p) => p.id === "code1")?.isActive).toBe(true);
+      expect(s1.selectors.find((s) => s.id === "code1")).toBeDefined();
+      expect(s1.selectors.find((s) => s.id === "code1")?.mode).toBe("color");
     });
 
-    it("removes presets that were in prev but not in new model presets", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("old")));
+    it("removes selectors that were in prev but not in new model selectors", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("old")));
       const s2 = reducer(
         s1,
-        syncPresetsFromCode({
-          modelPresets: [],
-          prevModelPresetIds: ["old"],
+        syncSelectorsFromCode({
+          modelSelectors: [],
+          prevModelSelectorIds: ["old"],
         }),
       );
-      expect(s2.presets.find((p) => p.id === "old")).toBeUndefined();
+      expect(s2.selectors.find((s) => s.id === "old")).toBeUndefined();
     });
 
-    it("keeps presets that were not from model code", () => {
-      const s1 = reducer(undefined, addPreset(makePreset("manual")));
+    it("keeps selectors that were not from model code", () => {
+      const s1 = reducer(undefined, addSelector(makeSelector("manual")));
       const s2 = reducer(
         s1,
-        syncPresetsFromCode({
-          modelPresets: [makePreset("code1")],
-          prevModelPresetIds: [],
+        syncSelectorsFromCode({
+          modelSelectors: [makeSelector("code1")],
+          prevModelSelectorIds: [],
         }),
       );
-      expect(s2.presets.find((p) => p.id === "manual")).toBeDefined();
-      expect(s2.presets.find((p) => p.id === "code1")).toBeDefined();
+      expect(s2.selectors.find((s) => s.id === "manual")).toBeDefined();
+      expect(s2.selectors.find((s) => s.id === "code1")).toBeDefined();
     });
 
-    it("preserves local isActive state for existing model presets", () => {
+    it("fully overwrites existing model selector content from code (mode is code-authoritative)", () => {
       const s1 = reducer(
         undefined,
-        syncPresetsFromCode({
-          modelPresets: [makePreset("code1")],
-          prevModelPresetIds: [],
+        syncSelectorsFromCode({
+          modelSelectors: [makeSelector("code1", "color")],
+          prevModelSelectorIds: [],
         }),
       );
-      const s2 = reducer(s1, togglePresetActive("code1"));
-      expect(s2.presets.find((p) => p.id === "code1")?.isActive).toBe(false);
+      const s2 = reducer(s1, setSelectorMode({ id: "code1", mode: "off" }));
+      expect(s2.selectors.find((s) => s.id === "code1")?.mode).toBe("off");
 
       const s3 = reducer(
         s2,
-        syncPresetsFromCode({
-          modelPresets: [{ ...makePreset("code1"), label: "Updated" }],
-          prevModelPresetIds: ["code1"],
+        syncSelectorsFromCode({
+          modelSelectors: [{ ...makeSelector("code1"), mode: "dim" as const }],
+          prevModelSelectorIds: ["code1"],
         }),
       );
-      expect(s3.presets.find((p) => p.id === "code1")?.isActive).toBe(false);
-      expect(s3.presets.find((p) => p.id === "code1")?.label).toBe("Updated");
+      expect(s3.selectors.find((s) => s.id === "code1")?.mode).toBe("dim");
     });
 
-    it("updates existing preset content (same id, new data)", () => {
+    it("updates existing selector content (same id, new data)", () => {
       const s1 = reducer(
         undefined,
-        syncPresetsFromCode({
-          modelPresets: [makePreset("code1")],
-          prevModelPresetIds: [],
+        syncSelectorsFromCode({
+          modelSelectors: [makeSelector("code1")],
+          prevModelSelectorIds: [],
         }),
       );
       const s2 = reducer(
         s1,
-        syncPresetsFromCode({
-          modelPresets: [{ ...makePreset("code1"), mode: "color" as const }],
-          prevModelPresetIds: ["code1"],
+        syncSelectorsFromCode({
+          modelSelectors: [{ ...makeSelector("code1"), mode: "color" as const }],
+          prevModelSelectorIds: ["code1"],
         }),
       );
-      expect(s2.presets.find((p) => p.id === "code1")?.mode).toBe("color");
+      expect(s2.selectors.find((s) => s.id === "code1")?.mode).toBe("color");
     });
 
     it("increments _rev", () => {
       const s1 = reducer(
         undefined,
-        syncPresetsFromCode({
-          modelPresets: [],
-          prevModelPresetIds: [],
+        syncSelectorsFromCode({
+          modelSelectors: [],
+          prevModelSelectorIds: [],
         }),
       );
       expect(s1._rev).toBe(1);

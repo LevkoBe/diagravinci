@@ -3,7 +3,6 @@ import {
   createEmptyViewState,
   updateElementPosition,
 } from "../../domain/models/ViewState";
-import { emptySelector } from "../../domain/models/Selector";
 
 describe("createEmptyViewState", () => {
   it("returns a valid empty view state", () => {
@@ -99,9 +98,3 @@ describe("updateElementPosition", () => {
   });
 });
 
-describe("Selector factory functions", () => {
-  it("emptySelector creates a selector with an empty combiner", () => {
-    const sel = emptySelector();
-    expect(sel.combiner).toBe("");
-  });
-});

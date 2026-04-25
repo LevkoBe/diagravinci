@@ -1,4 +1,4 @@
-import type { FilterPreset, SelectorAtom } from "../../domain/models/Selector";
+import type { Selector, Rule } from "../../domain/models/Selector";
 import type { PositionedElement } from "../../domain/models/ViewState";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { FilterState } from "../../application/store/filterSlice";
@@ -15,27 +15,27 @@ function pathDepth(path: string): number {
   return path.split(".").length;
 }
 
-function matchesPreset(
+function matchesSelector(
   path: string,
-  preset: FilterPreset,
+  selector: Selector,
   model: DiagramModel,
-  globalAtoms: SelectorAtom[],
+  rules: Rule[],
 ): boolean {
   const elementId = path.split(".").at(-1)!;
   const element = model.elements[elementId];
 
-  if (preset.selectionPattern) {
+  if (selector.selectionPattern) {
     try {
-      return new RegExp(preset.selectionPattern).test(path);
+      return new RegExp(selector.selectionPattern).test(path);
     } catch {
       return false;
     }
   }
 
-  if (element?.flags?.includes(preset.id)) return true;
+  if (element?.flags?.includes(selector.id)) return true;
 
   const type = element?.type ?? "";
-  return evaluateSelector(preset.selector, path, type, globalAtoms);
+  return evaluateSelector(selector.expression, path, type, rules);
 }
 
 function arraysEqual(a: string[], b: string[]): boolean {
@@ -54,17 +54,15 @@ export class FilterResolver {
     const dimmedSet = new Set<string>();
     const foldedSet = new Set<string>();
     const coloredMap = new Map<string, string>();
-    const globalAtoms = model.atoms ?? [];
+    const rules = model.rules ?? [];
 
-    const allPresets = filterState.presets;
+    for (const selector of filterState.selectors) {
+      if (selector.mode === "off") continue;
 
-    for (const preset of allPresets) {
-      if (!preset.isActive) continue;
-
-      if (preset.mode === "color") {
+      if (selector.mode === "color") {
         for (const path of allPaths) {
-          if (matchesPreset(path, preset, model, globalAtoms)) {
-            coloredMap.set(path, preset.color);
+          if (matchesSelector(path, selector, model, rules)) {
+            coloredMap.set(path, selector.color);
           }
         }
         continue;
@@ -72,13 +70,12 @@ export class FilterResolver {
 
       const unmatched: string[] = [];
       for (const path of allPaths) {
-        if (!matchesPreset(path, preset, model, globalAtoms))
-          unmatched.push(path);
+        if (!matchesSelector(path, selector, model, rules)) unmatched.push(path);
       }
 
-      if (preset.mode === "hide") {
+      if (selector.mode === "hide") {
         unmatched.forEach((p) => hiddenSet.add(p));
-      } else if (preset.mode === "dim") {
+      } else if (selector.mode === "dim") {
         unmatched.forEach((p) => dimmedSet.add(p));
       }
     }

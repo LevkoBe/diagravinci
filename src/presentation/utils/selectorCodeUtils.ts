@@ -1,5 +1,4 @@
-import type { SelectorAtom } from "../../domain/models/Selector";
-import type { FilterPreset } from "../../domain/models/Selector";
+import type { Rule, Selector } from "../../domain/models/Selector";
 
 function escapeForRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -9,43 +8,67 @@ function quoteIfNeeded(v: string): string {
   return /\s/.test(v) ? `"${v}"` : v;
 }
 
-export function generateAtomLine(atom: SelectorAtom): string {
-  const parts = [`!atom`, `id=${atom.id}`];
-  if (atom.name) parts.push(`name=${atom.name}`);
-  for (const [key, value] of Object.entries(atom.patterns)) {
+function quoteLabel(v: string): string {
+  if (/[^\w-]/.test(v)) return `"${v.replace(/"/g, "'")}"`;
+  return v;
+}
+
+export function generateRuleLine(rule: Rule): string {
+  const parts = [`!rule`, `id=${rule.id}`];
+  for (const [key, value] of Object.entries(rule.patterns)) {
     parts.push(`${key}=${quoteIfNeeded(value)}`);
   }
   return parts.join("  ");
 }
 
-export function generateSelectorLine(preset: FilterPreset): string {
-  const parts = [`!selector`, `name=${preset.id}`];
-  parts.push(`color=${preset.color}`);
-  parts.push(`mode=${preset.mode}`);
-  if (preset.selector.combiner) {
-    parts.push(`combiner=${quoteIfNeeded(preset.selector.combiner)}`);
+export function generateSelectorLine(selector: Selector): string {
+  const parts = [`!selector`, `name=${quoteLabel(selector.label)}`];
+  parts.push(`color=${selector.color}`);
+  parts.push(`mode=${selector.mode}`);
+  if (selector.expression) {
+    parts.push(`expression=${quoteIfNeeded(selector.expression)}`);
   }
   return parts.join("  ");
 }
 
-export function upsertAtomInCode(atom: SelectorAtom, code: string): string {
-  const line = generateAtomLine(atom);
-  const re = new RegExp(`^!atom\\s+id=${escapeForRegex(atom.id)}\\b[^\n]*\n?`, "m");
+const ruleLineRe = (id: string) =>
+  new RegExp(`^!(?:rule|atom)\\s+id=${escapeForRegex(id)}\\b[^\n]*\n?`, "m");
+
+export function upsertRuleInCode(rule: Rule, code: string): string {
+  const line = generateRuleLine(rule);
+  const re = ruleLineRe(rule.id);
   return re.test(code) ? code.replace(re, line + "\n") : line + "\n" + code;
 }
 
-export function removeAtomFromCode(id: string, code: string): string {
-  const re = new RegExp(`^!atom\\s+id=${escapeForRegex(id)}\\b[^\n]*\n?`, "m");
-  return code.replace(re, "");
+export function removeRuleFromCode(id: string, code: string): string {
+  return code.replace(ruleLineRe(id), "");
 }
 
-export function upsertPresetInCode(preset: FilterPreset, code: string): string {
-  const line = generateSelectorLine(preset);
-  const re = new RegExp(`^!selector\\s+name=${escapeForRegex(preset.id)}\\b[^\n]*$`, "m");
+function selectorNamePattern(label: string): string {
+  const escaped = escapeForRegex(label);
+  return /\s/.test(label)
+    ? `"${escaped}"`
+    : `(?:"${escaped}"|${escaped}(?=\\s|$))`;
+}
+
+export function upsertSelectorInCode(
+  selector: Selector,
+  code: string,
+  oldLabel?: string,
+): string {
+  const line = generateSelectorLine(selector);
+  const searchLabel = oldLabel ?? selector.label;
+  const re = new RegExp(
+    `^!selector\\s+name=${selectorNamePattern(searchLabel)}[^\n]*$`,
+    "m",
+  );
   return re.test(code) ? code.replace(re, line) : line + "\n" + code;
 }
 
-export function removePresetFromCode(id: string, code: string): string {
-  const re = new RegExp(`^!selector\\s+name=${escapeForRegex(id)}\\b[^\n]*\n?`, "m");
+export function removeSelectorFromCode(label: string, code: string): string {
+  const re = new RegExp(
+    `^!selector\\s+name=${selectorNamePattern(label)}[^\n]*\n?`,
+    "m",
+  );
   return code.replace(re, "");
 }

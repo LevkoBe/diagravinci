@@ -1,15 +1,13 @@
 import type { AppStore, RootState } from "./store/store";
 import { AppConfig } from "../config/appConfig";
 import { setModel, setViewState, setCode } from "./store/diagramSlice";
-import { syncPresetsFromTab } from "./store/filterSlice";
-import type { FilterPreset } from "../domain/models/Selector";
+import { syncSelectorsFromTab } from "./store/filterSlice";
+import type { Selector } from "../domain/models/Selector";
 import type { DiagramModel } from "../domain/models/DiagramModel";
 import type {
   PositionedElement,
   PositionedRelationship,
 } from "../domain/models/ViewState";
-
-type SyncablePreset = Omit<FilterPreset, "isActive">;
 
 type TabMessage =
   | {
@@ -21,9 +19,9 @@ type TabMessage =
       relationships: PositionedRelationship[];
     }
   | {
-      type: "PRESET_SYNC";
+      type: "SELECTOR_SYNC";
       tabId: string;
-      presets: SyncablePreset[];
+      selectors: Selector[];
     }
   | {
       type: "HELLO";
@@ -37,25 +35,25 @@ type TabMessage =
       code: string;
       positions: Record<string, PositionedElement>;
       relationships: PositionedRelationship[];
-      presets: SyncablePreset[];
+      selectors: Selector[];
     };
 
-function presetDefSig(presets: FilterPreset[]): string {
-  return JSON.stringify(presets.map(({ isActive: _ia, ...rest }) => rest));
+function selectorSig(selectors: Selector[]): string {
+  return JSON.stringify(selectors);
 }
 
 export class TabSyncManager {
   private channel: BroadcastChannel;
   private readonly tabId = crypto.randomUUID();
   private isReceiving = false;
-  private prevPresetSig: string;
+  private prevSelectorSig: string;
   private broadcastTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly store: AppStore;
 
   constructor(store: AppStore) {
     this.store = store;
     const state = store.getState();
-    this.prevPresetSig = presetDefSig(state.filter.presets);
+    this.prevSelectorSig = selectorSig(state.filter.selectors);
 
     this.channel = new BroadcastChannel("diagravinci");
     this.channel.onmessage = (e: MessageEvent<TabMessage>) =>
@@ -77,10 +75,10 @@ export class TabSyncManager {
       this.scheduleBroadcast();
     }
 
-    const sig = presetDefSig(curr.filter.presets);
-    if (sig !== this.prevPresetSig) {
-      this.prevPresetSig = sig;
-      this.broadcastPresets(curr);
+    const sig = selectorSig(curr.filter.selectors);
+    if (sig !== this.prevSelectorSig) {
+      this.prevSelectorSig = sig;
+      this.broadcastSelectors(curr);
     }
   }
 
@@ -100,11 +98,11 @@ export class TabSyncManager {
     }, AppConfig.ui.TAB_BROADCAST_DEBOUNCE_MS);
   }
 
-  private broadcastPresets(state: RootState) {
+  private broadcastSelectors(state: RootState) {
     this.channel.postMessage({
-      type: "PRESET_SYNC",
+      type: "SELECTOR_SYNC",
       tabId: this.tabId,
-      presets: state.filter.presets.map(({ isActive: _ia, ...rest }) => rest),
+      selectors: state.filter.selectors,
     } satisfies TabMessage);
   }
 
@@ -121,7 +119,7 @@ export class TabSyncManager {
         code: curr.diagram.code,
         positions: curr.diagram.viewState.positions,
         relationships: curr.diagram.viewState.relationships,
-        presets: curr.filter.presets.map(({ isActive: _ia, ...rest }) => rest),
+        selectors: curr.filter.selectors,
       } satisfies TabMessage);
       return;
     }
@@ -135,7 +133,7 @@ export class TabSyncManager {
       if (msg.type === "MODEL_UPDATE" || msg.type === "HELLO_REPLY") {
         if (msg.code === state.diagram.code) {
           if (msg.type === "HELLO_REPLY") {
-            this.store.dispatch(syncPresetsFromTab(msg.presets));
+            this.store.dispatch(syncSelectorsFromTab(msg.selectors));
           }
           return;
         }
@@ -149,10 +147,10 @@ export class TabSyncManager {
           }),
         );
         if (msg.type === "HELLO_REPLY") {
-          this.store.dispatch(syncPresetsFromTab(msg.presets));
+          this.store.dispatch(syncSelectorsFromTab(msg.selectors));
         }
-      } else if (msg.type === "PRESET_SYNC") {
-        this.store.dispatch(syncPresetsFromTab(msg.presets));
+      } else if (msg.type === "SELECTOR_SYNC") {
+        this.store.dispatch(syncSelectorsFromTab(msg.selectors));
       }
     } finally {
       this.isReceiving = false;

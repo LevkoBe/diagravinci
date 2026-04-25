@@ -14,8 +14,7 @@ import {
   setSelectedElements,
   toggleSelectedElement,
 } from "../../application/store/uiSlice";
-import { setSelectionPreset } from "../../application/store/filterSlice";
-import { toggleElementFold } from "../../application/store/filterSlice";
+import { setSelectionSelector, toggleElementFold } from "../../application/store/filterSlice";
 import { acceptDiffId } from "../../application/store/diffSlice";
 import { syncManager, store } from "../../application/store/store";
 import { getCSSVariable } from "../../shared/utils";
@@ -138,7 +137,7 @@ export function VisualCanvas() {
 
   useEffect(() => {
     const color = getCSSVariable("--color-state-selected");
-    dispatch(setSelectionPreset({ ids: selectedElementIds, color }));
+    dispatch(setSelectionSelector({ ids: selectedElementIds, color }));
   }, [selectedElementIds, isDark, dispatch]);
 
   const DIFF_ADDED_COLOR = AppConfig.canvas.DIFF_ADDED_COLOR;
