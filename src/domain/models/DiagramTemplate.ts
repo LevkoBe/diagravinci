@@ -23,15 +23,15 @@ export const BUILT_IN_TEMPLATES: DiagramTemplate[] = [
   Schema
   Repository
 }
-View{
-  Template
-  Component
-  Stylesheet
-}
 Controller{
   Router
   Handler
   Middleware
+}
+View{
+  Template
+  Component
+  Stylesheet
 }
 
 Model --> Controller
@@ -227,6 +227,157 @@ function generateClusterDsl(clusters: number, perCluster: number): string {
   return lines.join("\n");
 }
 
+export const ICON_SHOWCASE_TEMPLATE: DiagramTemplate = {
+  id: "icon-showcase",
+  name: "Icon Showcase",
+  description:
+    "All available icons — use _iconname_ syntax to display icons on elements",
+  tags: ["icons", "reference", "showcase"],
+  preferredView: "circular",
+  code: `TechIcons{
+  _database_
+  _server_
+  _cloud_
+  _network_
+  _router_
+  _cpu_
+  _storage_
+  _cache_
+  _queue_
+  _api_
+  _web_
+  _auth_
+  _workflow_
+  _event_
+  _layers_
+}
+SecurityIcons{
+  _lock_
+  _key_
+  _shield_
+  _globe_
+  _eye_
+  _compass_
+}
+PeopleIcons{
+  _user_
+  _users_
+  _phone_
+  _mail_
+  _heart_
+  _star_
+}
+FileIcons{
+  _file_
+  _folder_
+  _log_
+  _chart_
+  _ledger_
+  _blueprint_
+}
+UIIcons{
+  _settings_
+  _search_
+  _clock_
+  _calendar_
+  _info_
+  _warning_
+  _check_
+  _x_
+  _zap_
+  _timer_
+  _diagram_
+  _frame_
+}
+CombatIcons{
+  _sword_
+  _axe_
+  _bow_
+  _dagger_
+  _spear_
+  _hammer_
+  _pickaxe_
+  _blade_
+  _baton_
+  _chisel_
+  _whetstone_
+}
+DefenseIcons{
+  _helm_
+  _knight_
+  _fortress_
+  _wall_
+  _gauntlet_
+  _boots_
+  _cape_
+  _mask_
+  _cage_
+  _chain_
+}
+MagicIcons{
+  _flame_
+  _storm_
+  _rune_
+  _potion_
+  _beacon_
+  _gem_
+  _prism_
+  _tome_
+  _scroll_
+  _feather_
+  _seal_
+}
+WorldIcons{
+  _anchor_
+  _map_
+  _telescope_
+  _target_
+  _flag_
+  _crown_
+  _medal_
+  _scales_
+  _hourglass_
+  _arrow_
+  _megaphone_
+  _ghost_
+}
+CraftIcons{
+  _anvil_
+  _wrench_
+  _saw_
+  _drill_
+  _ruler_
+  _forge_
+  _kiln_
+  _bellows_
+  _lathe_
+  _mold_
+  _grinder_
+  _stencil_
+  _pin_
+  _wire_
+  _tally_
+  _level_
+  _chalk_
+}
+MiscIcons{
+  _lyre_
+  _strings_
+  _wheel_
+  _ram_
+  _mirror_
+  _broom_
+  _clay_
+  _needle_
+  _dye_
+  _cabinet_
+  _coin_
+  _wings_
+  _treasure_
+  _lens_
+}`,
+};
+
 export const EDGE_CASE_TEMPLATES: DiagramTemplate[] = [
   {
     id: "edge-deep-nesting",
@@ -283,19 +434,7 @@ Zeta *-- Alpha`,
       "One of each element type: object, collection, function, state, choice, flow",
     tags: ["edge-case", "element-types", "syntax"],
     preferredView: "circular",
-    code: `obj{}
-coll[]
-fn()
-st||
-ch<>
-fl>>
-
-obj --> coll
-coll --> fn
-fn --> st
-st --> ch
-ch --> fl
-fl --> obj`,
+    code: `obj{} >> coll[] --> fn() --> st|| --> ch<> --> obj`,
   },
   {
     id: "edge-cycle",

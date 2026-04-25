@@ -6,9 +6,11 @@ import {
   isDashed,
   createDecoration,
   computeRelPoints,
+  decorationInset,
 } from "./arrowUtils";
 import type { Colors } from "../types";
 import { VConfig } from "../../visualConfig";
+import type { RelLineStyle } from "../../../../application/store/uiSlice";
 
 const RC = VConfig.rendering;
 
@@ -49,6 +51,7 @@ export class RelationshipRenderer {
   private readonly viewportRect: ViewportRect | null;
   private readonly geometryCache: GeometryCache | null;
   private readonly zoom: number;
+  private readonly relLineStyle: RelLineStyle;
 
   constructor(
     viewState: ViewState,
@@ -58,6 +61,7 @@ export class RelationshipRenderer {
     viewportRect?: ViewportRect,
     geometryCache?: GeometryCache,
     zoom = 1,
+    relLineStyle: RelLineStyle = "straight",
   ) {
     this.viewState = viewState;
     this.colors = colors;
@@ -66,6 +70,7 @@ export class RelationshipRenderer {
     this.viewportRect = viewportRect ?? null;
     this.geometryCache = geometryCache ?? null;
     this.zoom = Math.max(zoom, 0.01);
+    this.relLineStyle = relLineStyle;
   }
 
   private populateRelGroup(
@@ -80,27 +85,143 @@ export class RelationshipRenderer {
     const zoom = this.zoom;
     const strokeWidth = RC.REL_STROKE_WIDTH / zoom;
     const decoStrokeWidth = RC.DECORATION_STROKE_WIDTH / zoom;
+    const dashes = isDashed(relType)
+      ? (RC.REL_DASH as number[]).map((d) => d / zoom)
+      : undefined;
 
-    group.add(
-      new Konva.Line({
-        points: result.points,
-        stroke,
-        strokeWidth,
-        lineCap: "round",
-        dash: isDashed(relType)
-          ? (RC.REL_DASH as number[]).map((d) => d / zoom)
-          : undefined,
-      }),
-    );
+    const { ex1, ey1, ex2, ey2, nx, ny } = result;
+    let srcNx: number, srcNy: number, tgtNx: number, tgtNy: number;
+    let labelLinePoints: number[];
+
+    if (this.relLineStyle === "curved") {
+      const dx = ex2 - ex1,
+        dy = ey2 - ey1;
+      const midX = (ex1 + ex2) / 2,
+        midY = (ey1 + ey2) / 2;
+      let cp1x: number, cp1y: number, cp2x: number, cp2y: number;
+
+      const vm = this.viewState.viewMode;
+      const forceHorizontal = vm === "timeline" || vm === "pipeline";
+      const forceVertical = vm === "hierarchical";
+      const useHorizontal =
+        dx === 0
+          ? false
+          : dy === 0
+            ? true
+            : forceHorizontal ||
+              (!forceVertical && Math.abs(dx) >= Math.abs(dy));
+
+      if (useHorizontal) {
+        const s = dx >= 0 ? 1 : -1;
+        cp1x = midX;
+        cp1y = ey1;
+        cp2x = midX;
+        cp2y = ey2;
+        srcNx = -s;
+        srcNy = 0;
+        tgtNx = s;
+        tgtNy = 0;
+      } else {
+        const s = dy >= 0 ? 1 : -1;
+        cp1x = ex1;
+        cp1y = midY;
+        cp2x = ex2;
+        cp2y = midY;
+        srcNx = 0;
+        srcNy = -s;
+        tgtNx = 0;
+        tgtNy = s;
+      }
+
+      const lx1 = ex1 - srcNx * decorationInset(spec.source, zoom);
+      const ly1 = ey1 - srcNy * decorationInset(spec.source, zoom);
+      const lx2 = ex2 - tgtNx * decorationInset(spec.target, zoom);
+      const ly2 = ey2 - tgtNy * decorationInset(spec.target, zoom);
+
+      group.add(
+        new Konva.Path({
+          data: `M ${lx1} ${ly1} C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${lx2} ${ly2}`,
+          stroke,
+          strokeWidth,
+          dash: dashes,
+          lineCap: "round",
+        }),
+      );
+      labelLinePoints = [ex1, ey1, ex2, ey2];
+    } else if (this.relLineStyle === "orthogonal") {
+      const dx = ex2 - ex1,
+        dy = ey2 - ey1;
+      const midX = (ex1 + ex2) / 2,
+        midY = (ey1 + ey2) / 2;
+
+      const vm = this.viewState.viewMode;
+      const forceHorizontal = vm === "timeline" || vm === "pipeline";
+      const forceVertical = vm === "hierarchical";
+
+      const useHorizontal =
+        dx === 0 ? false : dy === 0 ? true : forceHorizontal || !forceVertical;
+
+      let orthoPoints: number[];
+
+      if (useHorizontal) {
+        const s = dx >= 0 ? 1 : -1;
+        srcNx = -s;
+        srcNy = 0;
+        tgtNx = s;
+        tgtNy = 0;
+
+        const lx1 = ex1 + s * decorationInset(spec.source, zoom);
+        const lx2 = ex2 - s * decorationInset(spec.target, zoom);
+
+        orthoPoints = [lx1, ey1, midX, ey1, midX, ey2, lx2, ey2];
+      } else {
+        const s = dy >= 0 ? 1 : -1;
+        srcNx = 0;
+        srcNy = -s;
+        tgtNx = 0;
+        tgtNy = s;
+
+        const ly1 = ey1 + s * decorationInset(spec.source, zoom);
+        const ly2 = ey2 - s * decorationInset(spec.target, zoom);
+
+        orthoPoints = [ex1, ly1, ex1, midY, ex2, midY, ex2, ly2];
+      }
+
+      group.add(
+        new Konva.Line({
+          points: orthoPoints,
+          stroke,
+          strokeWidth,
+          dash: dashes,
+          lineCap: "round",
+        }),
+      );
+      labelLinePoints = [ex1, ey1, ex2, ey2];
+    } else {
+      group.add(
+        new Konva.Line({
+          points: result.points,
+          stroke,
+          strokeWidth,
+          lineCap: "round",
+          dash: dashes,
+        }),
+      );
+      srcNx = -nx;
+      srcNy = -ny;
+      tgtNx = nx;
+      tgtNy = ny;
+      labelLinePoints = result.points;
+    }
 
     if (spec.source !== "none") {
       const sourceDeco = createDecoration(
         spec.source,
         spec.sourceFilled,
-        result.ex1,
-        result.ey1,
-        -result.nx,
-        -result.ny,
+        ex1,
+        ey1,
+        srcNx,
+        srcNy,
         stroke,
         decoStrokeWidth,
         zoom,
@@ -111,10 +232,10 @@ export class RelationshipRenderer {
       const targetDeco = createDecoration(
         spec.target,
         spec.targetFilled,
-        result.ex2,
-        result.ey2,
-        result.nx,
-        result.ny,
+        ex2,
+        ey2,
+        tgtNx,
+        tgtNy,
         stroke,
         decoStrokeWidth,
         zoom,
@@ -123,14 +244,15 @@ export class RelationshipRenderer {
     }
 
     if (label) {
-      const midX = (result.points[0] + result.points[2]) / 2;
-      const midY = (result.points[1] + result.points[3]) / 2;
+      const [lx1, ly1, lx2, ly2] = labelLinePoints;
+      const midX = (lx1 + lx2) / 2;
+      const midY = (ly1 + ly2) / 2;
       group.add(
         adaptiveRelLabel(
           label,
-          result.points,
-          midX - result.ny * (RC.REL_LABEL_OFFSET / zoom),
-          midY + result.nx * (RC.REL_LABEL_OFFSET / zoom),
+          labelLinePoints,
+          midX - ny * (RC.REL_LABEL_OFFSET / zoom),
+          midY + nx * (RC.REL_LABEL_OFFSET / zoom),
           stroke,
           opacity,
           zoom,

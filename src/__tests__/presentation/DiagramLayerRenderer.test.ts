@@ -475,6 +475,7 @@ describe("DiagramLayerRenderer", () => {
         new Set(),
         1,
         "svg",
+        "straight",
         true,
       );
 
@@ -698,6 +699,7 @@ describe("DiagramLayerRenderer", () => {
         new Set(),
         1,
         "polygon",
+        "straight",
         false,
         {},
         false,
@@ -737,6 +739,7 @@ describe("DiagramLayerRenderer", () => {
         new Set(),
         1,
         "svg",
+        "straight",
         true,
       );
 
@@ -900,6 +903,7 @@ describe("DiagramLayerRenderer", () => {
         new Set(),
         1,
         "polygon",
+        "straight",
         false,
         {},
         false,
@@ -1166,6 +1170,7 @@ describe("DiagramLayerRenderer", () => {
       new Set(),
       1,
       "svg",
+      "straight",
       isReadonly,
     );
   }

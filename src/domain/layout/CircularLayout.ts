@@ -7,7 +7,7 @@ import {
   ELEMENT_FILL,
   calculateSize,
 } from "./BaseLayout";
-import { layoutWeight, sortByRelationshipAffinity } from "./LayoutUtils";
+import { layoutWeight } from "./LayoutUtils";
 
 export default class CircularLayout extends BaseLayout {
   name = "circular";
@@ -46,17 +46,10 @@ export default class CircularLayout extends BaseLayout {
     const sizeConstrained = Math.max(Math.min(size, maxSizeFromSpacing), sizeFloor);
     const angleStep = (2 * Math.PI) / n;
 
-    const sorted = sortByRelationshipAffinity(children, model);
-    const posById = new Map(
-      sorted.map((c, i) => [
-        c.id,
-        {
-          x: radius * Math.cos(i * angleStep),
-          y: radius * Math.sin(i * angleStep),
-          size: sizeConstrained,
-        },
-      ]),
-    );
-    return children.map((c) => posById.get(c.id)!);
+    return children.map((_, i) => ({
+      x: radius * Math.cos(i * angleStep),
+      y: radius * Math.sin(i * angleStep),
+      size: sizeConstrained,
+    }));
   }
 }
