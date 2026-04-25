@@ -6,7 +6,8 @@ import { AppConfig } from "../config/appConfig";
 import { createEmptyViewState } from "../domain/models/ViewState";
 import type { ViewState } from "../domain/models/ViewState";
 import diagramReducer, { setCode, setModel, setViewState } from "../application/store/diagramSlice";
-import uiReducer, { setInteractionMode, toggleClassDiagramMode } from "../application/store/uiSlice";
+import uiReducer, { setInteractionMode, toggleClassDiagramMode, setRelLineStyle } from "../application/store/uiSlice";
+import type { RelLineStyle } from "../application/store/uiSlice";
 import filterReducer, { syncPresetsFromCode } from "../application/store/filterSlice";
 import historyReducer from "../application/store/historySlice";
 import diffReducer from "../application/store/diffSlice";
@@ -16,6 +17,7 @@ export function createEmbedStore(
   diagramCode: string,
   viewMode: ViewState["viewMode"],
   classDiagram = true,
+  relLineStyle: RelLineStyle = "straight",
 ) {
   const store = configureStore({
     reducer: {
@@ -30,6 +32,7 @@ export function createEmbedStore(
 
   store.dispatch(setInteractionMode("readonly"));
   if (!classDiagram) store.dispatch(toggleClassDiagramMode());
+  store.dispatch(setRelLineStyle(relLineStyle));
 
   const canvasSize = {
     width: AppConfig.canvas.DEFAULT_WIDTH,

@@ -5,9 +5,13 @@ import { Parser } from "../infrastructure/parser/Parser";
 import { ViewStateMerger } from "../domain/sync/ViewStateMerger";
 import { AppConfig } from "../config/appConfig";
 import { setCode, setModel, setViewState } from "../application/store/diagramSlice";
+import { setRelLineStyle } from "../application/store/uiSlice";
+import type { RelLineStyle } from "../application/store/uiSlice";
 import { syncPresetsFromCode } from "../application/store/filterSlice";
 import type { RootState } from "../application/store/store";
 import type { EmbedDispatch } from "./embedStore";
+
+const VALID_REL_LINE_STYLES: RelLineStyle[] = ["straight", "curved", "orthogonal"];
 
 export function useEmbedMessages() {
   const dispatch = useDispatch<EmbedDispatch>();
@@ -23,7 +27,17 @@ export function useEmbedMessages() {
 
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
-      if (!event.data || event.data.type !== "SET_DIAGRAM") return;
+      if (!event.data) return;
+
+      if (event.data.type === "SET_REL_LINE_STYLE") {
+        const { relLineStyle } = event.data as { type: string; relLineStyle: unknown };
+        if (typeof relLineStyle === "string" && (VALID_REL_LINE_STYLES as string[]).includes(relLineStyle)) {
+          dispatch(setRelLineStyle(relLineStyle as RelLineStyle));
+        }
+        return;
+      }
+
+      if (event.data.type !== "SET_DIAGRAM") return;
       const { diagram } = event.data as { type: string; diagram: unknown };
       if (typeof diagram !== "string") return;
       try {
