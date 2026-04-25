@@ -17,6 +17,7 @@ import reducer, {
   syncPresetsFromTab,
   setSelectionPreset,
   restoreFilterState,
+  syncPresetsFromCode,
 } from "../../../application/store/filterSlice";
 import { SELECTION_PRESET_ID } from "../../../domain/models/Selector";
 import type { FilterPreset } from "../../../domain/models/Selector";
@@ -436,6 +437,96 @@ describe("filterSlice", () => {
         expect(state._rev).toBeGreaterThan(prevRev);
         prevRev = state._rev;
       }
+    });
+  });
+
+  describe("syncPresetsFromCode", () => {
+    it("adds new model presets not previously in state", () => {
+      const s1 = reducer(
+        undefined,
+        syncPresetsFromCode({
+          modelPresets: [makePreset("code1")],
+          prevModelPresetIds: [],
+        }),
+      );
+      expect(s1.presets.find((p) => p.id === "code1")).toBeDefined();
+      expect(s1.presets.find((p) => p.id === "code1")?.isActive).toBe(true);
+    });
+
+    it("removes presets that were in prev but not in new model presets", () => {
+      const s1 = reducer(undefined, addPreset(makePreset("old")));
+      const s2 = reducer(
+        s1,
+        syncPresetsFromCode({
+          modelPresets: [],
+          prevModelPresetIds: ["old"],
+        }),
+      );
+      expect(s2.presets.find((p) => p.id === "old")).toBeUndefined();
+    });
+
+    it("keeps presets that were not from model code", () => {
+      const s1 = reducer(undefined, addPreset(makePreset("manual")));
+      const s2 = reducer(
+        s1,
+        syncPresetsFromCode({
+          modelPresets: [makePreset("code1")],
+          prevModelPresetIds: [],
+        }),
+      );
+      expect(s2.presets.find((p) => p.id === "manual")).toBeDefined();
+      expect(s2.presets.find((p) => p.id === "code1")).toBeDefined();
+    });
+
+    it("preserves local isActive state for existing model presets", () => {
+      const s1 = reducer(
+        undefined,
+        syncPresetsFromCode({
+          modelPresets: [makePreset("code1")],
+          prevModelPresetIds: [],
+        }),
+      );
+      const s2 = reducer(s1, togglePresetActive("code1"));
+      expect(s2.presets.find((p) => p.id === "code1")?.isActive).toBe(false);
+
+      const s3 = reducer(
+        s2,
+        syncPresetsFromCode({
+          modelPresets: [{ ...makePreset("code1"), label: "Updated" }],
+          prevModelPresetIds: ["code1"],
+        }),
+      );
+      expect(s3.presets.find((p) => p.id === "code1")?.isActive).toBe(false);
+      expect(s3.presets.find((p) => p.id === "code1")?.label).toBe("Updated");
+    });
+
+    it("updates existing preset content (same id, new data)", () => {
+      const s1 = reducer(
+        undefined,
+        syncPresetsFromCode({
+          modelPresets: [makePreset("code1")],
+          prevModelPresetIds: [],
+        }),
+      );
+      const s2 = reducer(
+        s1,
+        syncPresetsFromCode({
+          modelPresets: [{ ...makePreset("code1"), mode: "color" as const }],
+          prevModelPresetIds: ["code1"],
+        }),
+      );
+      expect(s2.presets.find((p) => p.id === "code1")?.mode).toBe("color");
+    });
+
+    it("increments _rev", () => {
+      const s1 = reducer(
+        undefined,
+        syncPresetsFromCode({
+          modelPresets: [],
+          prevModelPresetIds: [],
+        }),
+      );
+      expect(s1._rev).toBe(1);
     });
   });
 });
