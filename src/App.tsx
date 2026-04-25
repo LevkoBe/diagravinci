@@ -59,7 +59,7 @@ const WINDOWS: WindowDef[] = [
   },
   {
     id: "filters",
-    title: "Filters",
+    title: "Selectors",
     icon: <ListFilter size={16} aria-hidden="true" />,
     component: FiltersPanel,
   },

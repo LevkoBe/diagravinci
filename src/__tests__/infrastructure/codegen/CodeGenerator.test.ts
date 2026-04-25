@@ -6,7 +6,7 @@ import type { DiagramModel } from "../../../domain/models/DiagramModel";
 import { createEmptyDiagram } from "../../../domain/models/DiagramModel";
 import { createElement } from "../../../domain/models/Element";
 import { createRelationship } from "../../../domain/models/Relationship";
-import type { SelectorAtom, FilterPreset } from "../../../domain/models/Selector";
+import type { Rule, Selector } from "../../../domain/models/Selector";
 import {
   BUILT_IN_TEMPLATES,
   EXECUTION_TEMPLATES,
@@ -245,103 +245,97 @@ describe("CodeGenerator", () => {
     });
   });
 
-  describe("atom generation", () => {
-    function modelWithAtom(atom: SelectorAtom): DiagramModel {
+  describe("rule generation", () => {
+    function modelWithRule(rule: Rule): DiagramModel {
       const model = createEmptyDiagram();
-      model.atoms = [atom];
+      model.rules = [rule];
       return model;
     }
 
-    it("generates !atom line with id and pattern", () => {
+    it("generates !rule line with id and pattern", () => {
       const code = generate(
-        modelWithAtom({ id: "fn", patterns: { function_name: ".*" } }),
+        modelWithRule({ id: "fn", patterns: { function_name: ".*" } }),
       );
-      expect(code).toContain("!atom  id=fn  function_name=.*");
-    });
-
-    it("includes optional name field when present", () => {
-      const code = generate(
-        modelWithAtom({ id: "x", name: "myAtom", patterns: { object_name: "Svc" } }),
-      );
-      expect(code).toContain("!atom  id=x  name=myAtom  object_name=Svc");
+      expect(code).toContain("!rule  id=fn  function_name=.*");
     });
 
     it("quotes pattern values that contain spaces", () => {
       const code = generate(
-        modelWithAtom({ id: "x", patterns: { all_name: "has spaces" } }),
+        modelWithRule({ id: "x", patterns: { all_name: "has spaces" } }),
       );
       expect(code).toContain('"has spaces"');
     });
 
-    it("generates multiple atoms in order", () => {
+    it("generates multiple rules in order", () => {
       const model = createEmptyDiagram();
-      model.atoms = [
+      model.rules = [
         { id: "a", patterns: { object_name: ".*" } },
         { id: "b", patterns: { function_name: ".*" } },
       ];
       const code = generate(model);
-      const aLine = code.indexOf("!atom  id=a");
-      const bLine = code.indexOf("!atom  id=b");
+      const aLine = code.indexOf("!rule  id=a");
+      const bLine = code.indexOf("!rule  id=b");
       expect(aLine).toBeGreaterThanOrEqual(0);
       expect(bLine).toBeGreaterThan(aLine);
     });
   });
 
-  describe("filter preset generation", () => {
-    function makePreset(overrides: Partial<FilterPreset> = {}): FilterPreset {
+  describe("selector generation", () => {
+    function makeSelector(overrides: Partial<Selector> = {}): Selector {
       return {
         id: "ok",
         label: "ok",
         color: "#123456",
         mode: "color",
-        isActive: true,
-        selector: { combiner: "fn" },
+        expression: "fn",
         ...overrides,
       };
     }
 
-    it("generates !selector line with name, color, mode, combiner", () => {
+    it("generates !selector line with name, color, mode, expression", () => {
       const model = createEmptyDiagram();
-      model.filterPresets = [makePreset()];
+      model.selectors = [makeSelector()];
       const code = generate(model);
       expect(code).toContain("!selector");
       expect(code).toContain("name=ok");
       expect(code).toContain("color=#123456");
       expect(code).toContain("mode=color");
-      expect(code).toContain("combiner=fn");
+      expect(code).toContain("expression=fn");
     });
 
-    it("omits combiner field when selector.combiner is empty", () => {
+    it("omits expression field when expression is empty", () => {
       const model = createEmptyDiagram();
-      model.filterPresets = [makePreset({ selector: { combiner: "" } })];
+      model.selectors = [makeSelector({ expression: "" })];
       const code = generate(model);
-      expect(code).not.toContain("combiner=");
+      expect(code).not.toContain("expression=");
     });
 
-    it("quotes combiner value that contains spaces", () => {
+    it("quotes expression value that contains spaces", () => {
       const model = createEmptyDiagram();
-      model.filterPresets = [makePreset({ selector: { combiner: "a b" } })];
+      model.selectors = [makeSelector({ expression: "a b" })];
       const code = generate(model);
-      expect(code).toContain('combiner="a b"');
+      expect(code).toContain('expression="a b"');
     });
 
-    it("generates hide and dim modes correctly", () => {
+    it("generates hide, dim, and off modes correctly", () => {
       const model = createEmptyDiagram();
-      model.filterPresets = [
-        makePreset({ id: "h", mode: "hide" }),
-        makePreset({ id: "d", mode: "dim" }),
+      model.selectors = [
+        makeSelector({ id: "h", mode: "hide" }),
+        makeSelector({ id: "d", mode: "dim" }),
+        makeSelector({ id: "o", mode: "off" }),
       ];
       const code = generate(model);
       expect(code).toContain("mode=hide");
       expect(code).toContain("mode=dim");
+      expect(code).toContain("mode=off");
     });
   });
 
-  describe("atoms/presets blank-line separator", () => {
+  describe("rules/selectors blank-line separator", () => {
     it("inserts a blank line between directives and elements", () => {
       const model = createEmptyDiagram();
-      model.filterPresets = [
-        { id: "p", label: "p", color: "#fff", mode: "color", isActive: true, selector: { combiner: "" } },
+      model.selectors = [
+        { id: "p", label: "p", color: "#fff", mode: "color", expression: "" },
       ];
       model.elements["a"] = createElement("a", "object");
       model.root.childIds.push("a");

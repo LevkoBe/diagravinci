@@ -1,6 +1,6 @@
 import { createElement, type Element } from "./Element";
 import type { Relationship } from "./Relationship";
-import type { FilterPreset, SelectorAtom } from "./Selector";
+import type { Rule, Selector } from "./Selector";
 
 export interface DiagramMetadata {
   version: string;
@@ -13,8 +13,8 @@ export interface DiagramModel {
   elements: Record<string, Element>;
   relationships: Record<string, Relationship>;
   metadata: DiagramMetadata;
-  atoms?: SelectorAtom[];
-  filterPresets?: FilterPreset[];
+  rules?: Rule[];
+  selectors?: Selector[];
   validationErrors?: string[];
 }
 
@@ -24,8 +24,8 @@ export function createEmptyDiagram(): DiagramModel {
     root: createElement(Math.random().toString(36).substring(2, 11), "object"),
     elements: {},
     relationships: {},
-    atoms: [],
-    filterPresets: [],
+    rules: [],
+    selectors: [],
     metadata: {
       version: "1.0.0",
       created: now,

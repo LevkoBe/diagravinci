@@ -203,4 +203,39 @@ describe("Lexer", () => {
     expect(identifiers.map((t) => t.value)).toContain("foo");
     expect(identifiers.map((t) => t.value)).toContain("bar");
   });
+
+  it("tokenizes quoted identifier with spaces", () => {
+    const tokens = new Lexer('"hello world"').tokenize();
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].type).toBe("IDENTIFIER");
+    expect(tokens[0].value).toBe("hello world");
+  });
+
+  it("tokenizes quoted identifier in context", () => {
+    const tokens = new Lexer('"my node" --> target').tokenize();
+    const identifiers = tokens.filter((t) => t.type === "IDENTIFIER");
+    expect(identifiers[0].value).toBe("my node");
+    expect(identifiers[1].value).toBe("target");
+  });
+
+  it("tokenizes quoted FLAG value", () => {
+    const tokens = new Lexer('node:"my flag"').tokenize();
+    expect(tokens).toHaveLength(2);
+    expect(tokens[0].type).toBe("IDENTIFIER");
+    expect(tokens[1].type).toBe("FLAG");
+    expect(tokens[1].value).toBe("my flag");
+  });
+
+  it("handles unclosed quoted identifier gracefully", () => {
+    const tokens = new Lexer('"unclosed').tokenize();
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].type).toBe("IDENTIFIER");
+    expect(tokens[0].value).toBe("unclosed");
+  });
+
+  it("handles quoted identifier terminated by newline", () => {
+    const tokens = new Lexer('"line1\nnext"').tokenize();
+    const identifiers = tokens.filter((t) => t.type === "IDENTIFIER");
+    expect(identifiers[0].value).toBe("line1");
+  });
 });

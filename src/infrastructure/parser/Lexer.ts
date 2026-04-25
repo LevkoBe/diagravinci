@@ -108,12 +108,32 @@ export class Lexer {
     while (/[a-z0-9_]/i.test(this.peek())) {
       chars.push(this.peek());
       this.advance();
-      if (
-        this.peek() === "." &&
-        /[a-zA-Z_]/.test(this.input[this.i + 1] ?? "")
-      ) {
+    }
+
+    while (this.peek() === ".") {
+      const afterDot = this.input[this.i + 1] ?? "";
+      if (/[a-zA-Z_]/.test(afterDot)) {
         chars.push(".");
         this.advance();
+        while (/[a-z0-9_]/i.test(this.peek())) {
+          chars.push(this.peek());
+          this.advance();
+        }
+      } else if (afterDot === '"') {
+        chars.push(".");
+        this.advance();
+        this.advance();
+        while (
+          this.peek() !== '"' &&
+          this.peek() !== "" &&
+          this.peek() !== "\n"
+        ) {
+          chars.push(this.peek());
+          this.advance();
+        }
+        if (this.peek() === '"') this.advance();
+      } else {
+        break;
       }
     }
 

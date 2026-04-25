@@ -1,5 +1,5 @@
 import type { DiagramModel } from "../../domain/models/DiagramModel";
-import type { FilterPreset, SelectorAtom } from "../../domain/models/Selector";
+import type { Rule, Selector } from "../../domain/models/Selector";
 import {
   createElement,
   type Element,
@@ -30,15 +30,15 @@ export class CodeGenerator {
   generate(): string {
     const lines: string[] = [];
 
-    for (const atom of this.model.atoms ?? [])
-      lines.push(this.generateAtom(atom));
+    for (const rule of this.model.rules ?? [])
+      lines.push(this.generateRule(rule));
 
-    for (const preset of this.model.filterPresets ?? [])
-      lines.push(this.generateFilterPreset(preset));
+    for (const selector of this.model.selectors ?? [])
+      lines.push(this.generateSelector(selector));
 
     if (
-      (this.model.atoms ?? []).length > 0 ||
-      (this.model.filterPresets ?? []).length > 0
+      (this.model.rules ?? []).length > 0 ||
+      (this.model.selectors ?? []).length > 0
     )
       lines.push("");
 
@@ -56,24 +56,35 @@ export class CodeGenerator {
     return lines.join("\n");
   }
 
-  private generateAtom(atom: SelectorAtom): string {
-    const parts = [`!atom`, `id=${atom.id}`];
-    if (atom.name) parts.push(`name=${atom.name}`);
-    for (const [key, value] of Object.entries(atom.patterns)) {
+  private static quoteId(id: string): string {
+    return /\s/.test(id) ? `"${id}"` : id;
+  }
+
+  private static quotePath(path: string): string {
+    return path.split(".").map(CodeGenerator.quoteId).join(".");
+  }
+
+  private generateRule(rule: Rule): string {
+    const parts = [`!rule`, `id=${rule.id}`];
+    for (const [key, value] of Object.entries(rule.patterns)) {
       const v = /\s/.test(value) ? `"${value}"` : value;
       parts.push(`${key}=${v}`);
     }
     return parts.join("  ");
   }
 
-  private generateFilterPreset(preset: FilterPreset): string {
-    const parts = [`!selector`, `name=${preset.id}`];
-    parts.push(`color=${preset.color}`);
-    parts.push(`mode=${preset.mode}`);
-    if (preset.selector.combiner) {
-      const c = preset.selector.combiner;
-      const v = /\s/.test(c) ? `"${c}"` : c;
-      parts.push(`combiner=${v}`);
+  private static quoteLabel(v: string): string {
+    if (/[^\w-]/.test(v)) return `"${v.replace(/"/g, "'")}"`;
+    return v;
+  }
+
+  private generateSelector(selector: Selector): string {
+    const parts = [`!selector`, `name=${CodeGenerator.quoteLabel(selector.label)}`];
+    parts.push(`color=${selector.color}`);
+    parts.push(`mode=${selector.mode}`);
+    if (selector.expression) {
+      const v = /\s/.test(selector.expression) ? `"${selector.expression}"` : selector.expression;
+      parts.push(`expression=${v}`);
     }
     return parts.join("  ");
   }
@@ -92,19 +103,20 @@ export class CodeGenerator {
     const wrapper = this.getWrapperFromType(element.type);
     const opening = wrapper[0];
     const closing = wrapper[1];
-    const flagSuffix = element.flags?.map((f) => `:${f}`).join("") ?? "";
+    const nameOut = CodeGenerator.quoteId(element.id);
+    const flagSuffix = element.flags?.map((f) => /\s/.test(f) ? `:"${f}"` : `:${f}`).join("") ?? "";
 
     const hasContent = element.childIds.length > 0;
 
     if (!hasContent)
-      return `${indentation}${element.id}${flagSuffix}${opening}${closing}`;
+      return `${indentation}${nameOut}${flagSuffix}${opening}${closing}`;
 
     const newAncestry = ancestry.tryAdd(element.id);
     if (!newAncestry)
-      return `${indentation}${element.id}${flagSuffix}${opening}${closing} # recursion`;
+      return `${indentation}${nameOut}${flagSuffix}${opening}${closing} # recursion`;
 
     const lines: string[] = [];
-    lines.push(`${indentation}${element.id}${flagSuffix}${opening}`);
+    lines.push(`${indentation}${nameOut}${flagSuffix}${opening}`);
 
     for (const id of element.childIds) {
       lines.push(
@@ -118,9 +130,11 @@ export class CodeGenerator {
 
   private generateRelationship(relationship: Relationship): string {
     const arrow = relationship.type;
+    const src = CodeGenerator.quotePath(relationship.source);
+    const tgt = CodeGenerator.quotePath(relationship.target);
     return relationship.label
-      ? `${relationship.source} --${relationship.label}${arrow} ${relationship.target}`
-      : `${relationship.source} ${arrow} ${relationship.target}`;
+      ? `${src} --${CodeGenerator.quoteId(relationship.label)}${arrow} ${tgt}`
+      : `${src} ${arrow} ${tgt}`;
   }
 
   private getWrapperFromType(type: ElementType): [string, string] {

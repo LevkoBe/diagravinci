@@ -156,7 +156,7 @@ describe("SELECTOR_SHOWCASE_TEMPLATES", () => {
     const model = parse(code);
     expect(Object.keys(model.elements).length).toBe(12);
     expect(Object.keys(model.relationships).length).toBe(4);
-    expect(model.filterPresets?.length).toBe(4);
+    expect(model.selectors?.length).toBe(4);
   });
 
   it("selector-atoms-type — 3 filter presets, 10 elements, 4 relationships", () => {
@@ -166,7 +166,7 @@ describe("SELECTOR_SHOWCASE_TEMPLATES", () => {
     const model = parse(code);
     expect(Object.keys(model.elements).length).toBe(10);
     expect(Object.keys(model.relationships).length).toBe(4);
-    expect(model.filterPresets?.length).toBe(3);
+    expect(model.selectors?.length).toBe(3);
   });
 
   it("selector-atoms-name — 3 filter presets, 9 elements, 7 relationships", () => {
@@ -176,7 +176,7 @@ describe("SELECTOR_SHOWCASE_TEMPLATES", () => {
     const model = parse(code);
     expect(Object.keys(model.elements).length).toBe(9);
     expect(Object.keys(model.relationships).length).toBe(7);
-    expect(model.filterPresets?.length).toBe(3);
+    expect(model.selectors?.length).toBe(3);
   });
 
   it("selector-atoms-combine — 3 atoms → 5 filter presets, 7 elements, 6 relationships", () => {
@@ -186,7 +186,7 @@ describe("SELECTOR_SHOWCASE_TEMPLATES", () => {
     const model = parse(code);
     expect(Object.keys(model.elements).length).toBe(7);
     expect(Object.keys(model.relationships).length).toBe(6);
-    expect(model.filterPresets?.length).toBe(5);
+    expect(model.selectors?.length).toBe(5);
   });
 });
 

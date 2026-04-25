@@ -101,12 +101,13 @@ With the diagram from Task 2 still on the canvas:
 
 > Goal: use the filter system to focus on part of a large diagram.
 
-1. If you applied a template in Task 4, keep it. Otherwise apply the **Microservices** template.
-2. Open the **Filters** panel.
-3. Create a new filter preset. Set its mode to **Dim** and add a name selector that matches one word from your diagram (e.g., `DB`).
-4. Activate the preset and observe the canvas.
+1. Apply the **Microservices** template.
+2. Open the **Selectors** modal via **Select** section in the toolbar or by creating a new window **Selectors**.
+3. Create a new **selector** preset. Set its mode to **Dim** and add a name **rule** that matches one word from your diagram (e.g., `DB`).
+4. Save both the **rule** and the **selector**.
+5. Observe the canvas.
 
-![alt text](image.png)
+!["DBs" selector with "db" rule](image.png)
 
 **Checkpoint:** Do non-matching elements dim out?
 

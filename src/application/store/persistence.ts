@@ -12,7 +12,7 @@ const STATE_KEY = "diagravinci_state";
 
 type PersistedFilter = Pick<
   FilterState,
-  "presets" | "foldLevel" | "foldActive" | "manuallyFolded" | "manuallyUnfolded"
+  "selectors" | "foldLevel" | "foldActive" | "manuallyFolded" | "manuallyUnfolded"
 >;
 
 type PersistedState = {
@@ -97,7 +97,7 @@ async function idbSet(key: string, value: unknown): Promise<void> {
 }
 
 function hydratePersistedState(parsed: PersistedState): HydratedState {
-  const presets = (parsed.filter.presets ?? []).map((p, i) => ({
+  const selectors = (parsed.filter.selectors ?? []).map((p, i) => ({
     ...p,
     color:
       (p as { color?: string }).color ??
@@ -113,7 +113,7 @@ function hydratePersistedState(parsed: PersistedState): HydratedState {
     ...parsed,
     filter: {
       ...parsed.filter,
-      presets,
+      selectors,
       _rev: 0,
     },
     diagram: {
@@ -164,10 +164,7 @@ export function saveState(state: AppState): void {
       classDiagramMode: state.ui.classDiagramMode,
     },
     filter: {
-      presets: state.filter.presets.map(({ ...rest }) => ({
-        ...rest,
-        isActive: false,
-      })),
+      selectors: state.filter.selectors,
       foldLevel: state.filter.foldLevel,
       foldActive: state.filter.foldActive,
       manuallyFolded: state.filter.manuallyFolded,

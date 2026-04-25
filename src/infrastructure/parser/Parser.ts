@@ -22,10 +22,11 @@ import {
   createRelationship,
 } from "../../domain/models/Relationship";
 import type {
-  FilterPreset,
-  FilterMode,
-  SelectorAtom,
+  Rule,
+  Selector,
+  SelectorMode,
 } from "../../domain/models/Selector";
+import { toSelectorId } from "../../domain/models/Selector";
 
 const WRAPPERS: Record<
   OpeningWrapper,
@@ -39,7 +40,7 @@ const WRAPPERS: Record<
   "|": { close: "|", type: "state", defaultChildType: "object" },
 };
 
-const VALID_MODES: FilterMode[] = ["color", "dim", "hide"];
+const VALID_MODES: SelectorMode[] = ["color", "dim", "hide", "off"];
 
 function splitDirective(raw: string): string[] {
   const parts: string[] = [];
@@ -346,24 +347,21 @@ export class Parser {
   private parseDirective(raw: string): void {
     const parts = splitDirective(raw.trim());
     const type = parts[0];
-    if (type === "atom") this.parseAtomDirective(parts);
+    if (type === "atom" || type === "rule") this.parseRuleDirective(parts);
     else if (type === "selector") this.parseSelectorDirective(parts);
   }
 
-  private parseAtomDirective(parts: string[]): void {
+  private parseRuleDirective(parts: string[]): void {
     const kvs = parseKVs(parts, 1);
-    const id = kvs["id"];
-    if (!id) return;
+    const rawId = kvs["id"];
+    if (!rawId) return;
 
-    const { id: _id, name, ...patternKvs } = kvs;
-    const atom: SelectorAtom = {
-      id,
-      ...(name ? { name } : {}),
-      patterns: patternKvs,
-    };
+    const id = kvs["name"] ?? rawId;
+    const { id: _id, name: _name, ...patternKvs } = kvs;
+    const rule: Rule = { id, patterns: patternKvs };
 
-    if (!(this.model.atoms ?? []).some((a) => a.id === id)) {
-      (this.model.atoms ??= []).push(atom);
+    if (!(this.model.rules ?? []).some((r) => r.id === id)) {
+      (this.model.rules ??= []).push(rule);
     }
   }
 
@@ -373,21 +371,21 @@ export class Parser {
     if (!name) return;
 
     const rawMode = kvs["mode"];
-    const mode: FilterMode = (VALID_MODES as string[]).includes(rawMode ?? "")
-      ? (rawMode as FilterMode)
+    const mode: SelectorMode = (VALID_MODES as string[]).includes(rawMode ?? "")
+      ? (rawMode as SelectorMode)
       : "color";
 
-    const preset: FilterPreset = {
-      id: name,
+    const id = toSelectorId(name);
+    const selector: Selector = {
+      id,
       label: name,
-      selector: { combiner: kvs["combiner"] ?? "" },
+      expression: kvs["expression"] ?? kvs["formula"] ?? kvs["combiner"] ?? "",
       mode,
-      isActive: true,
       color: kvs["color"] ?? "#888888",
     };
 
-    if (!(this.model.filterPresets ?? []).some((p) => p.id === name)) {
-      (this.model.filterPresets ??= []).push(preset);
+    if (!(this.model.selectors ?? []).some((s) => s.id === id)) {
+      (this.model.selectors ??= []).push(selector);
     }
   }
 

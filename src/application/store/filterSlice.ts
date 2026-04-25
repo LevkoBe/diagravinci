@@ -1,33 +1,29 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { FilterMode, FilterPreset } from "../../domain/models/Selector";
-import {
-  SELECTION_PRESET_ID,
-  emptySelector,
-} from "../../domain/models/Selector";
+import type { Selector, SelectorMode } from "../../domain/models/Selector";
+import { SELECTION_SELECTOR_ID } from "../../domain/models/Selector";
 
 function escapeForRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function buildSelectionPreset(ids: string[], color: string): FilterPreset {
+function buildSelectionSelector(ids: string[], color: string): Selector {
   const escaped = ids.map(escapeForRegex);
   const pattern =
     ids.length === 1
       ? `(^|\\.)${escaped[0]}$`
       : `(^|\\.)(${escaped.join("|")})$`;
   return {
-    id: SELECTION_PRESET_ID,
+    id: SELECTION_SELECTOR_ID,
     label: "Selection",
-    selector: emptySelector(),
+    expression: "",
     selectionPattern: pattern,
     mode: "color",
-    isActive: true,
     color,
   };
 }
 
 interface FilterState {
-  presets: FilterPreset[];
+  selectors: Selector[];
   foldLevel: number;
   foldActive: boolean;
   manuallyFolded: string[];
@@ -36,7 +32,7 @@ interface FilterState {
 }
 
 const initialState: FilterState = {
-  presets: [],
+  selectors: [],
   foldLevel: 1,
   foldActive: false,
   manuallyFolded: [],
@@ -44,65 +40,53 @@ const initialState: FilterState = {
   _rev: 0,
 };
 
-function swapPresets(state: FilterState, id: string, dir: 1 | -1): void {
-  const idx = state.presets.findIndex((p) => p.id === id);
+const MODE_CYCLE: SelectorMode[] = ["color", "dim", "hide", "off"];
+
+function swapSelectors(state: FilterState, id: string, dir: 1 | -1): void {
+  const idx = state.selectors.findIndex((s) => s.id === id);
   if (idx < 0) return;
   const target = idx + dir;
-  if (target < 0 || target >= state.presets.length) return;
-  [state.presets[idx], state.presets[target]] = [
-    state.presets[target],
-    state.presets[idx],
+  if (target < 0 || target >= state.selectors.length) return;
+  [state.selectors[idx], state.selectors[target]] = [
+    state.selectors[target],
+    state.selectors[idx],
   ];
   state._rev++;
 }
-
-const CYCLE_MAP: Record<string, [FilterMode, boolean]> = {
-  "color:false": ["color", true],
-  "dim:false": ["color", true],
-  "hide:false": ["color", true],
-  "color:true": ["dim", true],
-  "dim:true": ["hide", true],
-  "hide:true": ["hide", false],
-};
 
 const filterSlice = createSlice({
   name: "filter",
   initialState,
   reducers: {
-    addPreset(state, { payload }: PayloadAction<FilterPreset>) {
-      state.presets.push(payload);
+    addSelector(state, { payload }: PayloadAction<Selector>) {
+      state.selectors.push(payload);
       state._rev++;
     },
-    updatePreset(state, { payload }: PayloadAction<FilterPreset>) {
-      const idx = state.presets.findIndex((p) => p.id === payload.id);
-      if (idx !== -1) state.presets[idx] = payload;
+    updateSelector(state, { payload }: PayloadAction<Selector>) {
+      const idx = state.selectors.findIndex((s) => s.id === payload.id);
+      if (idx !== -1) state.selectors[idx] = payload;
       state._rev++;
     },
-    removePreset(state, { payload: id }: PayloadAction<string>) {
-      state.presets = state.presets.filter((p) => p.id !== id);
+    removeSelector(state, { payload: id }: PayloadAction<string>) {
+      state.selectors = state.selectors.filter((s) => s.id !== id);
       state._rev++;
     },
-    togglePresetActive(state, { payload: id }: PayloadAction<string>) {
-      const preset = state.presets.find((p) => p.id === id);
-      if (preset) preset.isActive = !preset.isActive;
-      state._rev++;
-    },
-    setPresetMode(
+    setSelectorMode(
       state,
       {
         payload: { id, mode },
-      }: PayloadAction<{ id: string; mode: FilterMode }>,
+      }: PayloadAction<{ id: string; mode: SelectorMode }>,
     ) {
-      const preset = state.presets.find((p) => p.id === id);
-      if (preset) preset.mode = mode;
+      const sel = state.selectors.find((s) => s.id === id);
+      if (sel) sel.mode = mode;
       state._rev++;
     },
-    setPresetColor(
+    setSelectorColor(
       state,
       { payload: { id, color } }: PayloadAction<{ id: string; color: string }>,
     ) {
-      const preset = state.presets.find((p) => p.id === id);
-      if (preset) preset.color = color;
+      const sel = state.selectors.find((s) => s.id === id);
+      if (sel) sel.color = color;
       state._rev++;
     },
 
@@ -141,48 +125,42 @@ const filterSlice = createSlice({
       }
       state._rev++;
     },
-
     clearFoldOverrides(state) {
       state.manuallyFolded = [];
       state.manuallyUnfolded = [];
       state._rev++;
     },
 
-    movePresetUp(state, { payload: id }: PayloadAction<string>) {
-      swapPresets(state, id, -1);
+    moveSelectorUp(state, { payload: id }: PayloadAction<string>) {
+      swapSelectors(state, id, -1);
     },
-    movePresetDown(state, { payload: id }: PayloadAction<string>) {
-      swapPresets(state, id, 1);
+    moveSelectorDown(state, { payload: id }: PayloadAction<string>) {
+      swapSelectors(state, id, 1);
     },
-    cyclePreset(state, { payload: id }: PayloadAction<string>) {
-      const preset = state.presets.find((p) => p.id === id);
-      if (!preset) return;
-      const next = CYCLE_MAP[`${preset.mode}:${preset.isActive}`];
-      if (next) [preset.mode, preset.isActive] = next;
+    cycleSelector(state, { payload: id }: PayloadAction<string>) {
+      const sel = state.selectors.find((s) => s.id === id);
+      if (!sel) return;
+      const idx = MODE_CYCLE.indexOf(sel.mode);
+      sel.mode = MODE_CYCLE[(idx + 1) % MODE_CYCLE.length];
       state._rev++;
     },
-    syncPresetsFromTab(
-      state,
-      { payload }: PayloadAction<Array<Omit<FilterPreset, "isActive">>>,
-    ) {
-      const localActives = new Map(
-        state.presets.map((p) => [p.id, p.isActive]),
-      );
-      state.presets = payload.map((p) => ({
-        ...p,
-        isActive: localActives.get(p.id) ?? false,
-      }));
+
+    syncSelectorsFromTab(state, { payload }: PayloadAction<Selector[]>) {
+      state.selectors = payload;
       state._rev++;
     },
-    setSelectionPreset(
+
+    setSelectionSelector(
       state,
       {
         payload: { ids, color },
       }: PayloadAction<{ ids: string[]; color: string }>,
     ) {
-      state.presets = state.presets.filter((p) => p.id !== SELECTION_PRESET_ID);
+      state.selectors = state.selectors.filter(
+        (s) => s.id !== SELECTION_SELECTOR_ID,
+      );
       if (ids.length > 0) {
-        state.presets.push(buildSelectionPreset(ids, color));
+        state.selectors.push(buildSelectionSelector(ids, color));
       }
       state._rev++;
     },
@@ -192,14 +170,14 @@ const filterSlice = createSlice({
       {
         payload,
       }: PayloadAction<{
-        presets: FilterPreset[];
+        selectors: Selector[];
         foldLevel: number;
         foldActive: boolean;
         manuallyFolded: string[];
         manuallyUnfolded: string[];
       }>,
     ) {
-      state.presets = payload.presets;
+      state.selectors = payload.selectors;
       state.foldLevel = payload.foldLevel;
       state.foldActive = payload.foldActive;
       state.manuallyFolded = payload.manuallyFolded;
@@ -207,34 +185,31 @@ const filterSlice = createSlice({
       state._rev++;
     },
 
-    syncPresetsFromCode(
+    syncSelectorsFromCode(
       state,
       {
-        payload: { modelPresets, prevModelPresetIds },
+        payload: { modelSelectors, prevModelSelectorIds },
       }: PayloadAction<{
-        modelPresets: FilterPreset[];
-        prevModelPresetIds: string[];
+        modelSelectors: Selector[];
+        prevModelSelectorIds: string[];
       }>,
     ) {
-      const prevCodeIds = new Set(prevModelPresetIds);
-      const newCodeIds = new Set(modelPresets.map((p) => p.id));
-      const localActives = new Map(
-        state.presets.map((p) => [p.id, p.isActive]),
+      const prevCodeIds = new Set(prevModelSelectorIds);
+      const newCodeIds = new Set(modelSelectors.map((s) => s.id));
+
+      state.selectors = state.selectors.filter(
+        (s) => !prevCodeIds.has(s.id) || newCodeIds.has(s.id),
       );
 
-      state.presets = state.presets.filter(
-        (p) => !prevCodeIds.has(p.id) || newCodeIds.has(p.id),
-      );
-
-      for (const modelPreset of modelPresets) {
-        const idx = state.presets.findIndex((p) => p.id === modelPreset.id);
-        const isActive = localActives.has(modelPreset.id)
-          ? localActives.get(modelPreset.id)!
-          : true;
+      for (const modelSelector of modelSelectors) {
+        const idx = state.selectors.findIndex((s) => s.id === modelSelector.id);
         if (idx !== -1) {
-          state.presets[idx] = { ...modelPreset, isActive };
+          state.selectors[idx] = {
+            ...modelSelector,
+            label: state.selectors[idx].label,
+          };
         } else {
-          state.presets.push({ ...modelPreset, isActive: true });
+          state.selectors.push(modelSelector);
         }
       }
 
@@ -244,24 +219,23 @@ const filterSlice = createSlice({
 });
 
 export const {
-  addPreset,
-  updatePreset,
-  removePreset,
-  togglePresetActive,
-  setPresetMode,
-  setPresetColor,
+  addSelector,
+  updateSelector,
+  removeSelector,
+  setSelectorMode,
+  setSelectorColor,
   setFoldLevel,
   setFoldActive,
   toggleFoldActive,
   toggleElementFold,
   clearFoldOverrides,
-  movePresetUp,
-  movePresetDown,
-  cyclePreset,
-  syncPresetsFromTab,
+  moveSelectorUp,
+  moveSelectorDown,
+  cycleSelector,
+  syncSelectorsFromTab,
   restoreFilterState,
-  setSelectionPreset,
-  syncPresetsFromCode,
+  setSelectionSelector,
+  syncSelectorsFromCode,
 } = filterSlice.actions;
 
 export default filterSlice.reducer;

@@ -762,4 +762,366 @@ describe("RelationshipRenderer", () => {
       expect(cache.size).toBe(2);
     });
   });
+
+  describe("Line styles — curved", () => {
+    it("renders a curved relationship (horizontal, default viewMode)", () => {
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .addElement("b", 300, 100, 60)
+        .addRelationship("r1", "a", "b", "-->")
+        .build();
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "curved",
+      );
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBeGreaterThan(0);
+      const group = layer.getChildren()[0] as Konva.Group;
+      const paths = group.getChildren().filter((c) => c instanceof Konva.Path);
+      expect(paths.length).toBeGreaterThan(0);
+    });
+
+    it("renders curved relationship in hierarchical viewMode (vertical layout)", () => {
+      const viewState = {
+        ...new ViewStateBuilder()
+          .addElement("a", 100, 100, 60)
+          .addElement("b", 100, 300, 60)
+          .addRelationship("r1", "a", "b", "-->")
+          .build(),
+        viewMode: "hierarchical" as const,
+      };
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "curved",
+      );
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBeGreaterThan(0);
+    });
+
+    it("renders curved relationship in timeline viewMode (force horizontal)", () => {
+      const viewState = {
+        ...new ViewStateBuilder()
+          .addElement("a", 100, 100, 60)
+          .addElement("b", 100, 300, 60)
+          .addRelationship("r1", "a", "b", "-->")
+          .build(),
+        viewMode: "timeline" as const,
+      };
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "curved",
+      );
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBeGreaterThan(0);
+    });
+
+    it("renders curved relationship with label", () => {
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .addElement("b", 300, 100, 60)
+        .addRelationship("r1", "a", "b", "-->", "uses")
+        .build();
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "curved",
+      );
+      renderer.render(layer);
+      const group = layer.getChildren()[0] as Konva.Group;
+      const texts = group.getChildren().filter((c) => c instanceof Konva.Text);
+      expect(texts.length).toBeGreaterThan(0);
+    });
+
+    it("renders curved dashed relationship", () => {
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .addElement("b", 300, 100, 60)
+        .addRelationship("r1", "a", "b", "..>")
+        .build();
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "curved",
+      );
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBeGreaterThan(0);
+    });
+
+    it("renders curved with dx=0 (vertical endpoints, no force)", () => {
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .addElement("b", 100, 300, 60)
+        .addRelationship("r1", "a", "b", "-->")
+        .build();
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "curved",
+      );
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBeGreaterThan(0);
+    });
+
+    it("renders curved with dy=0 (horizontal endpoints)", () => {
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 200, 60)
+        .addElement("b", 300, 200, 60)
+        .addRelationship("r1", "a", "b", "-->")
+        .build();
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "curved",
+      );
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Line styles — orthogonal", () => {
+    it("renders an orthogonal relationship (horizontal, default viewMode)", () => {
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .addElement("b", 300, 100, 60)
+        .addRelationship("r1", "a", "b", "-->")
+        .build();
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "orthogonal",
+      );
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBeGreaterThan(0);
+      const group = layer.getChildren()[0] as Konva.Group;
+      const lines = group.getChildren().filter((c) => c instanceof Konva.Line);
+      expect(lines.length).toBeGreaterThan(0);
+    });
+
+    it("renders orthogonal relationship in hierarchical viewMode (force vertical)", () => {
+      const viewState = {
+        ...new ViewStateBuilder()
+          .addElement("a", 100, 100, 60)
+          .addElement("b", 100, 300, 60)
+          .addRelationship("r1", "a", "b", "-->")
+          .build(),
+        viewMode: "hierarchical" as const,
+      };
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "orthogonal",
+      );
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBeGreaterThan(0);
+    });
+
+    it("renders orthogonal relationship in pipeline viewMode (force horizontal)", () => {
+      const viewState = {
+        ...new ViewStateBuilder()
+          .addElement("a", 100, 100, 60)
+          .addElement("b", 100, 300, 60)
+          .addRelationship("r1", "a", "b", "-->")
+          .build(),
+        viewMode: "pipeline" as const,
+      };
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "orthogonal",
+      );
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBeGreaterThan(0);
+    });
+
+    it("renders orthogonal relationship with label", () => {
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .addElement("b", 300, 100, 60)
+        .addRelationship("r1", "a", "b", "-->", "calls")
+        .build();
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "orthogonal",
+      );
+      renderer.render(layer);
+      const group = layer.getChildren()[0] as Konva.Group;
+      const texts = group.getChildren().filter((c) => c instanceof Konva.Text);
+      expect(texts.length).toBeGreaterThan(0);
+    });
+
+    it("renders orthogonal with dy=0 (horizontal endpoints)", () => {
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 200, 60)
+        .addElement("b", 300, 200, 60)
+        .addRelationship("r1", "a", "b", "-->")
+        .build();
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "orthogonal",
+      );
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBeGreaterThan(0);
+    });
+
+    it("renders orthogonal with dx=0 (vertical endpoints, basic viewMode)", () => {
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .addElement("b", 100, 300, 60)
+        .addRelationship("r1", "a", "b", "-->")
+        .build();
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "orthogonal",
+      );
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBeGreaterThan(0);
+    });
+
+    it("renders orthogonal with decorations (source and target)", () => {
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .addElement("b", 300, 100, 60)
+        .addRelationship("r1", "a", "b", "<--")
+        .build();
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "orthogonal",
+      );
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBeGreaterThan(0);
+    });
+
+    it("renders orthogonal with negative dx (right-to-left)", () => {
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 300, 100, 60)
+        .addElement("b", 100, 100, 60)
+        .addRelationship("r1", "a", "b", "-->")
+        .build();
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "orthogonal",
+      );
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBeGreaterThan(0);
+    });
+
+    it("renders orthogonal with negative dy (bottom-to-top)", () => {
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 300, 60)
+        .addElement("b", 100, 100, 60)
+        .addRelationship("r1", "a", "b", "-->")
+        .build();
+
+      const renderer = new RelationshipRenderer(
+        viewState,
+        defaultColors,
+        new Set(),
+        new Set(),
+        undefined,
+        undefined,
+        1,
+        "orthogonal",
+      );
+      renderer.render(layer);
+      expect(layer.getChildren().length).toBeGreaterThan(0);
+    });
+  });
 });

@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Provider } from "react-redux";
 import { C7OneProvider } from "@levkobe/c7one";
 import { DynamicPanelRoot } from "@levkobe/c7one";
-import type { WindowDef, LayoutNodeDecl } from "@levkobe/c7one";
+import type { WindowDef, LayoutNodeDecl, ThemeTokens } from "@levkobe/c7one";
 import { LayoutPanelLeft } from "lucide-react";
 import { VisualCanvas } from "../presentation/components/VisualCanvas";
 import {
@@ -45,13 +45,39 @@ function EmbedCanvas() {
 export default function EmbedApp() {
   const params = useMemo(() => parseEmbedParams(), []);
   const store = useMemo(
-    () => createEmbedStore(params.diagram, params.viewMode, params.classDiagram),
+    () => createEmbedStore(params.diagram, params.viewMode, params.classDiagram, params.relLineStyle),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
-  const colors = params.theme === "dark" ? diagraVinciDark : parchmentTheme;
-  const tokens = params.theme === "dark" ? darkStateTokens : lightStateTokens;
+  const baseColors = params.theme === "dark" ? diagraVinciDark : parchmentTheme;
+  const baseTokens = params.theme === "dark" ? darkStateTokens : lightStateTokens;
+
+  const [colors, setColors] = useState<ThemeTokens>(() => ({
+    ...baseColors,
+    ...params.colorOverrides,
+  }));
+  const [tokens, setTokens] = useState<Record<string, string>>(() => ({
+    ...baseTokens,
+    ...params.tokenOverrides,
+  }));
+
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (!event.data) return;
+      if (event.data.type === "SET_COLORS") {
+        const { colors: colorOverrides, tokens: tokenOverrides } = event.data as {
+          type: string;
+          colors?: Partial<ThemeTokens>;
+          tokens?: Record<string, string>;
+        };
+        if (colorOverrides) setColors((prev) => ({ ...prev, ...colorOverrides }));
+        if (tokenOverrides) setTokens((prev) => ({ ...prev, ...tokenOverrides }));
+      }
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
 
   return (
     <Provider store={store}>
