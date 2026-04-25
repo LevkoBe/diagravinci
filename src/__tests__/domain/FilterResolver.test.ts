@@ -376,4 +376,109 @@ describe("FilterResolver.resolve — edge cases", () => {
     const result = FilterResolver.resolve(filterState, positions, model);
     expect(result).toBeDefined();
   });
+
+  describe("selectionPattern matching", () => {
+    it("colors paths matching the selectionPattern regex", () => {
+      const filterState = makeFilterState({
+        selectors: [
+          {
+            id: "_selection",
+            label: "Selection",
+            mode: "color",
+            color: "#00aaff",
+            expression: "",
+            selectionPattern: "(^|\\.)myNode$",
+          },
+        ],
+      });
+      const positions = makePositions(["myNode", "other.myNode", "other"]);
+      const model = makeModel(["myNode", "myNode", "other"]);
+      const result = FilterResolver.resolve(filterState, positions, model);
+      expect(result.coloredPaths["myNode"]).toBe("#00aaff");
+      expect(result.coloredPaths["other.myNode"]).toBe("#00aaff");
+      expect(result.coloredPaths["other"]).toBeUndefined();
+    });
+
+    it("selectionPattern with invalid regex returns false (path not colored)", () => {
+      const filterState = makeFilterState({
+        selectors: [
+          {
+            id: "_selection",
+            label: "Selection",
+            mode: "color",
+            color: "#00aaff",
+            expression: "",
+            selectionPattern: "[invalid",
+          },
+        ],
+      });
+      const positions = makePositions(["a"]);
+      const model = makeModel(["a"]);
+      const result = FilterResolver.resolve(filterState, positions, model);
+      expect(result.coloredPaths["a"]).toBeUndefined();
+    });
+
+    it("selectionPattern takes precedence over expression-based matching", () => {
+      const rule = { id: "r1", patterns: { all: ".*" } };
+      const filterState = makeFilterState({
+        selectors: [
+          {
+            id: "sel",
+            label: "sel",
+            mode: "color",
+            color: "#ff0000",
+            expression: "r1",
+            selectionPattern: "^exact$",
+          },
+        ],
+      });
+      const positions = makePositions(["exact", "other"]);
+      const model = makeModel(["exact", "other"], [rule]);
+      const result = FilterResolver.resolve(filterState, positions, model);
+      expect(result.coloredPaths["exact"]).toBe("#ff0000");
+      expect(result.coloredPaths["other"]).toBeUndefined();
+    });
+  });
+
+  describe("element flags matching", () => {
+    it("colors a path when element has a flag matching the selector id", () => {
+      const positions = makePositions(["flagged", "plain"]);
+      const model = makeModel(["flagged", "plain"]);
+      model.elements["flagged"].flags = ["mysel"];
+      const filterState = makeFilterState({
+        selectors: [
+          { id: "mysel", label: "mysel", mode: "color", color: "#abcdef", expression: "" },
+        ],
+      });
+      const result = FilterResolver.resolve(filterState, positions, model);
+      expect(result.coloredPaths["flagged"]).toBe("#abcdef");
+      expect(result.coloredPaths["plain"]).toBeUndefined();
+    });
+
+    it("flags matching takes precedence over a non-matching expression", () => {
+      const positions = makePositions(["flagged"]);
+      const model = makeModel(["flagged"]);
+      model.elements["flagged"].flags = ["sel"];
+      const filterState = makeFilterState({
+        selectors: [
+          { id: "sel", label: "sel", mode: "color", color: "#123456", expression: "nonexistent_rule" },
+        ],
+      });
+      const result = FilterResolver.resolve(filterState, positions, model);
+      expect(result.coloredPaths["flagged"]).toBe("#123456");
+    });
+
+    it("does not match when element flags do not include the selector id", () => {
+      const positions = makePositions(["a"]);
+      const model = makeModel(["a"]);
+      model.elements["a"].flags = ["other_sel"];
+      const filterState = makeFilterState({
+        selectors: [
+          { id: "sel", label: "sel", mode: "color", color: "#ff0000", expression: "" },
+        ],
+      });
+      const result = FilterResolver.resolve(filterState, positions, model);
+      expect(result.coloredPaths["a"]).toBeUndefined();
+    });
+  });
 });
