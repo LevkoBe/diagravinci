@@ -870,7 +870,13 @@ function createNewElement(
     typeof import("../../application/store/hooks").useAppDispatch
   >,
 ) {
-  const newId = `${elementType}_${Date.now()}`;
+  const prefix = `${elementType}_`;
+  const maxIndex = Object.keys(model.elements)
+    .filter((id) => id.startsWith(prefix))
+    .map((id) => parseInt(id.slice(prefix.length), 10))
+    .filter((n) => !isNaN(n))
+    .reduce((max, n) => Math.max(max, n), 0);
+  const newId = `${prefix}${maxIndex + 1}`;
   const newElement: Element = {
     id: newId,
     type: elementType,
