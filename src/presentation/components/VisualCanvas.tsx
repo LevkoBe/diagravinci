@@ -14,7 +14,10 @@ import {
   setSelectedElements,
   toggleSelectedElement,
 } from "../../application/store/uiSlice";
-import { setSelectionSelector, toggleElementFold } from "../../application/store/filterSlice";
+import {
+  setSelectionSelector,
+  toggleElementFold,
+} from "../../application/store/filterSlice";
 import { acceptDiffId } from "../../application/store/diffSlice";
 import { syncManager, store } from "../../application/store/store";
 import { getCSSVariable } from "../../shared/utils";
@@ -61,7 +64,6 @@ export function VisualCanvas() {
   const geometryCacheRef = useRef<GeometryCache>(new Map());
   const [zoom, setZoom] = useState(1);
   const [stagePan, setStagePan] = useState(0);
-
   const dragSelectRef = useRef<{
     startScreen: { x: number; y: number };
     stageX: number;
@@ -70,21 +72,19 @@ export function VisualCanvas() {
     active: boolean;
   } | null>(null);
   const selectionRectRef = useRef<Konva.Rect | null>(null);
-
   const justDragSelectedRef = useRef(false);
-
   const dispatch = useAppDispatch();
   const model = useAppSelector((s) => s.diagram.model);
   const viewState = useAppSelector((s) => s.diagram.viewState);
   const filterState = useAppSelector((s) => s.filter);
   const diffState = useAppSelector((s) => s.diff);
-
   const spawnOriginsRef = useExecution();
   const execInstances = useAppSelector((s) => s.execution.instances);
   const execColor = useAppSelector((s) => s.execution.executionColor);
   const tickIntervalMs = useAppSelector((s) => s.execution.tickIntervalMs);
   const { colors } = useC7One();
   const isDark = detectIsDark(colors["--color-bg-base"]);
+
   const elementSizes = useMemo(
     () => computeElementSizes(model, viewState, zoom),
     [model, viewState, zoom],
@@ -102,6 +102,7 @@ export function VisualCanvas() {
       relationship: colors["--color-fg-muted"],
     };
   }, [colors]);
+
   const {
     interactionMode,
     activeElementType,
@@ -122,15 +123,19 @@ export function VisualCanvas() {
   useEffect(() => {
     modeRef.current = interactionMode;
   }, [interactionMode]);
+
   useEffect(() => {
     elementTypeRef.current = activeElementType;
   }, [activeElementType]);
+
   useEffect(() => {
     relTypeRef.current = activeRelationshipType;
   }, [activeRelationshipType]);
+
   useEffect(() => {
     connectingFromRef.current = connectingFromId;
   }, [connectingFromId]);
+
   useEffect(() => {
     modelRef.current = model;
   }, [model]);
@@ -149,7 +154,6 @@ export function VisualCanvas() {
       viewState.positions,
       model,
     );
-
     if (diffState.active) {
       const addedSet = new Set(diffState.addedIds);
       const removedSet = new Set(diffState.removedIds);
@@ -162,14 +166,12 @@ export function VisualCanvas() {
         }
       }
     }
-
     const unchanged = FilterResolver.equal(newLists, {
       hiddenPaths: viewState.hiddenPaths,
       dimmedPaths: viewState.dimmedPaths,
       foldedPaths: viewState.foldedPaths,
       coloredPaths: viewState.coloredPaths ?? {},
     });
-
     if (!unchanged) {
       dispatch(setViewState({ ...viewState, ...newLists }));
     }
@@ -187,9 +189,11 @@ export function VisualCanvas() {
     const relationshipLayer = new Konva.Layer();
     const elementLayer = new Konva.Layer();
     const selectionLayer = new Konva.Layer();
+
     stage.add(relationshipLayer);
     stage.add(elementLayer);
     stage.add(selectionLayer);
+
     stageRef.current = stage;
     stageRegistry.set(stage);
     relationshipLayerRef.current = relationshipLayer;
@@ -199,6 +203,7 @@ export function VisualCanvas() {
     stage.on("dragstart", () => {
       stage.container().style.cursor = "grabbing";
     });
+
     stage.on("dragend", () => {
       stage.container().style.cursor =
         modeRef.current === "select" ? "default" : "crosshair";
@@ -207,7 +212,6 @@ export function VisualCanvas() {
 
     stage.on("wheel", (e: Konva.KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault();
-
       if (e.evt.ctrlKey || e.evt.metaKey) {
         const oldScale = stage.scaleX();
         const pointer = stage.getPointerPosition();
@@ -250,7 +254,6 @@ export function VisualCanvas() {
         justDragSelectedRef.current = false;
         return;
       }
-
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
       const scale = stage.scaleX();
@@ -258,7 +261,6 @@ export function VisualCanvas() {
         x: (pointer.x - stage.x()) / scale,
         y: (pointer.y - stage.y()) / scale,
       };
-
       if (modeRef.current === "create") {
         createNewElement(
           modelRef.current,
@@ -280,7 +282,6 @@ export function VisualCanvas() {
       if (modeRef.current !== "select") return;
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
-
       stage.draggable(false);
       dragSelectRef.current = {
         startScreen: { x: pointer.x, y: pointer.y },
@@ -295,17 +296,13 @@ export function VisualCanvas() {
       if (!dragSelectRef.current) return;
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
-
       const { startScreen, stageX, stageY, stageScale } = dragSelectRef.current;
-
       const toWorld = (sx: number, sy: number) => ({
         x: (sx - stageX) / stageScale,
         y: (sy - stageY) / stageScale,
       });
-
       const dx = pointer.x - startScreen.x;
       const dy = pointer.y - startScreen.y;
-
       if (
         !dragSelectRef.current.active &&
         Math.hypot(dx, dy) > AppConfig.canvas.DRAG_SELECT_THRESHOLD_PX
@@ -331,7 +328,6 @@ export function VisualCanvas() {
         selectionLayer.add(rect);
         selectionRectRef.current = rect;
       }
-
       if (dragSelectRef.current.active && selectionRectRef.current) {
         const ws = toWorld(startScreen.x, startScreen.y);
         const wc = toWorld(pointer.x, pointer.y);
@@ -348,28 +344,23 @@ export function VisualCanvas() {
     stage.on("mouseup", (e) => {
       if (e.evt.button !== 0) return;
       stage.draggable(true);
-
       if (!dragSelectRef.current?.active) {
         dragSelectRef.current = null;
         return;
       }
-
       justDragSelectedRef.current = true;
-
       const { startScreen, stageX, stageY, stageScale } = dragSelectRef.current;
       const pointer = stage.getPointerPosition()!;
       const toWorld = (sx: number, sy: number) => ({
         x: (sx - stageX) / stageScale,
         y: (sy - stageY) / stageScale,
       });
-
       const ws = toWorld(startScreen.x, startScreen.y);
       const we = toWorld(pointer.x, pointer.y);
       const x1 = Math.min(ws.x, we.x);
       const y1 = Math.min(ws.y, we.y);
       const x2 = Math.max(ws.x, we.x);
       const y2 = Math.max(ws.y, we.y);
-
       const positions = store.getState().diagram.viewState.positions;
       const idsInRect: string[] = [];
       for (const [path, pos] of Object.entries(positions)) {
@@ -379,7 +370,6 @@ export function VisualCanvas() {
           if (!idsInRect.includes(id)) idsInRect.push(id);
         }
       }
-
       const currentIds = store.getState().ui.selectedElementIds;
       const currentSet = new Set(currentIds);
       const result = [...currentIds];
@@ -392,7 +382,6 @@ export function VisualCanvas() {
         }
       }
       dispatch(setSelectedElements(result));
-
       selectionRectRef.current?.destroy();
       selectionLayer.batchDraw();
       selectionRectRef.current = null;
@@ -410,6 +399,7 @@ export function VisualCanvas() {
         setCanvasSize({ width: Math.round(width), height: Math.round(height) }),
       );
     };
+
     handleResize();
     const ro = new ResizeObserver(handleResize);
     ro.observe(containerRef.current);
@@ -428,10 +418,69 @@ export function VisualCanvas() {
     const center = { x: stage.width() / 2, y: stage.height() / 2 };
 
     if (zoomCommand.type === "reset") {
-      stage.scale({ x: 1, y: 1 });
-      stage.position({ x: 0, y: 0 });
-      stage.batchDraw();
-      setZoom(1);
+      const positions = Object.values(
+        store.getState().diagram.viewState.positions,
+      );
+
+      if (positions.length === 0) {
+        new Konva.Tween({
+          node: stage,
+          scaleX: 1,
+          scaleY: 1,
+          x: 0,
+          y: 0,
+          duration: 0.4,
+          easing: Konva.Easings.EaseInOut,
+          onFinish: () => {
+            setZoom(1);
+            setStagePan((n) => n + 1);
+          },
+        }).play();
+        return;
+      }
+
+      const cx = positions.map((p) => p.position.x);
+      const cy = positions.map((p) => p.position.y);
+      const radii = positions.map((p) => p.size / 2);
+
+      const minWX = Math.min(...cx.map((x, i) => x - radii[i]));
+      const minWY = Math.min(...cy.map((y, i) => y - radii[i]));
+      const maxWX = Math.max(...cx.map((x, i) => x + radii[i]));
+      const maxWY = Math.max(...cy.map((y, i) => y + radii[i]));
+
+      const W = maxWX - minWX;
+      const H = maxWY - minWY;
+
+      const PAD = Math.min(stage.width(), stage.height()) * 0.1;
+
+      const scaleX = stage.width() / (W + PAD * 2);
+      const scaleY = stage.height() / (H + PAD * 2);
+
+      let newScale = Math.min(scaleX, scaleY);
+
+      const { ZOOM_MIN, ZOOM_MAX } = AppConfig.canvas;
+      newScale = Math.max(ZOOM_MIN, Math.min(newScale, ZOOM_MAX, 1.2));
+
+      const bboxCenterX = minWX + W / 2;
+      const bboxCenterY = minWY + H / 2;
+
+      const newX = center.x - bboxCenterX * newScale;
+      const newY = center.y - bboxCenterY * newScale;
+
+      new Konva.Tween({
+        node: stage,
+        scaleX: newScale,
+        scaleY: newScale,
+        x: newX,
+        y: newY,
+        duration: 0.4,
+        easing: Konva.Easings.EaseInOut,
+        onFinish: () => {
+          setZoom(newScale);
+          setStagePan((n) => n + 1);
+        },
+      }).play();
+
       return;
     }
 
@@ -466,7 +515,6 @@ export function VisualCanvas() {
       !stageRef.current
     )
       return;
-
     const renderer = new DiagramLayerRenderer(
       stageRef.current,
       model,
@@ -502,7 +550,6 @@ export function VisualCanvas() {
         },
         onClick: (elementId, shiftKey, ctrlKey) => {
           const mode = modeRef.current;
-
           if (mode === "create") {
             createNewElement(
               modelRef.current,
@@ -639,9 +686,7 @@ export function VisualCanvas() {
     );
 
     const cloneIds = new Set(execInstances.flatMap((i) => i.clonedElementIds));
-
     renderer.render(relationshipLayerRef.current, elementLayerRef.current);
-
     const groupMap = renderer.getGroupMap();
 
     if (cloneIds.size > 0) {
@@ -650,12 +695,10 @@ export function VisualCanvas() {
         (tickIntervalMs / 1000) * VConfig.rendering.ANIM_TICK_RATIO,
         VConfig.rendering.ANIM_MAX_DURATION,
       );
-
       for (const [path, posEntry] of Object.entries(viewState.positions)) {
         const elementId = path.split(".").at(-1)!;
         if (!cloneIds.has(elementId)) continue;
         if (justDraggedPathsRef.current.has(path)) continue;
-
         const oldPos = prevClonePositions[elementId];
         if (!oldPos) {
           const spawnPos = spawnOriginsRef.current.get(elementId);
@@ -676,13 +719,10 @@ export function VisualCanvas() {
           }
           continue;
         }
-
         const newPos = posEntry.position;
         if (oldPos.x === newPos.x && oldPos.y === newPos.y) continue;
-
         const group = groupMap.get(path);
         if (!group) continue;
-
         group.x(oldPos.x);
         group.y(oldPos.y);
         new Konva.Tween({
@@ -694,8 +734,8 @@ export function VisualCanvas() {
         }).play();
       }
     }
-    justDraggedPathsRef.current.clear();
 
+    justDraggedPathsRef.current.clear();
     const newClonePositions: Record<string, { x: number; y: number }> = {};
     for (const [path, posEntry] of Object.entries(viewState.positions)) {
       const elementId = path.split(".").at(-1)!;
@@ -704,7 +744,6 @@ export function VisualCanvas() {
       }
     }
     prevClonePositionsRef.current = newClonePositions;
-
     prevElementPositionsRef.current = Object.fromEntries(
       Object.entries(viewState.positions).map(([k, v]) => [k, v.position]),
     );
@@ -732,27 +771,22 @@ export function VisualCanvas() {
     stageRegistry.setExportFn(async () => {
       const stage = stageRef.current;
       if (!stage) return null;
-
       const positions = Object.values(viewState.positions);
       if (!positions.length) return null;
-
       const PAD = 80;
       const cx = positions.map((p) => p.position.x);
       const cy = positions.map((p) => p.position.y);
       const radii = positions.map((p) => p.size / 2);
-
       const minWX = Math.min(...cx.map((x, i) => x - radii[i])) - PAD;
       const minWY = Math.min(...cy.map((y, i) => y - radii[i])) - PAD;
       const maxWX = Math.max(...cx.map((x, i) => x + radii[i])) + PAD;
       const maxWY = Math.max(...cy.map((y, i) => y + radii[i])) + PAD;
       const W = maxWX - minWX;
       const H = maxWY - minWY;
-
       const container = document.createElement("div");
       container.style.cssText =
         "position:absolute;top:-9999px;left:-9999px;visibility:hidden;";
       document.body.appendChild(container);
-
       const exportStage = new Konva.Stage({
         container,
         width: W * zoom,
@@ -760,12 +794,10 @@ export function VisualCanvas() {
       });
       exportStage.position({ x: -minWX * zoom, y: -minWY * zoom });
       exportStage.scale({ x: zoom, y: zoom });
-
       const relLayer = new Konva.Layer();
       const elemLayer = new Konva.Layer();
       exportStage.add(relLayer);
       exportStage.add(elemLayer);
-
       const { DiagramLayerRenderer } = await import("./DiagramLayerRenderer");
       const renderer = new DiagramLayerRenderer(
         exportStage,
@@ -785,9 +817,7 @@ export function VisualCanvas() {
         geometryCacheRef.current,
       );
       renderer.render(relLayer, elemLayer);
-
       const exportCanvas = await exportStage.toCanvas({ pixelRatio: 2 });
-
       const bgColor = isDark ? "#0b0d10" : "#f5e8c0";
       const out = document.createElement("canvas");
       out.width = Math.round(W * zoom * 2);
@@ -796,10 +826,8 @@ export function VisualCanvas() {
       ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, out.width, out.height);
       ctx.drawImage(exportCanvas as HTMLCanvasElement, 0, 0);
-
       exportStage.destroy();
       document.body.removeChild(container);
-
       return out.toDataURL("image/png");
     });
   }, [
@@ -849,10 +877,8 @@ function createNewElement(
     foldState: "expanded",
     childIds: [],
   };
-
   let newRoot = { ...model.root };
   const newElements = { ...model.elements, [newId]: newElement };
-
   if (parentElementId) {
     const parent = newElements[parentElementId];
     if (parent) {
@@ -864,7 +890,6 @@ function createNewElement(
   } else {
     newRoot = { ...newRoot, childIds: [...newRoot.childIds, newId] };
   }
-
   syncManager.syncFromVis(
     { ...model, root: newRoot, elements: newElements },
     true,
@@ -884,7 +909,6 @@ function applyReparent(
   if (!movingElement) return model;
   const elements = { ...model.elements };
   let root = { ...model.root };
-
   if (oldParentPath === model.root.id) {
     root = { ...root, childIds: root.childIds.filter((n) => n !== elementId) };
   } else {
@@ -897,7 +921,6 @@ function applyReparent(
       };
     }
   }
-
   if (newParentPath === model.root.id) {
     root = { ...root, childIds: [...root.childIds, elementId] };
   } else {
@@ -910,6 +933,5 @@ function applyReparent(
       };
     }
   }
-
   return { ...model, root, elements };
 }

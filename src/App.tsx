@@ -5,12 +5,13 @@ import {
   Bot,
   Settings2,
   BookOpen,
-  Wrench,
   ListFilter,
   SlidersHorizontal,
+  Wrench,
 } from "lucide-react";
 import { useUndoRedo } from "./presentation/hooks/useUndoRedo";
 import { VisualCanvas } from "./presentation/components/VisualCanvas";
+import { CanvasControls } from "./presentation/components/CanvasControls";
 import { CodeEditor } from "./presentation/components/CodeEditor";
 import { PropertiesPanel } from "./presentation/components/PropertiesPanel";
 import { ToolBar } from "./presentation/components/ToolBar";
@@ -20,13 +21,6 @@ import { SelectorsPanel } from "./presentation/components/SelectorModal";
 import { AppSettingsPanel } from "./presentation/components/AppSettingsPanel";
 
 const WINDOWS: WindowDef[] = [
-  {
-    id: "toolbar",
-    title: "Toolbar",
-    icon: <Wrench size={16} aria-hidden="true" />,
-    component: ToolBar,
-    headless: true,
-  },
   {
     id: "editor",
     title: "Code Editor",
@@ -62,6 +56,12 @@ const WINDOWS: WindowDef[] = [
     title: "Settings",
     icon: <SlidersHorizontal size={16} aria-hidden="true" />,
     component: AppSettingsPanel,
+  },
+  {
+    id: "toolbar",
+    title: "ToolBar",
+    icon: <Wrench size={16} aria-hidden="true" />,
+    component: () => ToolBar({ layout: "wrap" }),
   },
 ];
 
@@ -108,7 +108,10 @@ export default function App() {
       layout={DEFAULT_LAYOUT}
       storageKey="diagravinci-layout-v4"
     >
-      <VisualCanvas />
+      <div className="relative w-full h-full">
+        <VisualCanvas />
+        <CanvasControls />
+      </div>
     </AppShell>
   );
 }
