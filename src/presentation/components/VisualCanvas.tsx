@@ -842,10 +842,6 @@ export function VisualCanvas() {
     isDark,
   ]);
 
-  const dotSpacing = 24;
-  const scaledSpacing = dotSpacing * zoom;
-  const stageX = stageRef.current?.x() ?? 0;
-  const stageY = stageRef.current?.y() ?? 0;
   const dotColor = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.12)";
 
   return (
@@ -854,8 +850,7 @@ export function VisualCanvas() {
       className="w-full h-full bg-bg-overlay overflow-hidden"
       style={{
         backgroundImage: `radial-gradient(circle, ${dotColor} 1.5px, transparent 1.5px)`,
-        backgroundSize: `${scaledSpacing}px ${scaledSpacing}px`,
-        backgroundPosition: `${((stageX % scaledSpacing) + scaledSpacing) % scaledSpacing}px ${((stageY % scaledSpacing) + scaledSpacing) % scaledSpacing}px`,
+        backgroundSize: `24px 24px`,
       }}
     />
   );
