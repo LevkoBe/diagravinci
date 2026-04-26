@@ -12,7 +12,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@levkobe/c7one": "^1.0.3",
+    "@levkobe/c7one": "file:../c7one-lib-and-consumer/c7one",
     "@monaco-editor/react": "^4.7.0",
     "@reduxjs/toolkit": "^2.11.2",
     "fflate": "^0.8.2",

@@ -57,6 +57,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
   }
 
   protected classDiagramContent: ClassDiagramContent | null = null;
+  private iconTooltipLabel: string | null = null;
 
   setClassDiagramContent(content: ClassDiagramContent | null): void {
     this.classDiagramContent = content;
@@ -91,7 +92,12 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       shapeNode.strokeWidth(),
     );
 
-    return { group, onHoverIn, onHoverOut };
+    return {
+      group,
+      onHoverIn,
+      onHoverOut,
+      ...(this.iconTooltipLabel ? { tooltipLabel: this.iconTooltipLabel } : {}),
+    };
   }
 
   protected resolveStroke(): string {
@@ -256,6 +262,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
           this.colors.fgPrimary,
           this.isDimmed ? ec.DIM_OPACITY : 1,
         );
+        this.iconTooltipLabel = iconMatch[1];
         return;
       }
     }

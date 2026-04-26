@@ -74,6 +74,22 @@ export class DiagramLayerRenderer {
   private hoveredPath: string | null = null;
   private readonly hoverIn = new Map<string, () => void>();
   private readonly hoverOut = new Map<string, () => void>();
+  private readonly tooltipLabels = new Map<string, string>();
+
+  private static _tooltipEl: HTMLDivElement | null = null;
+
+  private static getTooltipEl(): HTMLDivElement {
+    if (!DiagramLayerRenderer._tooltipEl) {
+      const el = document.createElement("div");
+      el.style.cssText =
+        "position:fixed;background:rgba(0,0,0,0.72);color:#fff;padding:3px 8px;" +
+        "border-radius:4px;font-size:12px;font-family:sans-serif;pointer-events:none;" +
+        "display:none;z-index:9999;white-space:nowrap;";
+      document.body.appendChild(el);
+      DiagramLayerRenderer._tooltipEl = el;
+    }
+    return DiagramLayerRenderer._tooltipEl;
+  }
 
   private readonly hiddenSet: Set<string>;
   private readonly filterHiddenSet: Set<string>;
@@ -285,10 +301,22 @@ export class DiagramLayerRenderer {
     const renderResult = elementRenderer.render();
     if (!renderResult) return;
 
-    const { group, onHoverIn, onHoverOut } = renderResult;
+    const { group, onHoverIn, onHoverOut, tooltipLabel } = renderResult;
     this.groupMap.set(path, group);
     this.hoverIn.set(path, onHoverIn);
     this.hoverOut.set(path, onHoverOut);
+    if (tooltipLabel) {
+      this.tooltipLabels.set(path, tooltipLabel);
+      group.on("mousemove", () => {
+        const tooltip = DiagramLayerRenderer.getTooltipEl();
+        const containerRect = this.stage.container().getBoundingClientRect();
+        const pointerPos = this.stage.getPointerPosition();
+        if (pointerPos) {
+          tooltip.style.left = `${containerRect.left + pointerPos.x + 14}px`;
+          tooltip.style.top = `${containerRect.top + pointerPos.y - 32}px`;
+        }
+      });
+    }
 
     if (this.isReadonly) {
       group.draggable(false);
@@ -356,6 +384,21 @@ export class DiagramLayerRenderer {
     if (this.hoveredPath) this.hoverOut.get(this.hoveredPath)?.();
     this.hoveredPath = path;
     if (this.hoveredPath) this.hoverIn.get(this.hoveredPath)?.();
+
+    const label = path ? this.tooltipLabels.get(path) : null;
+    const tooltip = DiagramLayerRenderer.getTooltipEl();
+    if (label) {
+      tooltip.textContent = label;
+      const containerRect = this.stage.container().getBoundingClientRect();
+      const pointerPos = this.stage.getPointerPosition();
+      if (pointerPos) {
+        tooltip.style.left = `${containerRect.left + pointerPos.x + 14}px`;
+        tooltip.style.top = `${containerRect.top + pointerPos.y - 32}px`;
+      }
+      tooltip.style.display = "block";
+    } else {
+      tooltip.style.display = "none";
+    }
   }
 
   private updateRelationshipLines(changedPath: string): void {

@@ -48,7 +48,7 @@ import {
   SettingsModalButton,
   useC7One,
   detectIsDark,
-  useWindowContext,
+  useWindowContextSafe,
 } from "@levkobe/c7one";
 import { FiltersPanel } from "./FilterModal";
 import { HelpModal } from "./HelpModal";
@@ -295,7 +295,7 @@ export function ToolBar() {
   const { canUndo, canRedo, undo, redo } = useUndoRedo();
   const { colors, setColors, injectTokens } = useC7One();
   const isDark = detectIsDark(colors["--color-bg-base"]);
-  const { tree, moveDivider } = useWindowContext();
+  const windowCtx = useWindowContextSafe();
   const [selectorModalOpen, setSelectorModalOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -316,6 +316,7 @@ export function ToolBar() {
   }, []);
 
   useEffect(() => {
+    if (!windowCtx) return;
     if (toolbarWidth / Math.max(toolbarHeight, 1) <= 2) return;
 
     const contentArea = toolbarInnerRef.current;
@@ -355,9 +356,9 @@ export function ToolBar() {
       return null;
     };
 
-    const parentGroup = findGroup(tree, "toolbar");
-    if (parentGroup) moveDivider(parentGroup.id, 0, pct);
-  }, [toolbarWidth, toolbarHeight, tree, moveDivider]);
+    const parentGroup = findGroup(windowCtx.tree, "toolbar");
+    if (parentGroup) windowCtx.moveDivider(parentGroup.id, 0, pct);
+  }, [toolbarWidth, toolbarHeight, windowCtx]);
 
   const isWideBar = toolbarWidth / Math.max(toolbarHeight, 1) > 2;
   const isCompact = isWideBar && toolbarWidth < 720;

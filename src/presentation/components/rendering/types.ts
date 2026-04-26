@@ -35,4 +35,5 @@ export interface ElementRenderResult {
   group: Konva.Group;
   onHoverIn: () => void;
   onHoverOut: () => void;
+  tooltipLabel?: string;
 }

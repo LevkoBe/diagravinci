@@ -2,6 +2,8 @@
 @import "@levkobe/c7one/styles";
 @import "tailwindcss";
 
+html, body, #root { height: 100%; }
+
 @theme {
   --font-sans: "Aleo", ui-serif, Georgia, serif;
 }

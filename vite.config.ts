@@ -19,6 +19,12 @@ export default defineConfig({
     __APP_BUILD__: JSON.stringify(commitHash),
   },
   plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      react: resolve("./node_modules/react"),
+      "react-dom": resolve("./node_modules/react-dom"),
+    },
+  },
   build: {
     rollupOptions: {
       input: {
