@@ -26,7 +26,7 @@ export class PolygonElementRenderer extends BaseElementRenderer {
         shape = new Konva.RegularPolygon({ sides: 8, radius: r, fill, opacity, listening: false, rotation: 22.5 });
         break;
       case "flow":
-        shape = new Konva.RegularPolygon({ sides: 3, radius: r, fill, opacity, listening: false, rotation: 180 });
+        shape = new Konva.RegularPolygon({ sides: 3, radius: r, fill, opacity, listening: false, rotation: 90 });
         break;
       case "choice":
         shape = new Konva.Line({ points: [0, -r, r, 0, 0, r, -r, 0], closed: true, fill, opacity, listening: false });
@@ -98,7 +98,7 @@ export class PolygonElementRenderer extends BaseElementRenderer {
           stroke,
           strokeWidth,
           opacity,
-          rotation: 180,
+          rotation: 90,
         });
         break;
       }
