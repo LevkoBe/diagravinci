@@ -32,12 +32,6 @@ import {
   GitBranch,
   GitFork,
   Circle,
-  ArrowRight,
-  ArrowRightFromLine,
-  ChevronRight,
-  ChevronsRight,
-  Diamond,
-  Gem,
   Network,
   ArrowRightLeft,
   Workflow,
@@ -129,12 +123,36 @@ const REL_TYPES: {
   label: string;
   icon: React.ReactNode;
 }[] = [
-  { type: "-->", label: "Association", icon: <ArrowRight size={14} /> },
-  { type: "..>", label: "Dependency", icon: <ArrowRightFromLine size={14} /> },
-  { type: "--|>", label: "Inheritance", icon: <ChevronRight size={14} /> },
-  { type: "..|>", label: "Realization", icon: <ChevronsRight size={14} /> },
-  { type: "o--", label: "Aggregation", icon: <Diamond size={14} /> },
-  { type: "*--", label: "Composition", icon: <Gem size={14} /> },
+  {
+    type: "-->",
+    label: "Association",
+    icon: <span className="font-mono text-xs leading-none">{"-->"}</span>,
+  },
+  {
+    type: "..>",
+    label: "Dependency",
+    icon: <span className="font-mono text-xs leading-none">{"··>"}</span>,
+  },
+  {
+    type: "--|>",
+    label: "Inheritance",
+    icon: <span className="font-mono text-xs leading-none">--▷</span>,
+  },
+  {
+    type: "..|>",
+    label: "Realization",
+    icon: <span className="font-mono text-xs leading-none">··▷</span>,
+  },
+  {
+    type: "o--",
+    label: "Aggregation",
+    icon: <span className="font-mono text-xs leading-none">◇--</span>,
+  },
+  {
+    type: "*--",
+    label: "Composition",
+    icon: <span className="font-mono text-xs leading-none">◆--</span>,
+  },
 ];
 
 function Divider() {
