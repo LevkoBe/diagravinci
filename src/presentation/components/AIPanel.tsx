@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import Markdown from "react-markdown";
 import { Bug, KeyRound, Lightbulb, Send, Trash2 } from "lucide-react";
 import { Button } from "@levkobe/c7one";
 import { DangerIconBtn } from "./DangerIconBtn";
@@ -172,13 +173,37 @@ export default function AIPanel() {
             }`}
           >
             <div
-              className={`max-w-[85%] px-3 py-2 rounded-lg border whitespace-pre-wrap ${
+              className={`max-w-[85%] px-3 py-2 rounded-lg border ${
                 m.role === "user"
-                  ? "bg-accent/10 border-accent/40 text-fg-primary"
+                  ? "bg-accent/10 border-accent/40 text-fg-primary whitespace-pre-wrap"
                   : "bg-bg-elevated border-border/40 text-fg-muted"
               }`}
             >
-              {m.content}
+              {m.role === "user" ? m.content : (
+                <Markdown
+                  components={{
+                    h1: ({ children }) => <p className="font-bold text-sm mb-1">{children}</p>,
+                    h2: ({ children }) => <p className="font-semibold text-sm mb-1">{children}</p>,
+                    h3: ({ children }) => <p className="font-semibold text-xs mb-0.5">{children}</p>,
+                    p: ({ children }) => <p className="mb-1 last:mb-0 leading-relaxed">{children}</p>,
+                    ul: ({ children }) => <ul className="list-disc list-inside mb-1 space-y-0.5">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal list-inside mb-1 space-y-0.5">{children}</ol>,
+                    li: ({ children }) => <li className="leading-snug [&>p]:inline [&>p]:mb-0">{children}</li>,
+                    code: ({ children, className }) =>
+                      className ? (
+                        <pre className="bg-bg-base rounded p-2 text-xs overflow-x-auto my-1 font-mono">{children}</pre>
+                      ) : (
+                        <code className="bg-bg-base rounded px-1 text-xs font-mono">{children}</code>
+                      ),
+                    strong: ({ children }) => <strong className="font-semibold text-fg-primary">{children}</strong>,
+                    em: ({ children }) => <em className="italic">{children}</em>,
+                    hr: () => <hr className="border-border/40 my-2" />,
+                    a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer" className="text-accent underline hover:opacity-80">{children}</a>,
+                  }}
+                >
+                  {m.content}
+                </Markdown>
+              )}
             </div>
           </div>
         ))}
