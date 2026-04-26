@@ -16,7 +16,7 @@ import { PropertiesPanel } from "./presentation/components/PropertiesPanel";
 import { ToolBar } from "./presentation/components/ToolBar";
 import AIPanel from "./presentation/components/AIPanel";
 import { TemplatePanel } from "./presentation/components/TemplatePanel";
-import { FiltersPanel } from "./presentation/components/FilterModal";
+import { SelectorsPanel } from "./presentation/components/SelectorModal";
 import { AppSettingsPanel } from "./presentation/components/AppSettingsPanel";
 
 const WINDOWS: WindowDef[] = [
@@ -55,7 +55,7 @@ const WINDOWS: WindowDef[] = [
     id: "filters",
     title: "Selectors",
     icon: <ListFilter size={16} aria-hidden="true" />,
-    component: FiltersPanel,
+    component: SelectorsPanel,
   },
   {
     id: "settings",

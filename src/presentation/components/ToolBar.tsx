@@ -50,7 +50,7 @@ import {
   detectIsDark,
   useWindowContextSafe,
 } from "@levkobe/c7one";
-import { FiltersPanel } from "./FilterModal";
+import { SelectorsPanel } from "./SelectorModal";
 import { HelpModal } from "./HelpModal";
 import {
   parchmentTheme,
@@ -444,7 +444,9 @@ export function ToolBar() {
       ? "edited"
       : "collapsed";
 
-  const activePresetCount = selectors.filter((s) => s.mode !== "off" && s.id !== "__fold__" && s.id !== "__selection__").length;
+  const activePresetCount = selectors.filter(
+    (s) => s.mode !== "off" && s.id !== "__fold__" && s.id !== "__selection__",
+  ).length;
 
   const handleSaveDiagram = () => {
     const lines: string[] = [
@@ -721,7 +723,9 @@ export function ToolBar() {
     </Btn>
   ));
 
-  const visibleSelectors = selectors.filter((s) => s.id !== "__fold__" && s.id !== "__selection__");
+  const visibleSelectors = selectors.filter(
+    (s) => s.id !== "__fold__" && s.id !== "__selection__",
+  );
 
   const selectBtns = (
     <>
@@ -753,7 +757,9 @@ export function ToolBar() {
         >
           <span
             className="absolute inset-0 rounded-[inherit] opacity-15 transition-opacity"
-            style={selector.mode !== "off" ? { background: selector.color } : {}}
+            style={
+              selector.mode !== "off" ? { background: selector.color } : {}
+            }
           />
           <span className="relative text-[9px] font-bold leading-none select-none truncate max-w-[5ch]">
             {selector.label.slice(0, 4)}
@@ -1318,8 +1324,8 @@ export function ToolBar() {
 
       <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
       <Modal open={selectorModalOpen} onOpenChange={setSelectorModalOpen}>
-        <Modal.Content className="w-130 h-160 p-0 overflow-hidden">
-          <FiltersPanel />
+        <Modal.Content maxWidth={555} minHeight={444}>
+          <SelectorsPanel />
         </Modal.Content>
       </Modal>
     </>
