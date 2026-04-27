@@ -10,10 +10,14 @@ const VALID_VIEW_MODES: ViewState["viewMode"][] = [
   "timeline",
   "pipeline",
   "circular",
-  "execute",
+  "radial",
 ];
 
-const VALID_REL_LINE_STYLES: RelLineStyle[] = ["straight", "curved", "orthogonal"];
+const VALID_REL_LINE_STYLES: RelLineStyle[] = [
+  "straight",
+  "curved",
+  "orthogonal",
+];
 
 export interface EmbedParams {
   diagram: string;
@@ -43,7 +47,9 @@ export function parseEmbedParams(): EmbedParams {
     : "basic";
 
   const rawRelLineStyle = params.get("relLineStyle") ?? "";
-  const relLineStyle = (VALID_REL_LINE_STYLES as string[]).includes(rawRelLineStyle)
+  const relLineStyle = (VALID_REL_LINE_STYLES as string[]).includes(
+    rawRelLineStyle,
+  )
     ? (rawRelLineStyle as RelLineStyle)
     : "straight";
 
