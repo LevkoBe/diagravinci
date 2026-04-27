@@ -117,6 +117,7 @@ import type { RelationshipType } from "../../infrastructure/parser/Token";
 import type { Element } from "../../domain/models/Element";
 import type { ViewState } from "../../domain/models/ViewState";
 import { useUndoRedo } from "../hooks/useUndoRedo";
+import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { store, syncManager } from "../../application/store/store";
 
 const REL_TYPES: {
@@ -324,6 +325,11 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
       `diagram_${today()}.jsonl`,
     );
   };
+
+  useKeyboardShortcuts({
+    onSave: handleSaveDiagram,
+    onOpen: () => fileInputRef.current?.click(),
+  });
 
   const handleExportPng = async () => {
     const dataUrl = await stageRegistry.exportPng();
