@@ -19,12 +19,22 @@ const RELATIONSHIPS = [
   { syntax: "a --label--> b", label: "Labeled" },
 ];
 
-const SHORTCUTS = [
-  { keys: "Ctrl+Z", action: "Undo" },
-  { keys: "Ctrl+Shift+Z / Ctrl+Y", action: "Redo" },
-  { keys: "Ctrl+Scroll", action: "Zoom in/out" },
-  { keys: "Shift+Scroll", action: "Pan" },
-  { keys: "Right-click element", action: "Fold / accept diff" },
+const SHORTCUTS: { keys: string; action: string; group?: string }[] = [
+  { keys: "Ctrl+Z", action: "Undo", group: "History" },
+  { keys: "Ctrl+Y / Ctrl+Shift+Z", action: "Redo", group: "History" },
+  { keys: "Ctrl+S", action: "Save", group: "File" },
+  { keys: "Ctrl+O", action: "Open", group: "File" },
+  { keys: "1–6", action: "Switch mode", group: "Modes" },
+  { keys: "Q–Y  (create)", action: "Element subtype", group: "Modes" },
+  { keys: "Q–Y  (connect)", action: "Relationship subtype", group: "Modes" },
+  { keys: "W / E", action: "Zoom in / out", group: "Canvas" },
+  { keys: "R", action: "Reset view", group: "Canvas" },
+  { keys: "Y", action: "Toggle class mode", group: "Canvas" },
+  { keys: "Ctrl+Scroll", action: "Zoom", group: "Canvas" },
+  { keys: "Shift+Scroll", action: "Pan", group: "Canvas" },
+  { keys: "Right-click", action: "Fold / accept diff", group: "Canvas" },
+  { keys: "F5", action: "Enter / exit execute", group: "Execute" },
+  { keys: "Space", action: "Run / Pause", group: "Execute" },
 ];
 
 function Section({
@@ -146,11 +156,24 @@ export function HelpModal({
           </Section>
 
           <Section title="Keyboard shortcuts">
-            <div className="grid grid-cols-1 gap-1">
-              {SHORTCUTS.map(({ keys, action }) => (
-                <div key={keys} className="flex items-center gap-3 text-xs">
-                  <CodeChip>{keys}</CodeChip>
-                  <span className="text-fg-muted">{action}</span>
+            <div className="grid grid-cols-1 gap-y-0.5">
+              {SHORTCUTS.reduce<{ group: string; items: typeof SHORTCUTS }[]>((acc, s) => {
+                const g = s.group ?? "";
+                const last = acc[acc.length - 1];
+                if (last && last.group === g) { last.items.push(s); }
+                else { acc.push({ group: g, items: [s] }); }
+                return acc;
+              }, []).map(({ group, items }) => (
+                <div key={group} className="mb-2">
+                  <div className="text-[9px] font-bold tracking-widest uppercase text-fg-muted/60 mb-1">{group}</div>
+                  <div className="grid grid-cols-1 gap-0.5">
+                    {items.map(({ keys, action }) => (
+                      <div key={keys} className="flex items-start gap-3 text-xs">
+                        <CodeChip>{keys}</CodeChip>
+                        <span className="text-fg-muted">{action}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>

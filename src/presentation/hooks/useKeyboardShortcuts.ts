@@ -3,6 +3,9 @@ import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import {
   setInteractionMode,
   setActiveElementType,
+  setActiveRelationshipType,
+  sendZoomCommand,
+  toggleClassDiagramMode,
   type InteractionMode,
 } from "../../application/store/uiSlice";
 import {
@@ -11,6 +14,7 @@ import {
 } from "../../application/store/executionSlice";
 import { setViewMode } from "../../application/store/diagramSlice";
 import type { ElementType } from "../../domain/models/Element";
+import type { RelationshipType } from "../../infrastructure/parser/Token";
 import type { ViewState } from "../../domain/models/ViewState";
 
 const MODE_KEYS: Record<string, InteractionMode> = {
@@ -22,14 +26,25 @@ const MODE_KEYS: Record<string, InteractionMode> = {
   "6": "readonly",
 };
 
-const ELEMENT_TYPE_KEYS: Record<string, ElementType> = {
-  q: "object",
-  w: "collection",
-  e: "state",
-  r: "function",
-  t: "flow",
-  y: "choice",
-};
+const QWERTY = ["q", "w", "e", "r", "t", "y"] as const;
+
+const ELEMENT_TYPES: ElementType[] = [
+  "object",
+  "collection",
+  "state",
+  "function",
+  "flow",
+  "choice",
+];
+
+const RELATIONSHIP_TYPES: RelationshipType[] = [
+  "-->",
+  "..>",
+  "--|>",
+  "..|>",
+  "o--",
+  "*--",
+];
 
 interface KeyboardShortcutsOptions {
   onSave?: () => void;
@@ -43,14 +58,20 @@ export function useKeyboardShortcuts({
   const dispatch = useAppDispatch();
   const viewMode = useAppSelector((s) => s.diagram.viewState.viewMode);
   const execStatus = useAppSelector((s) => s.execution.status);
+  const interactionMode = useAppSelector((s) => s.ui.interactionMode);
   const isExecuteMode = viewMode === "execute";
   const prevViewModeRef = useRef<ViewState["viewMode"]>(viewMode);
+  const interactionModeRef = useRef(interactionMode);
 
   useEffect(() => {
     if (!isExecuteMode) {
       prevViewModeRef.current = viewMode;
     }
   }, [isExecuteMode, viewMode]);
+
+  useEffect(() => {
+    interactionModeRef.current = interactionMode;
+  }, [interactionMode]);
 
   const onSaveRef = useRef(onSave);
   const onOpenRef = useRef(onOpen);
@@ -107,10 +128,32 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      const elementType = ELEMENT_TYPE_KEYS[e.key.toLowerCase()];
-      if (elementType) {
-        e.preventDefault();
-        dispatch(setActiveElementType(elementType));
+      const qwertyIndex = QWERTY.indexOf(
+        e.key.toLowerCase() as (typeof QWERTY)[number],
+      );
+      if (qwertyIndex !== -1) {
+        const currentMode = interactionModeRef.current;
+        if (currentMode === "create") {
+          e.preventDefault();
+          dispatch(setActiveElementType(ELEMENT_TYPES[qwertyIndex]));
+        } else if (currentMode === "connect") {
+          e.preventDefault();
+          dispatch(setActiveRelationshipType(RELATIONSHIP_TYPES[qwertyIndex]));
+        } else {
+          if (qwertyIndex === 1) {
+            e.preventDefault();
+            dispatch(sendZoomCommand("in"));
+          } else if (qwertyIndex === 2) {
+            e.preventDefault();
+            dispatch(sendZoomCommand("out"));
+          } else if (qwertyIndex === 3) {
+            e.preventDefault();
+            dispatch(sendZoomCommand("reset"));
+          } else if (qwertyIndex === 5) {
+            e.preventDefault();
+            dispatch(toggleClassDiagramMode());
+          }
+        }
         return;
       }
     };
