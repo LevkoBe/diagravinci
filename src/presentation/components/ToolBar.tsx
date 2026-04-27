@@ -25,12 +25,6 @@ import {
   Trash2,
   Unlink,
   Lock,
-  Box,
-  Layers,
-  CircleDot,
-  Braces,
-  GitBranch,
-  GitFork,
   Circle,
   Network,
   ArrowRightLeft,
@@ -117,6 +111,7 @@ import type { RelationshipType } from "../../infrastructure/parser/Token";
 import type { Element } from "../../domain/models/Element";
 import type { ViewState } from "../../domain/models/ViewState";
 import { useUndoRedo } from "../hooks/useUndoRedo";
+import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { store, syncManager } from "../../application/store/store";
 
 const REL_TYPES: {
@@ -324,6 +319,11 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
       `diagram_${today()}.jsonl`,
     );
   };
+
+  useKeyboardShortcuts({
+    onSave: handleSaveDiagram,
+    onOpen: () => fileInputRef.current?.click(),
+  });
 
   const handleExportPng = async () => {
     const dataUrl = await stageRegistry.exportPng();
@@ -610,28 +610,12 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
                 dispatch(setActiveElementType(v as typeof activeElementType))
               }
               options={[
-                { value: "object", label: "Object", icon: <Box size={14} /> },
-                {
-                  value: "collection",
-                  label: "Collection",
-                  icon: <Layers size={14} />,
-                },
-                {
-                  value: "state",
-                  label: "State",
-                  icon: <CircleDot size={14} />,
-                },
-                {
-                  value: "function",
-                  label: "Function",
-                  icon: <Braces size={14} />,
-                },
-                { value: "flow", label: "Flow", icon: <GitBranch size={14} /> },
-                {
-                  value: "choice",
-                  label: "Choice",
-                  icon: <GitFork size={14} />,
-                },
+                { value: "object", label: "Object", icon: <span className="font-mono text-xs leading-none">{"{}"}</span> },
+                { value: "collection", label: "Collection", icon: <span className="font-mono text-xs leading-none">{"[]"}</span> },
+                { value: "state", label: "State", icon: <span className="font-mono text-xs leading-none">{"||"}</span> },
+                { value: "function", label: "Function", icon: <span className="font-mono text-xs leading-none">{"()"}</span> },
+                { value: "flow", label: "Flow", icon: <span className="font-mono text-xs leading-none">{">>"}</span> },
+                { value: "choice", label: "Choice", icon: <span className="font-mono text-xs leading-none">{"<>"}</span> },
               ]}
             />
           </>
