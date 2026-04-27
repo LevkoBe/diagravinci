@@ -11,7 +11,15 @@ import {
 import { restoreHistory } from "../../application/store/diagramSlice";
 import { store, syncManager } from "../../application/store/store";
 
-function makeEntry(code: string, model: HistoryEntry["model"], viewState: { positions: HistoryEntry["positions"]; relationships: HistoryEntry["relationships"]; viewMode: HistoryEntry["viewMode"] }): HistoryEntry {
+function makeEntry(
+  code: string,
+  model: HistoryEntry["model"],
+  viewState: {
+    positions: HistoryEntry["positions"];
+    relationships: HistoryEntry["relationships"];
+    viewMode: HistoryEntry["viewMode"];
+  },
+): HistoryEntry {
   return {
     code,
     model,
@@ -29,6 +37,7 @@ export function useUndoRedo() {
 
   const isApplyingRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const visSourceRef = useRef(false);
 
   const latestRef = useRef<HistoryEntry>(makeEntry(code, model, viewState));
 
@@ -37,10 +46,26 @@ export function useUndoRedo() {
   });
 
   useEffect(() => {
+    const unsubscribe = syncManager.subscribe((event) => {
+      if (event.source === "vis") {
+        visSourceRef.current = true;
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
     if (isApplyingRef.current) return;
 
     if (debounceRef.current !== null) {
       clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+
+    if (visSourceRef.current) {
+      visSourceRef.current = false;
+      dispatch(pushHistory(latestRef.current));
+      return;
     }
 
     debounceRef.current = setTimeout(() => {
