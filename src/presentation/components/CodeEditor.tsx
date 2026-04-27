@@ -16,20 +16,27 @@ export function CodeEditor() {
   };
 
   return (
-    <Editor
-      height="100%"
-      defaultLanguage="plaintext"
-      value={code}
-      onChange={handleCodeChange}
-      theme={isDark ? "vs-dark" : "vs"}
-      options={{
-        minimap: { enabled: false },
-        fontSize: AppConfig.editor.FONT_SIZE,
-        lineNumbers: "on",
-        scrollBeyondLastLine: false,
-        automaticLayout: true,
-        tabSize: AppConfig.editor.TAB_SIZE,
+    <div
+      className="h-full"
+      onKeyDown={(e) => {
+        if (!e.ctrlKey && !e.metaKey && !e.altKey) e.stopPropagation();
       }}
-    />
+    >
+      <Editor
+        height="100%"
+        defaultLanguage="plaintext"
+        value={code}
+        onChange={handleCodeChange}
+        theme={isDark ? "vs-dark" : "vs"}
+        options={{
+          minimap: { enabled: false },
+          fontSize: AppConfig.editor.FONT_SIZE,
+          lineNumbers: "on",
+          scrollBeyondLastLine: false,
+          automaticLayout: true,
+          tabSize: AppConfig.editor.TAB_SIZE,
+        }}
+      />
+    </div>
   );
 }
