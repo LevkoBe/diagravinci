@@ -10,6 +10,7 @@ const ALL_VIEW_MODES: ViewMode[] = [
   "timeline",
   "pipeline",
   "circular",
+  "radial",
   "execute",
 ];
 
@@ -25,7 +26,7 @@ describe("getLayout", () => {
   });
 
   it("each non-aliased mode returns a distinct layout instance", () => {
-    const layouts = ["hierarchical", "timeline", "pipeline", "execute"].map(
+    const layouts = ["hierarchical", "timeline", "pipeline", "radial", "execute"].map(
       (m) => getLayout(m as ViewMode),
     );
     const unique = new Set(layouts);

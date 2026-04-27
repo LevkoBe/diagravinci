@@ -16,6 +16,7 @@ const VIEW_LABELS: Record<ViewState["viewMode"], string> = {
   hierarchical: "Hierarchical",
   timeline: "Timeline",
   pipeline: "Pipeline",
+  radial: "Radial",
   execute: "Execute",
 };
 
@@ -25,6 +26,7 @@ const VIEW_COLORS: Record<ViewState["viewMode"], string> = {
   hierarchical: "bg-blue-500/15 text-blue-800",
   timeline: "bg-amber-500/15 text-amber-800",
   pipeline: "bg-green-500/15 text-green-800",
+  radial: "bg-teal-500/15 text-teal-800",
   execute: "bg-indigo-500/15 text-indigo-800",
 };
 
@@ -62,6 +64,14 @@ const THUMB: Record<ViewState["viewMode"], ThumbSpec> = {
     bg: "#e0e7ff", dot: "#6366f1",
     dots: [{ x: 15, y: 50 }, { x: 40, y: 28 }, { x: 40, y: 72 }, { x: 65, y: 50 }, { x: 88, y: 50 }],
     lines: [[0, 1], [0, 2], [1, 3], [2, 3], [3, 4]],
+  },
+  radial: {
+    bg: "#ccfbf1", dot: "#14b8a6",
+    dots: [
+      { x: 50, y: 50, r: 8 },
+      { x: 50, y: 18 }, { x: 82, y: 68 }, { x: 18, y: 68 },
+    ],
+    lines: [[0, 1], [0, 2], [0, 3]],
   },
   basic: {
     bg: "#f1f5f9", dot: "#64748b",
