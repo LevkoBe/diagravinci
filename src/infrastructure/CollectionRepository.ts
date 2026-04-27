@@ -6,6 +6,8 @@ import {
   EDGE_CASES_COLLECTION_ID,
   EXECUTION_COLLECTION,
   EXECUTION_COLLECTION_ID,
+  RADIAL_COLLECTION,
+  RADIAL_COLLECTION_ID,
   SELECTOR_SHOWCASE_COLLECTION,
   SELECTOR_SHOWCASE_COLLECTION_ID,
   // STRESS_COLLECTION,
@@ -38,6 +40,7 @@ export const CollectionRepository = {
     return [
       BUILT_IN_COLLECTION,
       // STRESS_COLLECTION,
+      RADIAL_COLLECTION,
       EDGE_CASES_COLLECTION,
       SELECTOR_SHOWCASE_COLLECTION,
       EXECUTION_COLLECTION,
@@ -64,7 +67,8 @@ export const CollectionRepository = {
       id === STRESS_COLLECTION_ID ||
       id === EDGE_CASES_COLLECTION_ID ||
       id === SELECTOR_SHOWCASE_COLLECTION_ID ||
-      id === EXECUTION_COLLECTION_ID
+      id === EXECUTION_COLLECTION_ID ||
+      id === RADIAL_COLLECTION_ID
     )
       return;
     const collections = loadUserCollections().filter((c) => c.id !== id);
@@ -77,7 +81,8 @@ export const CollectionRepository = {
       collectionId === STRESS_COLLECTION_ID ||
       collectionId === EDGE_CASES_COLLECTION_ID ||
       collectionId === SELECTOR_SHOWCASE_COLLECTION_ID ||
-      collectionId === EXECUTION_COLLECTION_ID
+      collectionId === EXECUTION_COLLECTION_ID ||
+      collectionId === RADIAL_COLLECTION_ID
     )
       return;
     const collections = loadUserCollections();
@@ -93,7 +98,8 @@ export const CollectionRepository = {
       collectionId === STRESS_COLLECTION_ID ||
       collectionId === EDGE_CASES_COLLECTION_ID ||
       collectionId === SELECTOR_SHOWCASE_COLLECTION_ID ||
-      collectionId === EXECUTION_COLLECTION_ID
+      collectionId === EXECUTION_COLLECTION_ID ||
+      collectionId === RADIAL_COLLECTION_ID
     )
       return;
     const collections = loadUserCollections();
