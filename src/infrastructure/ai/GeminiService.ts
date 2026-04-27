@@ -11,6 +11,7 @@ const AI = AppConfig.ai;
 const MODEL =
   (import.meta.env.VITE_GEMINI_MODEL as string) || "gemini-2.5-flash-lite";
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+const RATE_LIMIT_MSG = `Rate limit reached. [View your Gemini API usage and limits](https://aistudio.google.com/rate-limit).`;
 
 export class GeminiService implements AIService {
   private apiKey: string;
@@ -30,9 +31,7 @@ export class GeminiService implements AIService {
     const now = Date.now();
     this.lastCalls = this.lastCalls.filter((t) => now - t < AI.RATE_LIMIT_WINDOW_MS);
     if (this.lastCalls.length >= AI.RATE_LIMIT_MAX_REQUESTS) {
-      throw new Error(
-        `Rate limit reached (${AI.RATE_LIMIT_MAX_REQUESTS} requests/min). Please wait ${AI.RATE_LIMIT_WINDOW_MS / 1000} seconds.`,
-      );
+      throw new Error(RATE_LIMIT_MSG);
     }
     this.lastCalls.push(now);
 
@@ -69,7 +68,7 @@ export class GeminiService implements AIService {
 
     if (!resp.ok) {
       if (resp.status === 429)
-        throw new Error("Gemini rate limit (429). Wait a minute.");
+        throw new Error(RATE_LIMIT_MSG);
       if (resp.status === 404)
         throw new Error(
           "Model not found — please check MODEL name in GeminiService.ts",
@@ -99,9 +98,7 @@ export class GeminiService implements AIService {
     const now = Date.now();
     this.lastCalls = this.lastCalls.filter((t) => now - t < AI.RATE_LIMIT_WINDOW_MS);
     if (this.lastCalls.length >= AI.RATE_LIMIT_MAX_REQUESTS) {
-      throw new Error(
-        `Rate limit reached (${AI.RATE_LIMIT_MAX_REQUESTS} requests/min). Please wait ${AI.RATE_LIMIT_WINDOW_MS / 1000} seconds.`,
-      );
+      throw new Error(RATE_LIMIT_MSG);
     }
     this.lastCalls.push(now);
 
@@ -134,7 +131,7 @@ export class GeminiService implements AIService {
 
     if (!resp.ok) {
       if (resp.status === 429)
-        throw new Error("Gemini rate limit (429). Wait a minute.");
+        throw new Error(RATE_LIMIT_MSG);
       throw new Error(`Gemini HTTP ${resp.status}: ${await resp.text()}`);
     }
 

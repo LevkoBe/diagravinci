@@ -1,32 +1,26 @@
-import { DynamicPanelRoot } from "@levkobe/c7one";
+import { AppShell, PRIMARY_WINDOW_ID } from "@levkobe/c7one";
 import type { WindowDef, LayoutNodeDecl } from "@levkobe/c7one";
 import {
   Code2,
   Bot,
-  LayoutPanelLeft,
   Settings2,
   BookOpen,
-  Wrench,
   ListFilter,
   SlidersHorizontal,
+  Wrench,
 } from "lucide-react";
 import { useUndoRedo } from "./presentation/hooks/useUndoRedo";
-import { CodeEditor } from "./presentation/components/CodeEditor";
 import { VisualCanvas } from "./presentation/components/VisualCanvas";
+import { CanvasControls } from "./presentation/components/CanvasControls";
+import { CodeEditor } from "./presentation/components/CodeEditor";
 import { PropertiesPanel } from "./presentation/components/PropertiesPanel";
 import { ToolBar } from "./presentation/components/ToolBar";
 import AIPanel from "./presentation/components/AIPanel";
 import { TemplatePanel } from "./presentation/components/TemplatePanel";
-import { FiltersPanel } from "./presentation/components/FilterModal";
+import { SelectorsPanel } from "./presentation/components/SelectorModal";
 import { AppSettingsPanel } from "./presentation/components/AppSettingsPanel";
 
 const WINDOWS: WindowDef[] = [
-  {
-    id: "toolbar",
-    title: "Toolbar",
-    icon: <Wrench size={16} aria-hidden="true" />,
-    component: ToolBar,
-  },
   {
     id: "editor",
     title: "Code Editor",
@@ -38,12 +32,6 @@ const WINDOWS: WindowDef[] = [
     title: "AI Assistant",
     icon: <Bot size={16} aria-hidden="true" />,
     component: AIPanel,
-  },
-  {
-    id: "canvas",
-    title: "Visual Canvas",
-    icon: <LayoutPanelLeft size={16} aria-hidden="true" />,
-    component: VisualCanvas,
   },
   {
     id: "properties",
@@ -61,7 +49,7 @@ const WINDOWS: WindowDef[] = [
     id: "filters",
     title: "Selectors",
     icon: <ListFilter size={16} aria-hidden="true" />,
-    component: FiltersPanel,
+    component: SelectorsPanel,
   },
   {
     id: "settings",
@@ -69,38 +57,36 @@ const WINDOWS: WindowDef[] = [
     icon: <SlidersHorizontal size={16} aria-hidden="true" />,
     component: AppSettingsPanel,
   },
+  {
+    id: "toolbar",
+    title: "ToolBar",
+    icon: <Wrench size={16} aria-hidden="true" />,
+    component: () => ToolBar({ layout: "wrap" }),
+  },
 ];
 
 const DEFAULT_LAYOUT: LayoutNodeDecl = {
   type: "group",
-  direction: "vertical",
-  sizes: [12, 88],
+  direction: "horizontal",
+  sizes: [25, 50, 25],
   children: [
-    { type: "leaf", windowId: "toolbar" },
     {
       type: "group",
-      direction: "horizontal",
-      sizes: [25, 50, 25],
+      direction: "vertical",
+      sizes: [55, 45],
       children: [
-        {
-          type: "group",
-          direction: "vertical",
-          sizes: [55, 45],
-          children: [
-            { type: "leaf", windowId: "editor" },
-            { type: "leaf", windowId: "ai" },
-          ],
-        },
-        { type: "leaf", windowId: "canvas", isDefault: true },
-        {
-          type: "group",
-          direction: "vertical",
-          sizes: [55, 45],
-          children: [
-            { type: "leaf", windowId: "properties" },
-            { type: "leaf", windowId: "templates" },
-          ],
-        },
+        { type: "leaf", windowId: "editor" },
+        { type: "leaf", windowId: "ai" },
+      ],
+    },
+    { type: "leaf", windowId: PRIMARY_WINDOW_ID, isDefault: true },
+    {
+      type: "group",
+      direction: "vertical",
+      sizes: [55, 45],
+      children: [
+        { type: "leaf", windowId: "properties" },
+        { type: "leaf", windowId: "templates" },
       ],
     },
   ],
@@ -110,13 +96,22 @@ export default function App() {
   useUndoRedo();
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-bg-base text-fg-primary">
-      <DynamicPanelRoot
-        windows={WINDOWS}
-        layout={DEFAULT_LAYOUT}
-        storageKey="diagravinci-layout-v2"
-        className="w-full h-full"
-      />
-    </div>
+    <AppShell
+      className="fixed inset-0"
+      logo={
+        <span className="text-sm font-bold tracking-tight text-fg-primary">
+          Diagra<span className="text-accent">Vinci</span>
+        </span>
+      }
+      headerActions={<ToolBar />}
+      windows={WINDOWS}
+      layout={DEFAULT_LAYOUT}
+      storageKey="diagravinci-layout-v4"
+    >
+      <div className="relative w-full h-full">
+        <VisualCanvas />
+        <CanvasControls />
+      </div>
+    </AppShell>
   );
 }

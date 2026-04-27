@@ -396,7 +396,7 @@ function RuleRow({
   );
 }
 
-export function FiltersPanel() {
+export function SelectorsPanel() {
   const dispatch = useAppDispatch();
   const { selectors } = useAppSelector((s) => s.filter);
   const rules = useAppSelector((s) => s.diagram.model.rules ?? []);
@@ -662,7 +662,7 @@ export function FiltersPanel() {
     editingRuleId !== null ? (ruleDrafts.get(editingRuleId) ?? null) : null;
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-bg-base text-fg-primary">
+    <div className="flex-1 flex flex-col overflow-hidden bg-bg-base text-fg-primary">
       <div className="flex items-center border-b border-border px-2 py-1 gap-1 shrink-0">
         <button
           onClick={handleExport}
@@ -730,7 +730,8 @@ export function FiltersPanel() {
       {visibleSelectors.length === 0 && !isNew ? (
         <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center text-center px-6 py-8 gap-6">
           <p className="text-[12px] text-fg-muted leading-relaxed max-w-xs">
-            Selectors let you highlight, dim, or hide diagram elements based on matching rules.
+            Selectors let you highlight, dim, or hide diagram elements based on
+            matching rules.
           </p>
           <ol className="flex flex-col gap-3 text-left w-full max-w-xs">
             <li className="flex items-start gap-3">
@@ -738,7 +739,9 @@ export function FiltersPanel() {
                 1
               </span>
               <span className="text-[12px] text-fg-muted leading-snug">
-                Click <strong className="text-fg-primary font-semibold">+</strong> above to create a new selector
+                Click{" "}
+                <strong className="text-fg-primary font-semibold">+</strong>{" "}
+                above to create a new selector
               </span>
             </li>
             <li className="flex items-start gap-3">
@@ -746,7 +749,9 @@ export function FiltersPanel() {
                 2
               </span>
               <span className="text-[12px] text-fg-muted leading-snug">
-                Define <strong className="text-fg-primary font-semibold">rules</strong> — match elements by path, name, or hierarchy level
+                Define{" "}
+                <strong className="text-fg-primary font-semibold">rules</strong>{" "}
+                — match elements by path, name, or hierarchy level
               </span>
             </li>
             <li className="flex items-start gap-3">
@@ -755,193 +760,196 @@ export function FiltersPanel() {
               </span>
               <span className="text-[12px] text-fg-muted leading-snug">
                 Choose a mode —{" "}
-                <strong className="text-fg-primary font-semibold">Color</strong> highlights,{" "}
-                <strong className="text-fg-primary font-semibold">Dim</strong> fades unmatched,{" "}
-                <strong className="text-fg-primary font-semibold">Hide</strong> removes unmatched
+                <strong className="text-fg-primary font-semibold">Color</strong>{" "}
+                highlights,{" "}
+                <strong className="text-fg-primary font-semibold">Dim</strong>{" "}
+                fades unmatched,{" "}
+                <strong className="text-fg-primary font-semibold">Hide</strong>{" "}
+                removes unmatched
               </span>
             </li>
           </ol>
         </div>
       ) : (
-      <div className="flex-1 overflow-y-auto flex flex-col">
-        <div className="flex items-center gap-3 px-4 pt-2.5 pb-2 border-b border-border/30 shrink-0">
-          <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider shrink-0 w-20">
-            Mode
-          </span>
-          <div className="flex gap-1">
-            {MODES.map((m) => (
-              <button
-                key={m}
-                onClick={() => updateDraft((d) => ({ ...d, mode: m }))}
-                className={[
-                  "px-3 py-1 rounded text-[11px] font-semibold border transition-colors",
-                  draft.mode === m
-                    ? "border-accent bg-accent text-bg-base"
-                    : "border-border text-fg-muted hover:border-accent/50 hover:text-fg-primary",
-                ].join(" ")}
-              >
-                {m.charAt(0).toUpperCase() + m.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="px-4 pt-2.5 pb-2 border-b border-border/30 shrink-0">
-          <div className="flex items-center gap-2 mb-1.5">
+        <div className="flex-1 overflow-y-auto flex flex-col">
+          <div className="flex items-center gap-3 px-4 pt-2.5 pb-2 border-b border-border/30 shrink-0">
             <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider shrink-0 w-20">
-              Expression
+              Mode
             </span>
-            <div className="flex items-center gap-0.5">
-              {(["&", "|", "-", "(", ")"] as const).map((op) => (
+            <div className="flex gap-1">
+              {MODES.map((m) => (
                 <button
-                  key={op}
-                  onClick={() => insertAtCursor(op)}
-                  className="w-6 h-6 flex items-center justify-center border border-border rounded text-[11px] font-mono text-fg-muted hover:border-accent/60 hover:text-fg-primary hover:bg-bg-elevated transition-colors"
+                  key={m}
+                  onClick={() => updateDraft((d) => ({ ...d, mode: m }))}
+                  className={[
+                    "px-3 py-1 rounded text-[11px] font-semibold border transition-colors",
+                    draft.mode === m
+                      ? "border-accent bg-accent text-bg-base"
+                      : "border-border text-fg-muted hover:border-accent/50 hover:text-fg-primary",
+                  ].join(" ")}
                 >
-                  {op}
+                  {m.charAt(0).toUpperCase() + m.slice(1)}
                 </button>
               ))}
-              <button
-                onClick={() => updateDraft((d) => ({ ...d, expression: "" }))}
-                className="ml-1 px-2 py-0.5 text-[10px] border border-border rounded text-fg-muted hover:border-accent/50 hover:text-fg-primary hover:bg-bg-elevated transition-colors"
-              >
-                clear
-              </button>
             </div>
           </div>
-          <input
-            ref={expressionRef}
-            type="text"
-            value={draft.expression}
-            onChange={(e) =>
-              updateDraft((d) => ({ ...d, expression: e.target.value }))
-            }
-            onBlur={handleExpressionBlur}
-            onKeyDown={handleExpressionKeyDown}
-            placeholder={
-              ruleIds.length > 0
-                ? `e.g.  ${ruleIds[0]}  ·  ${ruleIds[0]} | ${ruleIds[1] ?? "r2"}  ·  (${ruleIds[0]} & -${ruleIds[1] ?? "r2"})`
-                : "add rules below, then combine them here"
-            }
-            className={`w-full ${inputCls} py-1.5`}
-          />
-        </div>
 
-        <div className="flex-1 px-4 pt-2.5 pb-2 flex flex-col gap-2 min-h-0">
-          <div className="flex items-center justify-between shrink-0">
-            <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider select-none">
-              Rules
-            </span>
-            <span className="text-[10px] text-fg-disabled select-none">
-              click row to insert · ✎ to edit
-            </span>
+          <div className="px-4 pt-2.5 pb-2 border-b border-border/30 shrink-0">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider shrink-0 w-20">
+                Expression
+              </span>
+              <div className="flex items-center gap-0.5">
+                {(["&", "|", "-", "(", ")"] as const).map((op) => (
+                  <button
+                    key={op}
+                    onClick={() => insertAtCursor(op)}
+                    className="w-6 h-6 flex items-center justify-center border border-border rounded text-[11px] font-mono text-fg-muted hover:border-accent/60 hover:text-fg-primary hover:bg-bg-elevated transition-colors"
+                  >
+                    {op}
+                  </button>
+                ))}
+                <button
+                  onClick={() => updateDraft((d) => ({ ...d, expression: "" }))}
+                  className="ml-1 px-2 py-0.5 text-[10px] border border-border rounded text-fg-muted hover:border-accent/50 hover:text-fg-primary hover:bg-bg-elevated transition-colors"
+                >
+                  clear
+                </button>
+              </div>
+            </div>
+            <input
+              ref={expressionRef}
+              type="text"
+              value={draft.expression}
+              onChange={(e) =>
+                updateDraft((d) => ({ ...d, expression: e.target.value }))
+              }
+              onBlur={handleExpressionBlur}
+              onKeyDown={handleExpressionKeyDown}
+              placeholder={
+                ruleIds.length > 0
+                  ? `e.g.  ${ruleIds[0]}  ·  ${ruleIds[0]} | ${ruleIds[1] ?? "r2"}  ·  (${ruleIds[0]} & -${ruleIds[1] ?? "r2"})`
+                  : "add rules below, then combine them here"
+              }
+              className={`w-full ${inputCls} py-1.5`}
+            />
           </div>
 
-          <div className="flex flex-col gap-1.5 overflow-y-auto flex-1 min-h-0">
-            {rules.map((rule) =>
-              editingRuleId === rule.id && editingRuleDraft ? (
+          <div className="flex-1 px-4 pt-2.5 pb-2 flex flex-col gap-2 min-h-0">
+            <div className="flex items-center justify-between shrink-0">
+              <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider select-none">
+                Rules
+              </span>
+              <span className="text-[10px] text-fg-disabled select-none">
+                click row to insert · ✎ to edit
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-1.5 overflow-y-auto flex-1 min-h-0">
+              {rules.map((rule) =>
+                editingRuleId === rule.id && editingRuleDraft ? (
+                  <RuleEditor
+                    key={rule.id}
+                    draft={editingRuleDraft}
+                    onChange={(d) =>
+                      setRuleDrafts((m) => new Map(m).set(rule.id, d))
+                    }
+                    onDone={() => commitRule(rule.id)}
+                    onCancel={cancelRuleEdit}
+                    isNew={false}
+                  />
+                ) : (
+                  <RuleRow
+                    key={rule.id}
+                    rule={rule}
+                    isEditing={editingRuleId === rule.id}
+                    onInsert={() => insertAtCursor(rule.id)}
+                    onEdit={() => startEditRule(rule)}
+                    onDelete={() => deleteRule(rule.id)}
+                  />
+                ),
+              )}
+
+              {isNewRule && editingRuleId === "__new__" && editingRuleDraft ? (
                 <RuleEditor
-                  key={rule.id}
                   draft={editingRuleDraft}
                   onChange={(d) =>
-                    setRuleDrafts((m) => new Map(m).set(rule.id, d))
+                    setRuleDrafts((m) => new Map(m).set("__new__", d))
                   }
-                  onDone={() => commitRule(rule.id)}
+                  onDone={() => commitRule("__new__")}
                   onCancel={cancelRuleEdit}
-                  isNew={false}
+                  isNew
                 />
               ) : (
-                <RuleRow
-                  key={rule.id}
-                  rule={rule}
-                  isEditing={editingRuleId === rule.id}
-                  onInsert={() => insertAtCursor(rule.id)}
-                  onEdit={() => startEditRule(rule)}
-                  onDelete={() => deleteRule(rule.id)}
-                />
-              ),
-            )}
+                <button
+                  onClick={startNewRule}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium border border-border rounded text-fg-muted hover:border-accent/50 hover:text-fg-primary hover:bg-bg-elevated transition-colors self-start"
+                >
+                  <Plus size={12} />
+                  Define rule
+                </button>
+              )}
 
-            {isNewRule && editingRuleId === "__new__" && editingRuleDraft ? (
-              <RuleEditor
-                draft={editingRuleDraft}
-                onChange={(d) =>
-                  setRuleDrafts((m) => new Map(m).set("__new__", d))
-                }
-                onDone={() => commitRule("__new__")}
-                onCancel={cancelRuleEdit}
-                isNew
-              />
-            ) : (
-              <button
-                onClick={startNewRule}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium border border-border rounded text-fg-muted hover:border-accent/50 hover:text-fg-primary hover:bg-bg-elevated transition-colors self-start"
-              >
-                <Plus size={12} />
-                Define rule
-              </button>
-            )}
-
-            {rules.length === 0 && !isNewRule && (
-              <p className="text-[11px] text-fg-disabled italic py-1">
-                No rules yet — define one above.
-              </p>
-            )}
+              {rules.length === 0 && !isNewRule && (
+                <p className="text-[11px] text-fg-disabled italic py-1">
+                  No rules yet — define one above.
+                </p>
+              )}
+            </div>
           </div>
         </div>
-      </div>
       )}
 
       {(visibleSelectors.length > 0 || isNew) && (
-      <div className="flex items-center gap-2 px-3 py-2 border-t border-border shrink-0 bg-bg-elevated">
-        {!isNew && (
-          <DangerIconBtn
-            onClick={handleDeleteSelector}
-            title="Delete selector"
-            className="p-1! shrink-0"
-          >
-            <Trash2 size={13} />
-          </DangerIconBtn>
-        )}
-        <input
-          type="text"
-          value={draft.label}
-          onChange={(e) =>
-            updateDraft((d) => ({ ...d, label: e.target.value }))
-          }
-          className="flex-1 bg-transparent border-b border-border text-[13px] font-semibold text-fg-primary focus:outline-none focus:border-accent placeholder:text-fg-disabled py-0.5 transition-colors"
-          placeholder="Selector name"
-        />
-        <div className="relative shrink-0">
+        <div className="flex items-center gap-2 px-3 py-2 border-t border-border shrink-0 bg-bg-elevated">
+          {!isNew && (
+            <DangerIconBtn
+              onClick={handleDeleteSelector}
+              title="Delete selector"
+              className="p-1! shrink-0"
+            >
+              <Trash2 size={13} />
+            </DangerIconBtn>
+          )}
           <input
-            type="color"
-            value={draft.color}
+            type="text"
+            value={draft.label}
             onChange={(e) =>
-              updateDraft((d) => ({ ...d, color: e.target.value }))
+              updateDraft((d) => ({ ...d, label: e.target.value }))
             }
-            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-            title="Pick color"
+            className="flex-1 bg-transparent border-b border-border text-[13px] font-semibold text-fg-primary focus:outline-none focus:border-accent placeholder:text-fg-disabled py-0.5 transition-colors"
+            placeholder="Selector name"
           />
-          <div
-            className="w-5 h-5 rounded-full border-2 border-border cursor-pointer hover:border-accent transition-colors"
-            style={{ background: draft.color }}
-            title="Pick color"
-          />
+          <div className="relative shrink-0">
+            <input
+              type="color"
+              value={draft.color}
+              onChange={(e) =>
+                updateDraft((d) => ({ ...d, color: e.target.value }))
+              }
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              title="Pick color"
+            />
+            <div
+              className="w-5 h-5 rounded-full border-2 border-border cursor-pointer hover:border-accent transition-colors"
+              style={{ background: draft.color }}
+              title="Pick color"
+            />
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={!isDirty}
+            className={[
+              "flex items-center gap-1 px-3 py-1 rounded text-[11px] font-semibold border transition-colors shrink-0",
+              isDirty
+                ? "bg-accent border-accent text-bg-base hover:bg-accent-hover hover:border-accent-hover cursor-pointer"
+                : "bg-bg-overlay border-border text-fg-disabled cursor-default",
+            ].join(" ")}
+          >
+            <Check size={12} />
+            {isNew ? "Create" : "Save"}
+          </button>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={!isDirty}
-          className={[
-            "flex items-center gap-1 px-3 py-1 rounded text-[11px] font-semibold border transition-colors shrink-0",
-            isDirty
-              ? "bg-accent border-accent text-bg-base hover:bg-accent-hover hover:border-accent-hover cursor-pointer"
-              : "bg-bg-overlay border-border text-fg-disabled cursor-default",
-          ].join(" ")}
-        >
-          <Check size={12} />
-          {isNew ? "Create" : "Save"}
-        </button>
-      </div>
       )}
     </div>
   );

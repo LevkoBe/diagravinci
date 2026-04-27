@@ -19,6 +19,7 @@ createRoot(document.getElementById("root")!).render(
           config={{
             colors: parchmentTheme,
             tokens: lightStateTokens,
+            splitMargin: 8,
           }}
           storageKey="diagravinci-settings"
         >
