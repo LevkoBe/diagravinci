@@ -1543,7 +1543,7 @@ describe("computeExecutionStep — connector", () => {
 });
 
 describe("computeExecutionStep — disconnector", () => {
-  it("disconnector strips clonedRelationshipIds and adds them to removeRelationshipIds", () => {
+  it("disconnector splits multi-element token into independent instances and removes relationships", () => {
     const d = createElement("disconnector", "function");
     const dst = coll("dst"), t0 = obj("A"), t1 = obj("B");
     const rel1 = createRelationship("A-->B", "A", "B", "-->");
@@ -1552,9 +1552,11 @@ describe("computeExecutionStep — disconnector", () => {
     const vs = makeViewState({ disconnector: { x: 0, y: 0 }, dst: { x: 100, y: 0 }, "disconnector.A": { x: 0, y: 0 }, "disconnector.B": { x: 0, y: 0 } });
     const instance: TokenInstance = { id: "inst_0", currentElementId: "disconnector", currentPath: "disconnector", clonedElementIds: ["A", "B"], clonedRelationshipIds: ["A-->B"] };
     const result = computeExecutionStep(model, vs, [instance], 1, 1, COLOR);
-    expect(result.nextInstances).toHaveLength(1);
-    expect(result.nextInstances[0].currentElementId).toBe("dst");
-    expect(result.nextInstances[0].clonedRelationshipIds).toEqual([]);
+    expect(result.nextInstances).toHaveLength(2);
+    expect(result.nextInstances.every((i) => i.currentElementId === "dst")).toBe(true);
+    expect(result.nextInstances.every((i) => i.clonedRelationshipIds.length === 0)).toBe(true);
+    expect(result.nextInstances[0].clonedElementIds).toHaveLength(1);
+    expect(result.nextInstances[1].clonedElementIds).toHaveLength(1);
     expect(result.delta.removeRelationshipIds).toContain("A-->B");
   });
 

@@ -67,6 +67,11 @@ interface ClonedItem {
   parentCloneId: string | null;
 }
 
+function leafId(ref: string): string {
+  const dot = ref.lastIndexOf(".");
+  return dot === -1 ? ref : ref.slice(dot + 1);
+}
+
 function cloneSubtree(
   model: DiagramModel,
   rootChildIds: string[],
@@ -102,12 +107,14 @@ function cloneSubtree(
 
   const relationships: Relationship[] = [];
   for (const rel of Object.values(model.relationships)) {
-    if (idMap[rel.source] && idMap[rel.target]) {
+    const srcLeaf = leafId(rel.source);
+    const tgtLeaf = leafId(rel.target);
+    if (idMap[srcLeaf] && idMap[tgtLeaf]) {
       relationships.push({
         ...rel,
         id: `${rel.id}_${suffix}`,
-        source: idMap[rel.source],
-        target: idMap[rel.target],
+        source: idMap[srcLeaf],
+        target: idMap[tgtLeaf],
       });
     }
   }
@@ -129,8 +136,10 @@ function connectedComponents(ids: string[], model: DiagramModel): string[][] {
   }
 
   for (const rel of Object.values(model.relationships)) {
-    if (idSet.has(rel.source) && idSet.has(rel.target)) {
-      parent.set(find(rel.source), find(rel.target));
+    const src = leafId(rel.source);
+    const tgt = leafId(rel.target);
+    if (idSet.has(src) && idSet.has(tgt)) {
+      parent.set(find(src), find(tgt));
     }
   }
 
@@ -531,7 +540,27 @@ export function computeExecutionStep(
         const nextTargetId = targets[0];
         const nextTargetPath = findElementPath(viewState, nextTargetId);
         const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
-        forwardInstance({ ...instance, clonedRelationshipIds: [] }, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+        if (instance.clonedElementIds.length <= 1) {
+          forwardInstance({ ...instance, clonedRelationshipIds: [] }, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+        } else {
+          for (const cloneId of instance.clonedElementIds) {
+            delta.moveElements.push({
+              elementId: cloneId,
+              fromParentId: instance.currentElementId,
+              fromPath: `${instance.currentPath}.${cloneId}`,
+              toParentId: nextTargetId,
+              toPath: `${nextTargetPath}.${cloneId}`,
+              newPosition: { ...nextTargetPos },
+            });
+            nextInstances.push({
+              id: `inst_${idCounter++}`,
+              currentElementId: nextTargetId,
+              currentPath: nextTargetPath,
+              clonedElementIds: [cloneId],
+              clonedRelationshipIds: [],
+            });
+          }
+        }
         continue;
       }
 

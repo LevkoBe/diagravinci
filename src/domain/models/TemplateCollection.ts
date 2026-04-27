@@ -4,6 +4,7 @@ import {
   EDGE_CASE_TEMPLATES,
   EXECUTION_TEMPLATES,
   ICON_SHOWCASE_TEMPLATE,
+  RADIAL_TEMPLATES,
   SELECTOR_SHOWCASE_TEMPLATES,
   STRESS_TEMPLATES,
   type DiagramTemplate,
@@ -59,4 +60,13 @@ export const EXECUTION_COLLECTION: TemplateCollection = {
   name: "Execution",
   isBuiltIn: true,
   templates: EXECUTION_TEMPLATES,
+};
+
+export const RADIAL_COLLECTION_ID = "__radial__";
+
+export const RADIAL_COLLECTION: TemplateCollection = {
+  id: RADIAL_COLLECTION_ID,
+  name: "Radial",
+  isBuiltIn: true,
+  templates: RADIAL_TEMPLATES,
 };

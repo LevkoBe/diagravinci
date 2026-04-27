@@ -35,6 +35,7 @@ import {
   Network,
   ArrowRightLeft,
   Workflow,
+  Target,
   Spline,
   Square,
   Hexagon,
@@ -689,6 +690,11 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
               value: "pipeline",
               label: "Pipeline",
               icon: <Workflow size={14} />,
+            },
+            {
+              value: "radial",
+              label: "Radial",
+              icon: <Target size={14} />,
             },
           ]}
         />

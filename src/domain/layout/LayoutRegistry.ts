@@ -5,6 +5,7 @@ import { HierarchicalLayout } from "./HierarchicalLayout";
 import { TimelineLayout } from "./TimelineLayout";
 import { PipelineLayout } from "./PipelineLayout";
 import { ExecuteLayout } from "./ExecuteLayout";
+import { RadialLayout } from "./RadialLayout";
 
 type ViewMode = ViewState["viewMode"];
 
@@ -14,6 +15,7 @@ const registry: Record<ViewMode, LayoutAlgorithm> = {
   hierarchical: new HierarchicalLayout(),
   timeline: new TimelineLayout(),
   pipeline: new PipelineLayout(),
+  radial: new RadialLayout(),
   execute: new ExecuteLayout(),
 };
 

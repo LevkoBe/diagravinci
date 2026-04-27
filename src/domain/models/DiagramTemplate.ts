@@ -790,20 +790,14 @@ connector --> merged`,
   },
   {
     id: "exec-disconnector",
-    name: "Disconnector — strip relationships",
+    name: "Disconnector — triangle splitter",
     description:
-      "Generator produces connected pairs; disconnector strips the relationship before forwarding the bare elements",
+      "Generator produces triangles (3 mutually-connected nodes x, y, z); disconnector splits each triangle into independent nodes forwarded to the output collection",
     tags: ["execution", "disconnector"],
     preferredView: "timeline",
-    code: `gen(
-  X{}
-  Y{}
-)
-disconnector()
-out[]
-
-gen --> disconnector
-disconnector --> out`,
+    code: `gen(x--y y--z z--x) -->
+disconnector() -->
+out[]`,
   },
   {
     id: "exec-multiplier-duplicator",
@@ -847,6 +841,151 @@ gen -->
   throttler_3() -->
   sparse[]
 `,
+  },
+];
+
+export const RADIAL_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "radial-solar-system",
+    name: "Solar System",
+    description:
+      "Star at center, planets in inner ring, moons in outer ring — natural radial hierarchy",
+    tags: ["radial", "hierarchy", "showcase"],
+    preferredView: "radial",
+    code: `Sun
+Mercury
+Venus
+Earth{
+  Moon
+}
+Mars{
+  Phobos
+  Deimos
+}
+Jupiter{
+  Io
+  Europa
+  Ganymede
+  Callisto
+}
+Saturn{
+  Titan
+  Enceladus
+}
+
+Sun-->Mercury
+Sun-->Venus
+Sun-->Earth
+Sun-->Mars
+Sun-->Jupiter
+Sun-->Saturn`,
+  },
+  {
+    id: "radial-org-chart",
+    name: "Org Chart",
+    description:
+      "CEO at center with VP direct reports in the first ring and their teams in the outer ring",
+    tags: ["radial", "organization", "hierarchy"],
+    preferredView: "radial",
+    code: `CEO
+CTO{
+  Frontend
+  Backend
+  Infrastructure
+}
+CFO{
+  Accounting
+  FPnA
+}
+CMO{
+  Growth
+  Brand
+  Content
+}
+CPO{
+  Product
+  Design
+  Research
+}
+
+CEO-->CTO
+CEO-->CFO
+CEO-->CMO
+CEO-->CPO`,
+  },
+  {
+    id: "radial-api-gateway",
+    name: "API Gateway Hub",
+    description:
+      "Central gateway routing to service rings with their sub-components",
+    tags: ["radial", "architecture", "microservices"],
+    preferredView: "radial",
+    code: `APIGateway
+AuthService{
+  TokenStore
+  SessionManager
+}
+UserService{
+  Profile
+  Preferences
+}
+OrderService{
+  Cart
+  Checkout
+  Fulfillment
+}
+NotificationService{
+  Email
+  Push
+  SMS
+}
+AnalyticsService{
+  Tracker
+  Reporter
+}
+
+APIGateway-->AuthService
+APIGateway-->UserService
+APIGateway-->OrderService
+APIGateway-->NotificationService
+APIGateway-->AnalyticsService`,
+  },
+  {
+    id: "radial-tech-radar",
+    name: "Technology Radar",
+    description:
+      "Engineering disciplines at the hub with specific technologies radiating outward",
+    tags: ["radial", "technology", "engineering"],
+    preferredView: "radial",
+    code: `Engineering
+Frontend{
+  React
+  TypeScript
+  Vite
+  TailwindCSS
+}
+Backend{
+  Node
+  Go
+  PostgreSQL
+  Redis
+}
+Infrastructure{
+  Docker
+  Kubernetes
+  Terraform
+  Grafana
+}
+Mobile{
+  Swift
+  Kotlin
+  ReactNative
+}
+
+Engineering-->Frontend
+Engineering-->Backend
+Engineering-->Infrastructure
+Engineering-->Mobile`,
   },
 ];
 
