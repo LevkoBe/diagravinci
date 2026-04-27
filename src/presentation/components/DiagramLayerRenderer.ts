@@ -379,6 +379,10 @@ export class DiagramLayerRenderer {
     return this.groupMap;
   }
 
+  getRelationshipRenderer(): RelationshipRenderer {
+    return this.relationshipRenderer;
+  }
+
   private setHovered(path: string | null): void {
     if (path === this.hoveredPath) return;
     if (this.hoveredPath) this.hoverOut.get(this.hoveredPath)?.();

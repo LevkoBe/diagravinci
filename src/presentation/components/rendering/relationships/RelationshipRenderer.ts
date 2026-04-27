@@ -73,6 +73,30 @@ export class RelationshipRenderer {
     this.relLineStyle = relLineStyle;
   }
 
+  getRelGroups(): Map<string, Konva.Group> {
+    return this.relGroups;
+  }
+
+  updateRelGroup(
+    relId: string,
+    srcX: number,
+    srcY: number,
+    srcSize: number,
+    tgtX: number,
+    tgtY: number,
+    tgtSize: number,
+    relType: RelationshipType,
+    label: string | undefined,
+  ): void {
+    const group = this.relGroups.get(relId);
+    if (!group) return;
+    const opacity = group.opacity();
+    group.destroyChildren();
+    const result = computeRelPoints(srcX, srcY, srcSize, tgtX, tgtY, tgtSize, relType, this.zoom);
+    if (!result.points) return;
+    this.populateRelGroup(group, result as RelPoints, relType, label, opacity);
+  }
+
   private populateRelGroup(
     group: Konva.Group,
     result: RelPoints,
