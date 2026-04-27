@@ -790,20 +790,14 @@ connector --> merged`,
   },
   {
     id: "exec-disconnector",
-    name: "Disconnector — strip relationships",
+    name: "Disconnector — triangle splitter",
     description:
-      "Generator produces connected pairs; disconnector strips the relationship before forwarding the bare elements",
+      "Generator produces triangles (3 mutually-connected nodes x, y, z); disconnector splits each triangle into independent nodes forwarded to the output collection",
     tags: ["execution", "disconnector"],
     preferredView: "timeline",
-    code: `gen(
-  X{}
-  Y{}
-)
-disconnector()
-out[]
-
-gen --> disconnector
-disconnector --> out`,
+    code: `gen(x--y y--z z--x) -->
+disconnector() -->
+out[]`,
   },
   {
     id: "exec-multiplier-duplicator",

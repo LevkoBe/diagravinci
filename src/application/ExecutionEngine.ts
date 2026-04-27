@@ -535,10 +535,32 @@ export function computeExecutionStep(
       }
 
       if (isDisconnector(currentEl)) {
+        for (const relId of instance.clonedRelationshipIds)
+          delta.removeRelationshipIds.push(relId);
         const nextTargetId = targets[0];
         const nextTargetPath = findElementPath(viewState, nextTargetId);
         const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
-        forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+        if (instance.clonedElementIds.length <= 1) {
+          forwardInstance({ ...instance, clonedRelationshipIds: [] }, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+        } else {
+          for (const cloneId of instance.clonedElementIds) {
+            delta.moveElements.push({
+              elementId: cloneId,
+              fromParentId: instance.currentElementId,
+              fromPath: `${instance.currentPath}.${cloneId}`,
+              toParentId: nextTargetId,
+              toPath: `${nextTargetPath}.${cloneId}`,
+              newPosition: { ...nextTargetPos },
+            });
+            nextInstances.push({
+              id: `inst_${idCounter++}`,
+              currentElementId: nextTargetId,
+              currentPath: nextTargetPath,
+              clonedElementIds: [cloneId],
+              clonedRelationshipIds: [],
+            });
+          }
+        }
         continue;
       }
 

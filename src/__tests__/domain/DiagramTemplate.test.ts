@@ -268,15 +268,16 @@ describe("EXECUTION_TEMPLATES", () => {
     expect(connectorIns.length).toBe(2);
   });
 
-  it("exec-disconnector — gen(X Y) → disconnector → out, X and Y are independent children", () => {
+  it("exec-disconnector — gen(triangle) → disconnector → out, x/y/z are internally connected", () => {
     const { code } = EXECUTION_TEMPLATES.find(
       (t) => t.id === "exec-disconnector",
     )!;
     const model = parse(code);
-    expect(Object.keys(model.elements).length).toBe(5);
-    expect(Object.keys(model.relationships).length).toBe(2);
-    expect(model.elements["gen"]?.childIds).toContain("X");
-    expect(model.elements["gen"]?.childIds).toContain("Y");
+    expect(Object.keys(model.elements).length).toBe(6);
+    expect(Object.keys(model.relationships).length).toBe(5);
+    expect(model.elements["gen"]?.childIds).toContain("x");
+    expect(model.elements["gen"]?.childIds).toContain("y");
+    expect(model.elements["gen"]?.childIds).toContain("z");
     expect(model.elements["disconnector"]?.type).toBe("function");
   });
 
