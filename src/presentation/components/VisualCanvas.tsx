@@ -451,7 +451,7 @@ export function VisualCanvas() {
       const W = maxWX - minWX;
       const H = maxWY - minWY;
 
-      const PAD = Math.min(stage.width(), stage.height()) * 0.1;
+      const PAD = Math.min(stage.width(), stage.height()) * 0.3;
 
       const scaleX = stage.width() / (W + PAD * 2);
       const scaleY = stage.height() / (H + PAD * 2);
@@ -686,22 +686,27 @@ export function VisualCanvas() {
     );
 
     const cloneIds = new Set(execInstances.flatMap((i) => i.clonedElementIds));
-    const cloneRelIds = new Set(execInstances.flatMap((i) => i.clonedRelationshipIds));
+    const cloneRelIds = new Set(
+      execInstances.flatMap((i) => i.clonedRelationshipIds),
+    );
     renderer.render(relationshipLayerRef.current, elementLayerRef.current);
     const groupMap = renderer.getGroupMap();
     const relRenderer = renderer.getRelationshipRenderer();
 
     if (cloneIds.size > 0) {
       const prevClonePositions = prevClonePositionsRef.current;
-      const animDurationMs = Math.min(
-        (tickIntervalMs / 1000) * VConfig.rendering.ANIM_TICK_RATIO,
-        VConfig.rendering.ANIM_MAX_DURATION,
-      ) * 1000;
+      const animDurationMs =
+        Math.min(
+          (tickIntervalMs / 1000) * VConfig.rendering.ANIM_TICK_RATIO,
+          VConfig.rendering.ANIM_MAX_DURATION,
+        ) * 1000;
 
       const elemAnims: Array<{
         group: Konva.Group;
-        oldX: number; oldY: number;
-        newX: number; newY: number;
+        oldX: number;
+        oldY: number;
+        newX: number;
+        newY: number;
       }> = [];
 
       for (const [path, posEntry] of Object.entries(viewState.positions)) {
@@ -711,29 +716,46 @@ export function VisualCanvas() {
         const group = groupMap.get(path);
         if (!group) continue;
         const newPos = posEntry.position;
-        const oldPos = prevClonePositions[elementId] ?? spawnOriginsRef.current.get(elementId);
-        if (!oldPos || (oldPos.x === newPos.x && oldPos.y === newPos.y)) continue;
+        const oldPos =
+          prevClonePositions[elementId] ??
+          spawnOriginsRef.current.get(elementId);
+        if (!oldPos || (oldPos.x === newPos.x && oldPos.y === newPos.y))
+          continue;
         group.x(oldPos.x);
         group.y(oldPos.y);
-        elemAnims.push({ group, oldX: oldPos.x, oldY: oldPos.y, newX: newPos.x, newY: newPos.y });
+        elemAnims.push({
+          group,
+          oldX: oldPos.x,
+          oldY: oldPos.y,
+          newX: newPos.x,
+          newY: newPos.y,
+        });
       }
 
       const relAnims: Array<{
         relId: string;
         relType: (typeof viewState.relationships)[number]["type"];
         label: string | undefined;
-        oldSrcX: number; oldSrcY: number;
-        oldTgtX: number; oldTgtY: number;
-        newSrcX: number; newSrcY: number; newSrcSize: number;
-        newTgtX: number; newTgtY: number; newTgtSize: number;
+        oldSrcX: number;
+        oldSrcY: number;
+        oldTgtX: number;
+        oldTgtY: number;
+        newSrcX: number;
+        newSrcY: number;
+        newSrcSize: number;
+        newTgtX: number;
+        newTgtY: number;
+        newTgtSize: number;
       }> = [];
 
       for (const rel of viewState.relationships) {
         if (!cloneRelIds.has(rel.id)) continue;
         const srcId = rel.sourcePath.split(".").at(-1)!;
         const tgtId = rel.targetPath.split(".").at(-1)!;
-        const oldSrc = prevClonePositions[srcId] ?? spawnOriginsRef.current.get(srcId);
-        const oldTgt = prevClonePositions[tgtId] ?? spawnOriginsRef.current.get(tgtId);
+        const oldSrc =
+          prevClonePositions[srcId] ?? spawnOriginsRef.current.get(srcId);
+        const oldTgt =
+          prevClonePositions[tgtId] ?? spawnOriginsRef.current.get(tgtId);
         if (!oldSrc || !oldTgt) continue;
         const newSrcPos = viewState.positions[rel.sourcePath];
         const newTgtPos = viewState.positions[rel.targetPath];
@@ -742,17 +764,23 @@ export function VisualCanvas() {
           relId: rel.id,
           relType: rel.type,
           label: rel.label,
-          oldSrcX: oldSrc.x, oldSrcY: oldSrc.y,
-          oldTgtX: oldTgt.x, oldTgtY: oldTgt.y,
-          newSrcX: newSrcPos.position.x, newSrcY: newSrcPos.position.y, newSrcSize: newSrcPos.size,
-          newTgtX: newTgtPos.position.x, newTgtY: newTgtPos.position.y, newTgtSize: newTgtPos.size,
+          oldSrcX: oldSrc.x,
+          oldSrcY: oldSrc.y,
+          oldTgtX: oldTgt.x,
+          oldTgtY: oldTgt.y,
+          newSrcX: newSrcPos.position.x,
+          newSrcY: newSrcPos.position.y,
+          newSrcSize: newSrcPos.size,
+          newTgtX: newTgtPos.position.x,
+          newTgtY: newTgtPos.position.y,
+          newTgtSize: newTgtPos.size,
         });
       }
 
       if (elemAnims.length > 0 || relAnims.length > 0) {
-        const layers = ([elementLayerRef.current, relationshipLayerRef.current] as const).filter(
-          (l): l is Konva.Layer => l !== null,
-        );
+        const layers = (
+          [elementLayerRef.current, relationshipLayerRef.current] as const
+        ).filter((l): l is Konva.Layer => l !== null);
         const anim = new Konva.Animation((frame) => {
           const t = Math.min((frame?.time ?? 0) / animDurationMs, 1);
           const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
@@ -762,7 +790,21 @@ export function VisualCanvas() {
             group.y(oldY + (newY - oldY) * eased);
           }
 
-          for (const { relId, relType, label, oldSrcX, oldSrcY, oldTgtX, oldTgtY, newSrcX, newSrcY, newSrcSize, newTgtX, newTgtY, newTgtSize } of relAnims) {
+          for (const {
+            relId,
+            relType,
+            label,
+            oldSrcX,
+            oldSrcY,
+            oldTgtX,
+            oldTgtY,
+            newSrcX,
+            newSrcY,
+            newSrcSize,
+            newTgtX,
+            newTgtY,
+            newTgtSize,
+          } of relAnims) {
             relRenderer.updateRelGroup(
               relId,
               oldSrcX + (newSrcX - oldSrcX) * eased,
