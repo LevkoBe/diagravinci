@@ -4,6 +4,8 @@
 
 **Feedback form:** https://forms.gle/gXc7GmhQnDBsrv867
 
+**Video tutorial:** [https://drive.google.com/file/d/190J67MwD3adfzf03B](https://drive.google.com/file/d/190J67MwD3adfzf03B-fISCcGqhQ7PlH9/view?usp=sharing)
+
 **Time to complete:** ~15–20 minutes
 
 Thank you for testing Diagravinci! It is a diagramming tool that lets you create diagrams in three ways at once — by writing code, by drawing visually, and by describing in natural language. Any feedback you have, no matter how small, is valuable.
