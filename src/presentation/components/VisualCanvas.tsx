@@ -247,7 +247,7 @@ export function VisualCanvas() {
       }
     });
 
-    stage.on("click", (e) => {
+    stage.on("click tap", (e) => {
       if (e.target !== stage) return;
       if (modeRef.current === "readonly") return;
       if (justDragSelectedRef.current) {
