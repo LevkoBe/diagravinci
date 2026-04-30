@@ -362,7 +362,7 @@ export class DiagramLayerRenderer {
     });
 
     const handlers = eventHandler.createHandlers();
-    group.on("click", handlers.onClick);
+    group.on("click tap", handlers.onClick);
     group.on("mouseenter", handlers.onMouseEnter);
     group.on("mouseleave", handlers.onMouseLeave);
     group.on("dragmove", handlers.onDragMove);
