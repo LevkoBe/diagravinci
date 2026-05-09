@@ -7,6 +7,7 @@ import {
   RADIAL_TEMPLATES,
   SELECTOR_SHOWCASE_TEMPLATES,
   STRESS_TEMPLATES,
+  TEACHING_TEMPLATES,
   type DiagramTemplate,
 } from "./DiagramTemplate";
 
@@ -69,4 +70,13 @@ export const RADIAL_COLLECTION: TemplateCollection = {
   name: "Radial",
   isBuiltIn: true,
   templates: RADIAL_TEMPLATES,
+};
+
+export const TEACHING_COLLECTION_ID = "__teaching__";
+
+export const TEACHING_COLLECTION: TemplateCollection = {
+  id: TEACHING_COLLECTION_ID,
+  name: "Software Engineering Teaching",
+  isBuiltIn: true,
+  templates: TEACHING_TEMPLATES,
 };

@@ -181,6 +181,182 @@ Processing --> Failure
 Failure --> Idle
 Success --> Idle`,
   },
+  {
+    id: "capstone-app",
+    name: "Capstone App",
+    description:
+      "Generic full-stack capstone starter — rename blocks to match your project",
+    tags: ["capstone", "fullstack", "starter", "web", "student"],
+    preferredView: "hierarchical",
+    code: `Frontend{
+  UI{
+    Pages
+    Components
+    Styles
+  }
+  Router
+  StateManager
+}
+API{
+  Auth{
+    Login()
+    Register()
+    Refresh()
+  }
+  Core{
+    Handlers
+    Services
+    Validators
+  }
+}
+DB{
+  Schema
+  Migrations
+  Queries
+}
+ExternalServices
+
+Frontend --> API
+API --> DB
+API --> ExternalServices`,
+  },
+  {
+    id: "user-journey",
+    name: "User Journey",
+    description:
+      "User experience flow with decision points — run in Execute layout to animate",
+    tags: ["ux", "user-flow", "business", "execution", "student"],
+    preferredView: "timeline",
+    code: `>Input>
+Registration{
+  FormInput
+  Validation()
+}
+<AuthGate>
+Onboarding{
+  Welcome
+  ProfileSetup
+}
+CoreAction{
+  MainFeature
+  SecondaryFeature
+}
+<OutcomeGate>
+SuccessPath[
+  Confirmed
+]
+ErrorPath[
+  ErrorMessage
+  RetryOption
+]
+Retention{
+  Notification
+  ReturnVisit
+}
+
+>Input> --> Registration
+Registration --> <AuthGate>
+<AuthGate> --success--> Onboarding
+<AuthGate> --fail--> ErrorPath
+Onboarding --> CoreAction
+CoreAction --> <OutcomeGate>
+<OutcomeGate> --ok--> SuccessPath
+<OutcomeGate> --error--> ErrorPath
+ErrorPath --> Registration
+SuccessPath --> Retention
+Retention --> CoreAction`,
+  },
+  {
+    id: "feature-planning",
+    name: "Feature Planning",
+    description: "Scaffold for designing a new feature before writing code",
+    tags: ["planning", "feature", "design", "ideation", "student"],
+    preferredView: "hierarchical",
+    code: `Problem{
+  CurrentPainPoint
+  AffectedUsers
+}
+ProposedSolution{
+  UIChanges{
+    NewScreens
+    UpdatedComponents
+  }
+  BackendChanges{
+    NewEndpoints()
+    DataMigration
+    BusinessLogic()
+  }
+  DataModel{
+    NewEntities
+    RelationshipChanges
+  }
+}
+Impact{
+  UserBenefit
+  TechnicalDebt
+  Dependencies
+}
+Risks
+
+Problem --> ProposedSolution
+ProposedSolution --> Impact
+ProposedSolution --> Risks`,
+  },
+  {
+    id: "database-schema",
+    name: "Database Schema",
+    description:
+      "Entity relationships — enable class diagram mode for an ER diagram look",
+    tags: ["database", "schema", "data", "er-diagram", "student"],
+    preferredView: "hierarchical",
+    code: `User{
+  id
+  email
+  passwordHash
+  createdAt
+}
+Session{
+  id
+  userId
+  token
+  expiresAt
+}
+Post{
+  id
+  authorId
+  title
+  content
+  publishedAt
+}
+Profile{
+  id
+  userId
+  displayName
+  avatarUrl
+}
+Comment{
+  id
+  postId
+  authorId
+  body
+  createdAt
+}
+Tag{
+  id
+  name
+}
+PostTag{
+  postId
+  tagId
+}
+
+User *-- Session
+User *-- Profile
+User *-- Post
+Post *-- Comment
+Post *-- PostTag
+Tag *-- PostTag`,
+  },
 ];
 
 function generateStarDsl(spokeCount: number): string {
@@ -1216,5 +1392,231 @@ RawSources --> Ingestion
 Ingestion --> Processing
 Processing --> Serving
 Serving --> Consumption`,
+  },
+];
+
+export const TEACHING_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "teach-observer",
+    name: "Observer Pattern",
+    description:
+      "Behavioral pattern: Subject notifies registered Observers on state change",
+    tags: ["design-patterns", "oop", "behavioral", "teaching"],
+    preferredView: "hierarchical",
+    code: `Subject{
+  state
+  observers[]
+  attach()
+  detach()
+  notify()
+}
+ConcreteSubject{
+  concreteState
+  getState()
+  setState()
+}
+Observer{
+  update()
+}
+ConcreteObserverA{
+  observerState
+  update()
+}
+ConcreteObserverB{
+  observerState
+  update()
+}
+
+ConcreteSubject --|> Subject
+ConcreteObserverA ..|> Observer
+ConcreteObserverB ..|> Observer
+Observer --o Subject`,
+  },
+  {
+    id: "teach-strategy",
+    name: "Strategy Pattern",
+    description:
+      "Behavioral pattern: Context delegates behavior to interchangeable Strategy objects",
+    tags: ["design-patterns", "oop", "behavioral", "teaching"],
+    preferredView: "hierarchical",
+    code: `Context{
+  strategy
+  setStrategy()
+  executeStrategy()
+}
+Strategy{
+  execute()
+}
+ConcreteStrategyA{
+  execute()
+}
+ConcreteStrategyB{
+  execute()
+}
+ConcreteStrategyC{
+  execute()
+}
+
+Strategy --o Context
+ConcreteStrategyA ..|> Strategy
+ConcreteStrategyB ..|> Strategy
+ConcreteStrategyC ..|> Strategy`,
+  },
+  {
+    id: "teach-http-lifecycle",
+    name: "HTTP Request Lifecycle",
+    description:
+      "Full request path from client through load balancer, middleware, and service layers to database",
+    tags: ["web", "http", "architecture", "teaching"],
+    preferredView: "pipeline",
+    code: `Client
+DNS
+LoadBalancer
+WebServer{
+  TLSTermination
+  RequestParser
+  MiddlewareChain{
+    AuthMiddleware()
+    CorsMiddleware()
+    RateLimiter()
+    Logger()
+  }
+}
+AppServer{
+  Router
+  Controller{
+    InputValidator()
+    Handler()
+    ResponseFormatter()
+  }
+  ServiceLayer{
+    BusinessLogic()
+    CacheLayer{
+      RedisCache
+    }
+    DataLayer{
+      Repository()
+      Database
+    }
+  }
+}
+
+Client --> DNS
+DNS --> LoadBalancer
+LoadBalancer --> WebServer
+WebServer --> AppServer
+AppServer --> Client`,
+  },
+  {
+    id: "teach-auth-flow",
+    name: "Authentication Flow",
+    description:
+      "JWT-based auth with token validation, role check, and error paths — run in Execute to animate",
+    tags: ["security", "auth", "teaching", "execution"],
+    preferredView: "timeline",
+    code: `>Request>
+<TokenPresent>
+TokenValidator{
+  JWTParser()
+  SignatureCheck()
+  ExpiryCheck()
+}
+<TokenValid>
+RoleChecker{
+  RoleLoader()
+  PolicyEngine()
+}
+<HasPermission>
+Resource{
+  ReadHandler()
+  WriteHandler()
+}
+ErrorResponse[
+  Unauthorized
+  Forbidden
+  ExpiredToken
+]
+>Response>
+
+>Request> --> <TokenPresent>
+<TokenPresent> --yes--> TokenValidator
+<TokenPresent> --no--> ErrorResponse
+TokenValidator --> <TokenValid>
+<TokenValid> --valid--> RoleChecker
+<TokenValid> --invalid--> ErrorResponse
+RoleChecker --> <HasPermission>
+<HasPermission> --yes--> Resource
+<HasPermission> --no--> ErrorResponse
+Resource --> >Response>
+ErrorResponse --> >Response>`,
+  },
+  {
+    id: "teach-producer-consumer",
+    name: "Producer-Consumer",
+    description:
+      "Concurrent message passing with bounded buffer and round-robin consumers — run in Execute",
+    tags: ["concurrency", "patterns", "teaching", "execution"],
+    preferredView: "timeline",
+    code: `gen(
+  Message{}
+)
+BoundedBuffer[]
+round_robin()
+Consumer1()
+Consumer2()
+Consumer3()
+Processed{}
+
+gen --> BoundedBuffer
+BoundedBuffer --> round_robin
+round_robin --> Consumer1
+round_robin --> Consumer2
+round_robin --> Consumer3
+Consumer1 --> Processed
+Consumer2 --> Processed
+Consumer3 --> Processed`,
+  },
+  {
+    id: "teach-arch-evolution",
+    name: "Monolith to Microservices",
+    description:
+      "Both architectures in one diagram — selector highlights the contrast; use to teach trade-offs",
+    tags: ["architecture", "microservices", "teaching", "comparison"],
+    preferredView: "hierarchical",
+    code: `!atom id=mono name=Monolith
+!selector name=MonolithView mode=color color=#a78bfa combiner=mono
+
+Monolith{
+  UI
+  BusinessLogic{
+    UserModule
+    OrderModule
+    NotificationModule
+    ReportingModule
+  }
+  DataAccess{
+    UserRepo
+    OrderRepo
+  }
+  Database
+}
+
+APIGateway
+UserService{
+  UserAPI
+  UserDB
+}
+OrderService{
+  OrderAPI
+  OrderDB
+}
+NotificationService
+MessageBroker
+
+APIGateway --> UserService
+APIGateway --> OrderService
+OrderService --> NotificationService
+OrderService --> MessageBroker
+NotificationService --> MessageBroker`,
   },
 ];
