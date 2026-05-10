@@ -4,6 +4,8 @@ import type { Element } from "../../domain/models/Element";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { ViewState } from "../../domain/models/ViewState";
 import type { Colors, RenderCallbacks } from "./rendering/types";
+import type { Selector } from "../../domain/models/Selector";
+import { matchesSelector } from "../../domain/sync/FilterResolver";
 import { ElementEventHandler } from "./rendering/elements/ElementEventHandler";
 import {
   RelationshipRenderer,
@@ -104,6 +106,7 @@ export class DiagramLayerRenderer {
   private readonly isReadonly: boolean;
   private readonly executionColorMap: Record<string, string>;
   private readonly classDiagramMode: boolean;
+  private readonly getGroupMoveInfo?: () => { selectorId: string | null; filterSelectors: Selector[] };
 
   constructor(
     stage: Konva.Stage,
@@ -121,6 +124,7 @@ export class DiagramLayerRenderer {
     classDiagramMode = true,
     elementSizes?: ElementSizes,
     geometryCache?: GeometryCache,
+    getGroupMoveInfo?: () => { selectorId: string | null; filterSelectors: Selector[] },
   ) {
     this.stage = stage;
     this.model = model;
@@ -134,6 +138,7 @@ export class DiagramLayerRenderer {
     this.isReadonly = isReadonly;
     this.executionColorMap = executionColorMap;
     this.classDiagramMode = classDiagramMode;
+    this.getGroupMoveInfo = getGroupMoveInfo;
 
     const { pixelSizes, zoomHidden, zoomDimmed } =
       elementSizes ?? computeElementSizes(model, this.viewState, zoom);
@@ -345,6 +350,7 @@ export class DiagramLayerRenderer {
         onClick: this.callbacks.onClick,
         onPositionChange: this.callbacks.onPositionChange,
         onReparent: this.callbacks.onReparent,
+        moveGroupPeers: (path, worldPos) => this.moveGroupPeersForDrag(path, worldPos),
         setHovered: (p) => this.setHovered(p),
         findHoveredPath: (id, pos) => this.findBestPath(id, pos, null),
         findNewParentPath: (p, pos) =>
@@ -453,6 +459,33 @@ export class DiagramLayerRenderer {
         childGroup.y(storedChildPos.y + delta.y);
       }
     });
+  }
+
+  private moveGroupPeersForDrag(path: string, worldPos: { x: number; y: number }): void {
+    if (!this.getGroupMoveInfo) return;
+    const { selectorId, filterSelectors } = this.getGroupMoveInfo();
+    if (!selectorId) return;
+    const sel = filterSelectors.find((s) => s.id === selectorId);
+    if (!sel) return;
+
+    const rules = this.model.rules ?? [];
+    if (!matchesSelector(path, sel, this.model, rules)) return;
+
+    const startPos = this.viewState.positions[path]?.position;
+    if (!startPos) return;
+
+    const delta = { x: worldPos.x - startPos.x, y: worldPos.y - startPos.y };
+
+    for (const [gp, posEntry] of Object.entries(this.viewState.positions)) {
+      if (gp === path) continue;
+      if (!matchesSelector(gp, sel, this.model, rules)) continue;
+      const group = this.groupMap.get(gp);
+      if (group) {
+        group.x(posEntry.position.x + delta.x);
+        group.y(posEntry.position.y + delta.y);
+        this.updateRelationshipLines(gp);
+      }
+    }
   }
 
   private updateChildPositions(parentPath: string): void {

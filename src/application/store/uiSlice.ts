@@ -20,6 +20,7 @@ export interface UIState {
   activeRelationshipType: RelationshipType;
   connectingFromId: string | null;
   selectedElementIds: string[];
+  groupMoveSelectorId: string | null;
   zoomCommand: ZoomCommand | null;
   renderStyle: RenderStyle;
   relLineStyle: RelLineStyle;
@@ -34,6 +35,7 @@ const initialState: UIState = {
   activeRelationshipType: ui.DEFAULT_RELATIONSHIP_TYPE,
   connectingFromId: null,
   selectedElementIds: [],
+  groupMoveSelectorId: null,
   zoomCommand: null,
   renderStyle: ui.DEFAULT_RENDER_STYLE,
   relLineStyle: "straight",
@@ -83,6 +85,9 @@ const uiSlice = createSlice({
     clearSelection(state) {
       state.selectedElementIds = [];
     },
+    setGroupMoveSelectorId(state, action: PayloadAction<string | null>) {
+      state.groupMoveSelectorId = action.payload;
+    },
     sendZoomCommand(state, action: PayloadAction<"in" | "out" | "reset">) {
       state.zoomCommand = { type: action.payload, ts: Date.now() };
     },
@@ -107,6 +112,7 @@ export const {
   setSelectedElements,
   toggleSelectedElement,
   clearSelection,
+  setGroupMoveSelectorId,
   sendZoomCommand,
   setRenderStyle,
   setRelLineStyle,

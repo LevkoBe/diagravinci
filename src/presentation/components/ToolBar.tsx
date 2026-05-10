@@ -37,6 +37,7 @@ import {
   Minimize2,
   SlidersHorizontal,
   ListFilter,
+  Eraser,
 } from "lucide-react";
 import { AppConfig } from "../../config/appConfig";
 import { stageRegistry } from "../../shared/stageRegistry";
@@ -239,6 +240,30 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
     ) : (
       <AlignJustify size={15} />
     );
+
+  const handleClearOrphanedFlags = () => {
+    const { model: currentModel } = store.getState().diagram;
+    const { selectors: currentSelectors } = store.getState().filter;
+    const selectorIds = new Set(currentSelectors.map((s) => s.id));
+
+    let changed = false;
+    const updatedElements = { ...currentModel.elements };
+    for (const [id, el] of Object.entries(currentModel.elements)) {
+      if (!el.flags || el.flags.length === 0) continue;
+      const cleanedFlags = el.flags.filter((f) => selectorIds.has(toSelectorId(f)));
+      if (cleanedFlags.length !== el.flags.length) {
+        changed = true;
+        updatedElements[id] = {
+          ...el,
+          flags: cleanedFlags.length > 0 ? cleanedFlags : undefined,
+        };
+      }
+    }
+
+    if (!changed) return;
+    const newCode = new CodeGenerator({ ...currentModel, elements: updatedElements }).generate();
+    syncManager.syncFromCode(newCode, true);
+  };
 
   const toggleTheme = () => {
     if (isDark) {
@@ -806,6 +831,12 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
             </span>
           )}
         </div>
+        <Btn
+          title="Clear orphaned flags (flags whose selector no longer exists)"
+          onClick={handleClearOrphanedFlags}
+        >
+          <Eraser size={15} />
+        </Btn>
 
         {layout !== "compact" && <Divider />}
 

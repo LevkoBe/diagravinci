@@ -24,7 +24,7 @@ import { getExecutionColorMap } from "../../application/ExecutionEngine";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
 import { computeElementSizes } from "./rendering/elementSizing";
 import type { GeometryCache } from "./rendering/relationships/RelationshipRenderer";
-import { FilterResolver } from "../../domain/sync/FilterResolver";
+import { FilterResolver, matchesSelector } from "../../domain/sync/FilterResolver";
 import {
   getSubtreeIds,
   type DiagramModel,
@@ -106,6 +106,7 @@ export function VisualCanvas() {
     activeRelationshipType,
     connectingFromId,
     selectedElementIds,
+    groupMoveSelectorId,
     renderStyle,
     relLineStyle,
     classDiagramMode,
@@ -116,6 +117,7 @@ export function VisualCanvas() {
   const relTypeRef = useRef(activeRelationshipType);
   const connectingFromRef = useRef(connectingFromId);
   const modelRef = useRef(model);
+  const groupMoveSelIdRef = useRef(groupMoveSelectorId);
 
   useEffect(() => {
     modeRef.current = interactionMode;
@@ -136,6 +138,10 @@ export function VisualCanvas() {
   useEffect(() => {
     modelRef.current = model;
   }, [model]);
+
+  useEffect(() => {
+    groupMoveSelIdRef.current = groupMoveSelectorId;
+  }, [groupMoveSelectorId]);
 
   const SELECTION_LABEL = `Selected_${TAB_SESSION_ID}`;
   const SELECTION_SEL_ID = toSelectorId(SELECTION_LABEL);
@@ -565,11 +571,35 @@ export function VisualCanvas() {
         ...canvasColors,
       },
       {
-        onPositionChange: (id, worldPos) => {
+        onPositionChange: (path, worldPos) => {
           if (worldPos) {
-            justDraggedPathsRef.current.add(id);
-            dispatch(updateElementPositionInView({ id, position: worldPos }));
-          } else syncManager.syncFromVis(model);
+            const groupSelId = groupMoveSelIdRef.current;
+            if (groupSelId) {
+              const state = store.getState();
+              const positions = state.diagram.viewState.positions;
+              const m = state.diagram.model;
+              const rules = m.rules ?? [];
+              const sel = state.filter.selectors.find((s) => s.id === groupSelId);
+              if (sel && matchesSelector(path, sel, m, rules)) {
+                const startPos = positions[path]?.position;
+                if (startPos) {
+                  const delta = { x: worldPos.x - startPos.x, y: worldPos.y - startPos.y };
+                  for (const [gp, posEntry] of Object.entries(positions)) {
+                    if (gp === path) continue;
+                    if (!matchesSelector(gp, sel, m, rules)) continue;
+                    dispatch(updateElementPositionInView({
+                      id: gp,
+                      position: { x: posEntry.position.x + delta.x, y: posEntry.position.y + delta.y },
+                    }));
+                  }
+                }
+              }
+            }
+            justDraggedPathsRef.current.add(path);
+            dispatch(updateElementPositionInView({ id: path, position: worldPos }));
+          } else {
+            syncManager.syncFromVis(model);
+          }
         },
         onReparent: (elementId, oldParentPath, newParentPath) => {
           const rootId = model.root.id;
@@ -714,6 +744,10 @@ export function VisualCanvas() {
       classDiagramMode,
       elementSizes,
       geometryCacheRef.current,
+      () => ({
+        selectorId: groupMoveSelIdRef.current,
+        filterSelectors: store.getState().filter.selectors,
+      }),
     );
 
     const cloneIds = new Set(execInstances.flatMap((i) => i.clonedElementIds));
