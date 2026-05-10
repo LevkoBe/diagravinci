@@ -42,7 +42,7 @@ export class SyncManager {
     };
   }
 
-  syncFromCode(code: string): void {
+  syncFromCode(code: string, preservePositions = false): void {
     try {
       const newModel = this.parser.parse(code);
       const {
@@ -67,6 +67,7 @@ export class SyncManager {
         currentViewState,
         newModel,
         canvasSize,
+        preservePositions,
       );
 
       if (selectorsChanged) {

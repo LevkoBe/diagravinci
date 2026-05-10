@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   Sun,
   Moon,
@@ -79,14 +78,8 @@ import {
   setViewState,
   setCode,
   setViewMode,
-  pruneElements,
 } from "../../application/store/diagramSlice";
-import {
-  setDiff,
-  clearAllAdded,
-  clearAllRemoved,
-  clearDiff,
-} from "../../application/store/diffSlice";
+import { toSelectorId } from "../../domain/models/Selector";
 import {
   startExecution,
   pauseExecution,
@@ -106,7 +99,6 @@ import {
 import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 import { Lexer } from "../../infrastructure/parser/Lexer";
 import { Parser } from "../../infrastructure/parser/Parser";
-import { ViewStateMerger } from "../../domain/sync/ViewStateMerger";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
 import type { Element } from "../../domain/models/Element";
 import type { ViewState } from "../../domain/models/ViewState";
@@ -210,7 +202,6 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
   } = useAppSelector((s) => s.ui);
   const { selectors, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
     useAppSelector((s) => s.filter);
-  const diffState = useAppSelector((s) => s.diff);
   const execState = useAppSelector((s) => s.execution);
   const isExecuteMode = viewMode === "execute";
   const prevViewModeRef = useRef<ViewState["viewMode"]>(viewMode);
@@ -393,15 +384,12 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
 
   const handleUpdateCode = () => updateCodeInputRef.current?.click();
   const handleUpdateCodeFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileName = e.target.files?.[0]?.name ?? "diff";
     readFile(e, (text) => {
       try {
         const tokens = new Lexer(text).tokenize();
         const newModel = new Parser(tokens).parse();
-        const {
-          model: oldModel,
-          viewState: currentViewState,
-          canvasSize,
-        } = store.getState().diagram;
+        const { model: oldModel } = store.getState().diagram;
         const oldIds = new Set(Object.keys(oldModel.elements));
         const newIds = new Set(Object.keys(newModel.elements));
         const addedIds = [...newIds].filter((id) => !oldIds.has(id));
@@ -426,31 +414,64 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
             ],
           },
         };
-        const mergedViewState = ViewStateMerger.merge(
-          currentViewState,
-          mergedModel,
-          canvasSize,
-        );
-        const positions = { ...mergedViewState.positions };
-        for (const id of removedIds) {
-          if (currentViewState.positions[id])
-            positions[id] = currentViewState.positions[id];
+
+        const baseName = fileName.replace(/\.[^.]+$/, "");
+        const newSelLabel = `${baseName}_new`;
+        const delSelLabel = `${baseName}_del`;
+        const newSelId = toSelectorId(newSelLabel);
+        const delSelId = toSelectorId(delSelLabel);
+
+        const addedSet = new Set(addedIds);
+        const removedSet = new Set(removedIds);
+        const updatedElements = { ...mergedModel.elements };
+        for (const [id, el] of Object.entries(updatedElements)) {
+          const filteredFlags = (el.flags ?? []).filter((f) => {
+            const fId = toSelectorId(f);
+            return fId !== newSelId && fId !== delSelId;
+          });
+          if (addedSet.has(id)) filteredFlags.push(newSelLabel);
+          if (removedSet.has(id)) filteredFlags.push(delSelLabel);
+          updatedElements[id] = {
+            ...el,
+            flags: filteredFlags.length > 0 ? filteredFlags : undefined,
+          };
         }
-        dispatch(setModel(mergedModel));
-        dispatch(setViewState({ ...mergedViewState, positions }));
-        dispatch(setCode(text));
-        dispatch(setDiff({ addedIds, removedIds }));
+
+        const filteredSelectors = (mergedModel.selectors ?? []).filter(
+          (s) => s.id !== newSelId && s.id !== delSelId,
+        );
+        const diffSelectors = [];
+        if (addedIds.length > 0) {
+          diffSelectors.push({
+            id: newSelId,
+            label: newSelLabel,
+            expression: "",
+            mode: "color" as const,
+            color: AppConfig.canvas.DIFF_ADDED_COLOR,
+          });
+        }
+        if (removedIds.length > 0) {
+          diffSelectors.push({
+            id: delSelId,
+            label: delSelLabel,
+            expression: "",
+            mode: "color" as const,
+            color: AppConfig.canvas.DIFF_REMOVED_COLOR,
+          });
+        }
+
+        const finalModel = {
+          ...mergedModel,
+          elements: updatedElements,
+          selectors: [...diffSelectors, ...filteredSelectors],
+        };
+        const code = new CodeGenerator(finalModel).generate();
+        syncManager.syncFromCode(code, true);
       } catch (err) {
         console.error("[ToolBar] handleUpdateCodeFile error:", err);
       }
     });
     e.target.value = "";
-  };
-
-  const handleAcceptAllAdded = () => dispatch(clearAllAdded());
-  const handleAcceptAllRemoved = () => {
-    dispatch(pruneElements(diffState.removedIds));
-    dispatch(clearAllRemoved());
   };
 
   const handleExportSubset = () => {
@@ -560,10 +581,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
             <DropdownMenuItem onSelect={handleLoadCode}>
               <FileInput size={14} /> Load code (.dg)
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={handleUpdateCode}
-              className={diffState.active ? "text-accent" : ""}
-            >
+            <DropdownMenuItem onSelect={handleUpdateCode}>
               <GitCompare size={14} /> Update code (diff & merge)
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -876,59 +894,6 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
           buttonClassName="w-9 h-9 p-0 rounded-full btn-icon"
         />
       </div>
-
-      {diffState.active &&
-        createPortal(
-          <div className="fixed top-14 inset-x-0 z-40 flex items-center gap-3 px-4 py-1.5 bg-bg-elevated border-b border-border/20 text-xs">
-            <span className="font-semibold text-fg-muted">Diff view</span>
-            <span
-              style={{ color: AppConfig.canvas.DIFF_ADDED_COLOR }}
-              className="font-medium"
-            >
-              +{diffState.addedIds.length} added
-            </span>
-            <span
-              style={{ color: AppConfig.canvas.DIFF_REMOVED_COLOR }}
-              className="font-medium"
-            >
-              -{diffState.removedIds.length} removed
-            </span>
-            <span className="text-fg-disabled/60">
-              Right-click an element to accept individually
-            </span>
-            <div className="flex items-center gap-1.5 ml-auto">
-              <button
-                onClick={handleAcceptAllAdded}
-                disabled={diffState.addedIds.length === 0}
-                className="flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium transition-colors disabled:opacity-30"
-                style={{
-                  borderColor: AppConfig.canvas.DIFF_ADDED_COLOR,
-                  color: AppConfig.canvas.DIFF_ADDED_COLOR,
-                }}
-              >
-                <CheckCheck size={11} /> Accept added
-              </button>
-              <button
-                onClick={handleAcceptAllRemoved}
-                disabled={diffState.removedIds.length === 0}
-                className="flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium transition-colors disabled:opacity-30"
-                style={{
-                  borderColor: AppConfig.canvas.DIFF_REMOVED_COLOR,
-                  color: AppConfig.canvas.DIFF_REMOVED_COLOR,
-                }}
-              >
-                <CheckCheck size={11} /> Accept removed
-              </button>
-              <button
-                onClick={() => dispatch(clearDiff())}
-                className="flex items-center gap-1 px-2 py-0.5 rounded border border-border/40 text-fg-muted text-xs font-medium hover:bg-border/10 transition-colors"
-              >
-                Clear diff
-              </button>
-            </div>
-          </div>,
-          document.body,
-        )}
 
       <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
 

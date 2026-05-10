@@ -6,7 +6,6 @@ import {
   setCanvasSize,
   setViewState,
   updateElementPositionInView,
-  pruneElements,
 } from "../../application/store/diagramSlice";
 import {
   setConnectingFromId,
@@ -14,13 +13,12 @@ import {
   setSelectedElements,
   toggleSelectedElement,
 } from "../../application/store/uiSlice";
-import {
-  setSelectionSelector,
-  toggleElementFold,
-} from "../../application/store/filterSlice";
-import { acceptDiffId } from "../../application/store/diffSlice";
+import { toggleElementFold } from "../../application/store/filterSlice";
 import { syncManager, store } from "../../application/store/store";
 import { getCSSVariable } from "../../shared/utils";
+import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
+import { toSelectorId } from "../../domain/models/Selector";
+import { TAB_SESSION_ID } from "../../shared/tabSessionId";
 import { useExecution } from "../hooks/useExecution";
 import { getExecutionColorMap } from "../../application/ExecutionEngine";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
@@ -77,7 +75,6 @@ export function VisualCanvas() {
   const model = useAppSelector((s) => s.diagram.model);
   const viewState = useAppSelector((s) => s.diagram.viewState);
   const filterState = useAppSelector((s) => s.filter);
-  const diffState = useAppSelector((s) => s.diff);
   const spawnOriginsRef = useExecution();
   const execInstances = useAppSelector((s) => s.execution.instances);
   const execColor = useAppSelector((s) => s.execution.executionColor);
@@ -140,13 +137,69 @@ export function VisualCanvas() {
     modelRef.current = model;
   }, [model]);
 
-  useEffect(() => {
-    const color = getCSSVariable("--color-state-selected");
-    dispatch(setSelectionSelector({ ids: selectedElementIds, color }));
-  }, [selectedElementIds, isDark, dispatch]);
+  const SELECTION_LABEL = `Selected_${TAB_SESSION_ID}`;
+  const SELECTION_SEL_ID = toSelectorId(SELECTION_LABEL);
+  const prevSelectedRef = useRef<string[]>([]);
 
-  const DIFF_ADDED_COLOR = AppConfig.canvas.DIFF_ADDED_COLOR;
-  const DIFF_REMOVED_COLOR = AppConfig.canvas.DIFF_REMOVED_COLOR;
+  useEffect(() => {
+    const prev = new Set(prevSelectedRef.current);
+    const curr = new Set(selectedElementIds);
+    const same =
+      prev.size === curr.size && selectedElementIds.every((id) => prev.has(id));
+    if (same) return;
+    prevSelectedRef.current = selectedElementIds;
+
+    const { model: currentModel } = store.getState().diagram;
+    const selectedSet = new Set(selectedElementIds);
+
+    let flagsChanged = false;
+    const updatedElements = { ...currentModel.elements };
+    for (const [id, el] of Object.entries(currentModel.elements)) {
+      const wasSelected = (el.flags ?? []).some(
+        (f) => toSelectorId(f) === SELECTION_SEL_ID,
+      );
+      const isSelected = selectedSet.has(id);
+      if (wasSelected === isSelected) continue;
+      flagsChanged = true;
+      const filteredFlags = (el.flags ?? []).filter(
+        (f) => toSelectorId(f) !== SELECTION_SEL_ID,
+      );
+      if (isSelected) filteredFlags.push(SELECTION_LABEL);
+      updatedElements[id] = {
+        ...el,
+        flags: filteredFlags.length > 0 ? filteredFlags : undefined,
+      };
+    }
+
+    const existingSelectors = currentModel.selectors ?? [];
+    const existingSel = existingSelectors.find((s) => s.id === SELECTION_SEL_ID);
+    const needsSelector = !existingSel && selectedElementIds.length > 0;
+
+    if (!flagsChanged && !needsSelector) return;
+
+    let updatedSelectors = existingSelectors;
+    if (needsSelector) {
+      const selColor = getCSSVariable("--color-state-selected");
+      updatedSelectors = [
+        {
+          id: SELECTION_SEL_ID,
+          label: SELECTION_LABEL,
+          expression: "",
+          mode: "color" as const,
+          color: selColor,
+        },
+        ...existingSelectors,
+      ];
+    }
+
+    const updatedModel = {
+      ...currentModel,
+      elements: updatedElements,
+      selectors: updatedSelectors,
+    };
+    const newCode = new CodeGenerator(updatedModel).generate();
+    syncManager.syncFromCode(newCode, true);
+  }, [selectedElementIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const newLists = FilterResolver.resolve(
@@ -154,18 +207,6 @@ export function VisualCanvas() {
       viewState.positions,
       model,
     );
-    if (diffState.active) {
-      const addedSet = new Set(diffState.addedIds);
-      const removedSet = new Set(diffState.removedIds);
-      for (const path of Object.keys(viewState.positions)) {
-        const elementId = path.split(".").at(-1)!;
-        if (addedSet.has(elementId)) {
-          newLists.coloredPaths[path] = DIFF_ADDED_COLOR;
-        } else if (removedSet.has(elementId)) {
-          newLists.coloredPaths[path] = DIFF_REMOVED_COLOR;
-        }
-      }
-    }
     const unchanged = FilterResolver.equal(newLists, {
       hiddenPaths: viewState.hiddenPaths,
       dimmedPaths: viewState.dimmedPaths,
@@ -176,7 +217,7 @@ export function VisualCanvas() {
       dispatch(setViewState({ ...viewState, ...newLists }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterState, viewState.positions, model, diffState]);
+  }, [filterState, viewState.positions, model]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -659,17 +700,7 @@ export function VisualCanvas() {
             }
           }
         },
-        onContextMenu: (elementId, path) => {
-          const { diff } = store.getState();
-          if (diff.active) {
-            if (diff.removedIds.includes(elementId)) {
-              dispatch(acceptDiffId(elementId));
-              dispatch(pruneElements([elementId]));
-            } else if (diff.addedIds.includes(elementId)) {
-              dispatch(acceptDiffId(elementId));
-            }
-            return;
-          }
+        onContextMenu: (_elementId, path) => {
           const currentlyFolded = viewState.foldedPaths.includes(path);
           dispatch(toggleElementFold({ path, currentlyFolded }));
         },
