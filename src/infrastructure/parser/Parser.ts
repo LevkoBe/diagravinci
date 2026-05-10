@@ -130,15 +130,26 @@ export class Parser {
             lastPath = null;
             break;
           }
-          lastRel = lastRel ?? this.createRelationship(lastPath ?? parent.id);
-          lastEl = this.parseOpeningWrapper(
-            parent,
-            parentPath,
-            lastRel,
-            null,
-            depth,
-            ">",
-          );
+          if (lastRel === null && lastPath === null) {
+            lastEl = this.parseOpeningWrapper(
+              parent,
+              parentPath,
+              null,
+              null,
+              depth,
+              ">",
+            );
+          } else {
+            lastRel = lastRel ?? this.createRelationship(lastPath ?? parent.id);
+            lastEl = this.parseOpeningWrapper(
+              parent,
+              parentPath,
+              lastRel,
+              null,
+              depth,
+              ">",
+            );
+          }
           lastPath = lastEl.id;
           lastRel = this.createRelationship(lastEl.id);
           break;

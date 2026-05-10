@@ -50,8 +50,12 @@ export class CodeGenerator {
     for (const element of rootElements)
       lines.push(this.generateElement(element, 0, new AncestryTracker()));
     lines.push("");
-    for (const relationship of Object.values(this.model.relationships))
+    for (const relationship of Object.values(this.model.relationships)) {
+      const srcType = this.model.elements[relationship.source]?.type;
+      const tgtType = this.model.elements[relationship.target]?.type;
+      if (srcType === "flow" || tgtType === "flow") continue;
       lines.push(this.generateRelationship(relationship));
+    }
 
     return lines.join("\n");
   }
@@ -103,8 +107,11 @@ export class CodeGenerator {
     const wrapper = this.getWrapperFromType(element.type);
     const opening = wrapper[0];
     const closing = wrapper[1];
-    const nameOut = CodeGenerator.quoteId(element.id);
-    const flagSuffix = element.flags?.map((f) => /\s/.test(f) ? `:"${f}"` : `:${f}`).join("") ?? "";
+    const isFlow = element.type === "flow";
+    const nameOut = isFlow ? "" : CodeGenerator.quoteId(element.id);
+    const flagSuffix = (!isFlow && element.flags)
+      ? element.flags.map((f) => /\s/.test(f) ? `:"${f}"` : `:${f}`).join("")
+      : "";
 
     const hasContent = element.childIds.length > 0;
 

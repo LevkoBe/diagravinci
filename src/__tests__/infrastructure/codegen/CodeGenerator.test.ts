@@ -70,9 +70,9 @@ describe("CodeGenerator", () => {
       expect(code).toContain("x()");
     });
 
-    it("uses >> for flow type", () => {
+    it("uses >> for flow type (anonymous — id dropped for round-trip correctness)", () => {
       const code = generate(modelWithElement("x", "flow"));
-      expect(code).toContain("x>>");
+      expect(code).toContain(">>");
     });
 
     it("uses <> for choice type", () => {

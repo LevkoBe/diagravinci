@@ -140,6 +140,12 @@ export class DiagramLayerRenderer {
     this.pixelSizes = pixelSizes;
 
     this.hiddenSet = new Set([...viewState.hiddenPaths, ...zoomHidden]);
+    for (const foldedPath of viewState.foldedPaths) {
+      const prefix = foldedPath + ".";
+      for (const p of Object.keys(viewState.positions)) {
+        if (p.startsWith(prefix)) this.hiddenSet.add(p);
+      }
+    }
     this.filterHiddenSet = new Set(this.hiddenSet);
     this.dimmedSet = new Set([...viewState.dimmedPaths, ...zoomDimmed]);
 
