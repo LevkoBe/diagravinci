@@ -16,6 +16,7 @@ export interface TemplateCollection {
   name: string;
   isBuiltIn: boolean;
   templates: DiagramTemplate[];
+  collections?: TemplateCollection[];
 }
 
 export const BUILT_IN_COLLECTION_ID = "__built_in__";
@@ -79,4 +80,31 @@ export const TEACHING_COLLECTION: TemplateCollection = {
   name: "Software Engineering Teaching",
   isBuiltIn: true,
   templates: TEACHING_TEMPLATES,
+};
+
+export const ARCHITECTURE_COLLECTION_ID = "__architecture__";
+export const ARCHITECTURE_COLLECTION: TemplateCollection = {
+  id: ARCHITECTURE_COLLECTION_ID,
+  name: "Architecture",
+  isBuiltIn: true,
+  templates: [],
+  collections: [BUILT_IN_COLLECTION, TEACHING_COLLECTION],
+};
+
+export const DEVELOPER_TOOLS_COLLECTION_ID = "__developer_tools__";
+export const DEVELOPER_TOOLS_COLLECTION: TemplateCollection = {
+  id: DEVELOPER_TOOLS_COLLECTION_ID,
+  name: "Developer Tools",
+  isBuiltIn: true,
+  templates: [],
+  collections: [EDGE_CASES_COLLECTION, STRESS_COLLECTION],
+};
+
+export const SHOWCASES_COLLECTION_ID = "__showcases__";
+export const SHOWCASES_COLLECTION: TemplateCollection = {
+  id: SHOWCASES_COLLECTION_ID,
+  name: "Showcases",
+  isBuiltIn: true,
+  templates: [],
+  collections: [EXECUTION_COLLECTION, SELECTOR_SHOWCASE_COLLECTION, RADIAL_COLLECTION],
 };

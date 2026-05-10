@@ -1,23 +1,35 @@
 import type { TemplateCollection } from "../domain/models/TemplateCollection";
 import {
-  BUILT_IN_COLLECTION,
+  ARCHITECTURE_COLLECTION,
+  ARCHITECTURE_COLLECTION_ID,
+  DEVELOPER_TOOLS_COLLECTION,
+  DEVELOPER_TOOLS_COLLECTION_ID,
+  SHOWCASES_COLLECTION,
+  SHOWCASES_COLLECTION_ID,
   BUILT_IN_COLLECTION_ID,
-  EDGE_CASES_COLLECTION,
-  EDGE_CASES_COLLECTION_ID,
-  EXECUTION_COLLECTION,
-  EXECUTION_COLLECTION_ID,
-  RADIAL_COLLECTION,
-  RADIAL_COLLECTION_ID,
-  SELECTOR_SHOWCASE_COLLECTION,
-  SELECTOR_SHOWCASE_COLLECTION_ID,
-  // STRESS_COLLECTION,
-  STRESS_COLLECTION_ID,
-  TEACHING_COLLECTION,
   TEACHING_COLLECTION_ID,
+  STRESS_COLLECTION_ID,
+  EDGE_CASES_COLLECTION_ID,
+  SELECTOR_SHOWCASE_COLLECTION_ID,
+  EXECUTION_COLLECTION_ID,
+  RADIAL_COLLECTION_ID,
 } from "../domain/models/TemplateCollection";
 import type { DiagramTemplate } from "../domain/models/DiagramTemplate";
 
 const STORAGE_KEY = "diagravinci_collections";
+
+const BUILT_IN_IDS = new Set([
+  ARCHITECTURE_COLLECTION_ID,
+  DEVELOPER_TOOLS_COLLECTION_ID,
+  SHOWCASES_COLLECTION_ID,
+  BUILT_IN_COLLECTION_ID,
+  TEACHING_COLLECTION_ID,
+  STRESS_COLLECTION_ID,
+  EDGE_CASES_COLLECTION_ID,
+  SELECTOR_SHOWCASE_COLLECTION_ID,
+  EXECUTION_COLLECTION_ID,
+  RADIAL_COLLECTION_ID,
+]);
 
 function loadUserCollections(): TemplateCollection[] {
   try {
@@ -37,79 +49,84 @@ function saveUserCollections(collections: TemplateCollection[]): void {
   }
 }
 
+function findInTree(
+  collections: TemplateCollection[],
+  id: string,
+): TemplateCollection | null {
+  for (const col of collections) {
+    if (col.id === id) return col;
+    if (col.collections) {
+      const found = findInTree(col.collections, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function removeFromTree(
+  collections: TemplateCollection[],
+  id: string,
+): TemplateCollection[] {
+  return collections
+    .filter((c) => c.id !== id)
+    .map((c) =>
+      c.collections
+        ? { ...c, collections: removeFromTree(c.collections, id) }
+        : c,
+    );
+}
+
 export const CollectionRepository = {
   getAll(): TemplateCollection[] {
     return [
-      BUILT_IN_COLLECTION,
-      TEACHING_COLLECTION,
-      // STRESS_COLLECTION,
-      RADIAL_COLLECTION,
-      EDGE_CASES_COLLECTION,
-      SELECTOR_SHOWCASE_COLLECTION,
-      EXECUTION_COLLECTION,
+      ARCHITECTURE_COLLECTION,
+      DEVELOPER_TOOLS_COLLECTION,
+      SHOWCASES_COLLECTION,
       ...loadUserCollections(),
     ];
   },
 
-  create(name: string): TemplateCollection {
+  create(name: string, parentId?: string): TemplateCollection {
     const collections = loadUserCollections();
     const newCollection: TemplateCollection = {
       id: crypto.randomUUID(),
       name,
       isBuiltIn: false,
       templates: [],
+      collections: [],
     };
+    if (parentId) {
+      const parent = findInTree(collections, parentId);
+      if (parent) {
+        parent.collections = parent.collections ?? [];
+        parent.collections.push(newCollection);
+        saveUserCollections(collections);
+        return newCollection;
+      }
+    }
     collections.push(newCollection);
     saveUserCollections(collections);
     return newCollection;
   },
 
   delete(id: string): void {
-    if (
-      id === BUILT_IN_COLLECTION_ID ||
-      id === STRESS_COLLECTION_ID ||
-      id === EDGE_CASES_COLLECTION_ID ||
-      id === SELECTOR_SHOWCASE_COLLECTION_ID ||
-      id === EXECUTION_COLLECTION_ID ||
-      id === RADIAL_COLLECTION_ID ||
-      id === TEACHING_COLLECTION_ID
-    )
-      return;
-    const collections = loadUserCollections().filter((c) => c.id !== id);
-    saveUserCollections(collections);
+    if (BUILT_IN_IDS.has(id)) return;
+    saveUserCollections(removeFromTree(loadUserCollections(), id));
   },
 
   addTemplate(collectionId: string, template: DiagramTemplate): void {
-    if (
-      collectionId === BUILT_IN_COLLECTION_ID ||
-      collectionId === STRESS_COLLECTION_ID ||
-      collectionId === EDGE_CASES_COLLECTION_ID ||
-      collectionId === SELECTOR_SHOWCASE_COLLECTION_ID ||
-      collectionId === EXECUTION_COLLECTION_ID ||
-      collectionId === RADIAL_COLLECTION_ID ||
-      collectionId === TEACHING_COLLECTION_ID
-    )
-      return;
+    if (BUILT_IN_IDS.has(collectionId)) return;
     const collections = loadUserCollections();
-    const col = collections.find((c) => c.id === collectionId);
+    const col = findInTree(collections, collectionId);
     if (!col) return;
     col.templates.push(template);
     saveUserCollections(collections);
   },
 
   removeTemplate(collectionId: string, templateId: string): void {
-    if (
-      collectionId === BUILT_IN_COLLECTION_ID ||
-      collectionId === STRESS_COLLECTION_ID ||
-      collectionId === EDGE_CASES_COLLECTION_ID ||
-      collectionId === SELECTOR_SHOWCASE_COLLECTION_ID ||
-      collectionId === EXECUTION_COLLECTION_ID ||
-      collectionId === RADIAL_COLLECTION_ID ||
-      collectionId === TEACHING_COLLECTION_ID
-    )
-      return;
+    if (BUILT_IN_IDS.has(collectionId)) return;
     const collections = loadUserCollections();
-    const col = collections.find((c) => c.id === collectionId);
+    const col = findInTree(collections, collectionId);
     if (!col) return;
     col.templates = col.templates.filter((t) => t.id !== templateId);
     saveUserCollections(collections);
@@ -128,6 +145,6 @@ export const CollectionRepository = {
   },
 
   getBuiltIn(): TemplateCollection {
-    return BUILT_IN_COLLECTION;
+    return ARCHITECTURE_COLLECTION;
   },
 };

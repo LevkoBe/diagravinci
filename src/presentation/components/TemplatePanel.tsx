@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Trash2, Check } from "lucide-react";
+import { Trash2, Check, FileText, FolderPlus, Folder } from "lucide-react";
 import { DangerIconBtn } from "./DangerIconBtn";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { setViewMode } from "../../application/store/diagramSlice";
@@ -79,6 +79,40 @@ const THUMB: Record<ViewState["viewMode"], ThumbSpec> = {
   },
 };
 
+function getAllTemplates(col: TemplateCollection): DiagramTemplate[] {
+  return [
+    ...col.templates,
+    ...(col.collections?.flatMap(getAllTemplates) ?? []),
+  ];
+}
+
+function findCollectionById(
+  cols: TemplateCollection[],
+  id: string,
+): TemplateCollection | null {
+  for (const col of cols) {
+    if (col.id === id) return col;
+    if (col.collections) {
+      const found = findCollectionById(col.collections, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function buildCrumbs(
+  cols: TemplateCollection[],
+  stack: string[],
+): { id: string; name: string }[] {
+  const crumbs: { id: string; name: string }[] = [];
+  for (const id of stack) {
+    const col = findCollectionById(cols, id);
+    if (!col) break;
+    crumbs.push({ id, name: col.name });
+  }
+  return crumbs;
+}
+
 function ThumbnailPreview({ mode }: { mode: ViewState["viewMode"] }) {
   const { dot, dots, lines = [] } = THUMB[mode];
   return (
@@ -95,11 +129,38 @@ function ThumbnailPreview({ mode }: { mode: ViewState["viewMode"] }) {
   );
 }
 
-function CollectionThumbnail({ templates }: { templates: DiagramTemplate[] }) {
-  const sample = templates.slice(0, 25);
+function CollectionThumbnail({ collection }: { collection: TemplateCollection }) {
+  const allTemplates = getAllTemplates(collection);
+  const size = 64;
+
+  if (allTemplates.length === 0) {
+    const subcols = collection.collections ?? [];
+    return (
+      <div style={{ width: size, minWidth: size, height: size, background: "var(--color-bg-elevated)", borderRadius: "6px 0 0 6px", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <svg viewBox="0 0 60 60" style={{ width: "70%", height: "70%" }}>
+          {subcols.slice(0, 4).map((_, i) => (
+            <rect
+              key={i}
+              x={(i % 2) * 32 + 2}
+              y={Math.floor(i / 2) * 32 + 2}
+              width={26}
+              height={26}
+              rx="3"
+              fill="#64748b"
+              opacity="0.25"
+            />
+          ))}
+          {subcols.length === 0 && (
+            <rect x="10" y="10" width="40" height="40" rx="4" fill="#64748b" opacity="0.15" />
+          )}
+        </svg>
+      </div>
+    );
+  }
+
+  const sample = allTemplates.slice(0, 25);
   const cols = Math.ceil(Math.sqrt(sample.length)) || 1;
   const rows = Math.ceil(sample.length / cols);
-  const size = 64;
 
   return (
     <div style={{ width: size, minWidth: size, height: size, background: "var(--color-bg-elevated)", borderRadius: "6px 0 0 6px", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -121,11 +182,54 @@ function CollectionThumbnail({ templates }: { templates: DiagramTemplate[] }) {
 
 function TemplateBadge({ mode }: { mode: ViewState["viewMode"] }) {
   return (
-    <span
-      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${VIEW_COLORS[mode]}`}
-    >
+    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${VIEW_COLORS[mode]}`}>
       {VIEW_LABELS[mode]}
     </span>
+  );
+}
+
+function SubcollectionCard({
+  collection,
+  onOpen,
+  onDelete,
+}: {
+  collection: TemplateCollection;
+  onOpen: () => void;
+  onDelete?: () => void;
+}) {
+  const subcols = collection.collections?.length ?? 0;
+  const templates = collection.templates.length;
+  const parts: string[] = [];
+  if (subcols > 0) parts.push(`${subcols} collection${subcols !== 1 ? "s" : ""}`);
+  if (templates > 0) parts.push(`${templates} template${templates !== 1 ? "s" : ""}`);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      className="w-full text-left rounded-lg border border-border/30 hover:border-accent/60 hover:shadow-sm transition-all group cursor-pointer flex items-center gap-3 px-3 py-2.5 shrink-0"
+      onClick={onOpen}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen()}
+    >
+      <Folder size={18} className="text-fg-muted group-hover:text-accent transition-colors shrink-0" />
+      <div className="flex-1 min-w-0">
+        <span className="text-sm font-semibold text-fg-primary group-hover:text-accent transition-colors leading-tight truncate block">
+          {collection.name}
+        </span>
+        <p className="text-xs text-fg-disabled">
+          {parts.join(", ") || "Empty"}
+        </p>
+      </div>
+      {onDelete && (
+        <DangerIconBtn
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          title="Delete sub-collection"
+          className="p-1! opacity-0 group-hover:opacity-100"
+        >
+          <Trash2 size={12} />
+        </DangerIconBtn>
+      )}
+    </div>
   );
 }
 
@@ -166,34 +270,41 @@ function CollectionsView({
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-2 flex flex-col gap-2 min-h-0">
-        {collections.map((col) => (
-          <div
-            key={col.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => onOpen(col)}
-            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen(col)}
-            className="w-full text-left rounded-lg border border-border/30 hover:border-accent/60 hover:shadow-sm transition-all group cursor-pointer shrink-0 flex overflow-hidden"
-          >
-            {col.templates.length > 0 && <CollectionThumbnail templates={col.templates} />}
-            <div className="p-3 flex flex-col justify-center min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-fg-primary group-hover:text-accent transition-colors leading-tight truncate">
-                  {col.name}
-                </span>
-                {col.isBuiltIn && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-fg-ternary/15 text-fg-disabled shrink-0">
-                    built-in
+        {collections.map((col) => {
+          const subcols = col.collections?.length ?? 0;
+          const templates = col.templates.length;
+          const parts: string[] = [];
+          if (subcols > 0) parts.push(`${subcols} collection${subcols !== 1 ? "s" : ""}`);
+          if (templates > 0) parts.push(`${templates} template${templates !== 1 ? "s" : ""}`);
+
+          return (
+            <div
+              key={col.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => onOpen(col)}
+              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen(col)}
+              className="w-full text-left rounded-lg border border-border/30 hover:border-accent/60 hover:shadow-sm transition-all group cursor-pointer shrink-0 flex overflow-hidden"
+            >
+              <CollectionThumbnail collection={col} />
+              <div className="p-3 flex flex-col justify-center min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-fg-primary group-hover:text-accent transition-colors leading-tight truncate">
+                    {col.name}
                   </span>
-                )}
+                  {col.isBuiltIn && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-fg-ternary/15 text-fg-disabled shrink-0">
+                      built-in
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-fg-disabled mt-0.5">
+                  {parts.join(", ") || "Empty"}
+                </p>
               </div>
-              <p className="text-xs text-fg-disabled mt-0.5">
-                {col.templates.length} template
-                {col.templates.length !== 1 ? "s" : ""}
-              </p>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <form
@@ -241,39 +352,39 @@ function TemplateCard({
     >
       <ThumbnailPreview mode={template.preferredView} />
       <div className="p-3">
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <span className="text-sm font-semibold text-fg-primary group-hover:text-accent transition-colors leading-tight">
-          {template.name}
-        </span>
-        <div className="flex items-center gap-1 shrink-0">
-          <TemplateBadge mode={template.preferredView} />
-          {onDelete && (
-            <DangerIconBtn
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(template);
-              }}
-              title="Remove template"
-              className="p-1! opacity-0 group-hover:opacity-100"
-            >
-              <Trash2 size={12} />
-            </DangerIconBtn>
-          )}
-        </div>
-      </div>
-      <p className="text-xs text-fg-muted leading-snug">
-        {template.description}
-      </p>
-      <div className="flex flex-wrap gap-1 mt-2">
-        {template.tags.map((tag) => (
-          <span
-            key={tag}
-            className="text-[10px] px-1.5 py-0.5 rounded bg-fg-ternary/15 text-fg-disabled"
-          >
-            {tag}
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <span className="text-sm font-semibold text-fg-primary group-hover:text-accent transition-colors leading-tight">
+            {template.name}
           </span>
-        ))}
-      </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <TemplateBadge mode={template.preferredView} />
+            {onDelete && (
+              <DangerIconBtn
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(template);
+                }}
+                title="Remove template"
+                className="p-1! opacity-0 group-hover:opacity-100"
+              >
+                <Trash2 size={12} />
+              </DangerIconBtn>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-fg-muted leading-snug">
+          {template.description}
+        </p>
+        <div className="flex flex-wrap gap-1 mt-2">
+          {template.tags.map((tag) => (
+            <span
+              key={tag}
+              className="text-[10px] px-1.5 py-0.5 rounded bg-fg-ternary/15 text-fg-disabled"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -281,18 +392,24 @@ function TemplateCard({
 
 function CollectionView({
   collection,
+  breadcrumbs,
   currentCode,
   currentViewMode,
-  onClose,
+  onNavigateTo,
+  onOpenSubcollection,
+  onCreateSubcollection,
   onTemplateAdded,
   onTemplateRemoved,
   onExport,
   onDelete,
 }: {
   collection: TemplateCollection;
+  breadcrumbs: { id: string; name: string }[];
   currentCode: string;
   currentViewMode: ViewState["viewMode"];
-  onClose: () => void;
+  onNavigateTo: (index: number) => void;
+  onOpenSubcollection: (sub: TemplateCollection) => void;
+  onCreateSubcollection: (parentId: string, name: string) => void;
   onTemplateAdded: (collectionId: string, template: DiagramTemplate) => void;
   onTemplateRemoved: (collectionId: string, templateId: string) => void;
   onExport: (col: TemplateCollection) => void;
@@ -300,9 +417,11 @@ function CollectionView({
 }) {
   const dispatch = useAppDispatch();
   const [query, setQuery] = useState("");
-  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newItemName, setNewItemName] = useState("");
+  const [createMode, setCreateMode] = useState<"template" | "subcollection">("template");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
+  const subCollections = collection.collections ?? [];
   const filtered = collection.templates.filter((t) => {
     if (!query) return true;
     const q = query.toLowerCase();
@@ -318,20 +437,25 @@ function CollectionView({
     syncManager.syncFromCode(template.code);
   }
 
-  function handleSaveTemplate(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const name = newTemplateName.trim();
-    if (!name || !currentCode.trim()) return;
-    const template: DiagramTemplate = {
-      id: crypto.randomUUID(),
-      name,
-      description: "",
-      tags: [],
-      preferredView: currentViewMode === "basic" ? "circular" : currentViewMode,
-      code: currentCode,
-    };
-    onTemplateAdded(collection.id, template);
-    setNewTemplateName("");
+    const name = newItemName.trim();
+    if (!name) return;
+    if (createMode === "template") {
+      if (!currentCode.trim()) return;
+      const template: DiagramTemplate = {
+        id: crypto.randomUUID(),
+        name,
+        description: "",
+        tags: [],
+        preferredView: currentViewMode === "basic" ? "circular" : currentViewMode,
+        code: currentCode,
+      };
+      onTemplateAdded(collection.id, template);
+    } else {
+      onCreateSubcollection(collection.id, name);
+    }
+    setNewItemName("");
   }
 
   function handleRemoveTemplate(template: DiagramTemplate) {
@@ -346,23 +470,39 @@ function CollectionView({
     onDelete(collection);
   }
 
+  const ancestors = breadcrumbs.slice(0, -1);
+
   return (
     <div className="flex flex-col h-full">
       <div className="px-3 pt-3 pb-2">
         <div className="flex items-center gap-1 mb-2">
-          <button
-            onClick={onClose}
-            className="text-[10px] px-1.5 py-1 rounded hover:bg-border/10 text-fg-disabled hover:text-fg-muted transition-all"
-            title="Back to collections"
-          >
-            ← All
-          </button>
-          <p className="flex-1 text-[11px] font-semibold text-fg-primary truncate">
-            {collection.name}
-          </p>
+          <div className="flex-1 flex items-center gap-0.5 text-[10px] min-w-0 overflow-hidden">
+            <button
+              onClick={() => onNavigateTo(-1)}
+              className="text-fg-disabled hover:text-fg-muted transition-colors shrink-0"
+            >
+              ← All
+            </button>
+            {ancestors.map((crumb, i) => (
+              <span key={crumb.id} className="flex items-center gap-0.5 shrink-0">
+                <span className="text-fg-disabled px-0.5">/</span>
+                <button
+                  onClick={() => onNavigateTo(i)}
+                  className="text-fg-disabled hover:text-fg-muted transition-colors truncate max-w-14"
+                  title={crumb.name}
+                >
+                  {crumb.name}
+                </button>
+              </span>
+            ))}
+            <span className="text-fg-disabled px-0.5 shrink-0">/</span>
+            <span className="text-[11px] font-semibold text-fg-primary truncate">
+              {collection.name}
+            </span>
+          </div>
           <button
             onClick={() => onExport(collection)}
-            className="text-[10px] px-1.5 py-1 rounded border border-border/30 hover:border-accent/60 hover:bg-accent/5 text-fg-muted hover:text-accent transition-all"
+            className="text-[10px] px-1.5 py-1 rounded border border-border/30 hover:border-accent/60 hover:bg-accent/5 text-fg-muted hover:text-accent transition-all shrink-0"
             title="Export as zip"
           >
             Export
@@ -372,11 +512,7 @@ function CollectionView({
               onClick={handleDelete}
               onBlur={() => setConfirmingDelete(false)}
               className="p-1.5!"
-              title={
-                confirmingDelete
-                  ? "Click again to confirm"
-                  : "Delete collection"
-              }
+              title={confirmingDelete ? "Click again to confirm" : "Delete collection"}
             >
               {confirmingDelete ? <Check size={13} /> : <Trash2 size={13} />}
             </DangerIconBtn>
@@ -393,9 +529,26 @@ function CollectionView({
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-2 flex flex-col gap-2 min-h-0">
-        {filtered.length === 0 ? (
+        {subCollections.map((sub) => (
+          <SubcollectionCard
+            key={sub.id}
+            collection={sub}
+            onOpen={() => onOpenSubcollection(sub)}
+            onDelete={!sub.isBuiltIn ? () => onDelete(sub) : undefined}
+          />
+        ))}
+
+        {subCollections.length > 0 && filtered.length > 0 && (
+          <div className="border-t border-border/20 mt-1 pt-1" />
+        )}
+
+        {filtered.length === 0 && subCollections.length === 0 ? (
           <p className="text-xs text-fg-disabled text-center py-4">
             {query ? `No templates match "${query}"` : "No templates yet."}
+          </p>
+        ) : filtered.length === 0 && query ? (
+          <p className="text-xs text-fg-disabled text-center py-4">
+            No templates match &ldquo;{query}&rdquo;
           </p>
         ) : (
           filtered.map((t) => (
@@ -411,21 +564,37 @@ function CollectionView({
 
       {!collection.isBuiltIn && (
         <form
-          onSubmit={handleSaveTemplate}
-          className="px-3 pb-3 pt-2 border-t border-border/20 flex gap-2"
+          onSubmit={handleSubmit}
+          className="px-3 pb-3 pt-2 border-t border-border/20 flex gap-2 items-center"
         >
+          <button
+            type="button"
+            onClick={() => setCreateMode((m) => m === "template" ? "subcollection" : "template")}
+            className={`p-1.5 rounded border transition-all shrink-0 ${
+              createMode === "subcollection"
+                ? "border-accent/60 bg-accent/5 text-accent"
+                : "border-border/30 text-fg-muted hover:border-accent/40 hover:text-fg-primary"
+            }`}
+            title={createMode === "template" ? "Switch to create sub-collection" : "Switch to save as template"}
+          >
+            {createMode === "template" ? <FileText size={13} /> : <FolderPlus size={13} />}
+          </button>
           <input
             type="text"
-            placeholder="Save current diagram as…"
-            value={newTemplateName}
-            onChange={(e) => setNewTemplateName(e.target.value)}
+            placeholder={
+              createMode === "template"
+                ? "Save current diagram as…"
+                : "New sub-collection name…"
+            }
+            value={newItemName}
+            onChange={(e) => setNewItemName(e.target.value)}
             className="flex-1 text-xs bg-bg-base/60 border border-border/30 rounded px-2 py-1.5 focus:outline-none focus:border-accent/60 text-fg-primary placeholder:text-fg-disabled"
           />
           <button
             type="submit"
-            disabled={!newTemplateName.trim()}
+            disabled={!newItemName.trim()}
             className="px-2.5 py-1.5 rounded border border-border/30 hover:border-accent/60 hover:bg-accent/5 text-fg-muted hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm font-bold"
-            title="Save to collection"
+            title={createMode === "template" ? "Save to collection" : "Create sub-collection"}
           >
             +
           </button>
@@ -443,18 +612,36 @@ export function TemplatePanel() {
   const [collections, setCollections] = useState<TemplateCollection[]>(() =>
     CollectionRepository.getAll(),
   );
-  const [openCollectionId, setOpenCollectionId] = useState<string | null>(null);
+  const [navStack, setNavStack] = useState<string[]>([]);
   const [importError, setImportError] = useState<string | null>(null);
 
-  const openCollection =
-    collections.find((c) => c.id === openCollectionId) ?? null;
+  const currentCollection =
+    navStack.length > 0
+      ? findCollectionById(collections, navStack[navStack.length - 1])
+      : null;
+
+  const breadcrumbs = buildCrumbs(collections, navStack);
 
   function refresh() {
     setCollections(CollectionRepository.getAll());
   }
 
+  function handleOpenCollection(col: TemplateCollection) {
+    setNavStack((prev) => [...prev, col.id]);
+  }
+
+  function handleNavigateTo(index: number) {
+    if (index < 0) setNavStack([]);
+    else setNavStack((prev) => prev.slice(0, index + 1));
+  }
+
   function handleCreateCollection(name: string) {
     CollectionRepository.create(name);
+    refresh();
+  }
+
+  function handleCreateSubcollection(parentId: string, name: string) {
+    CollectionRepository.create(name, parentId);
     refresh();
   }
 
@@ -473,16 +660,13 @@ export function TemplatePanel() {
       const imported = await importCollectionFromZip(file);
       CollectionRepository.upsert(imported);
       refresh();
-      setOpenCollectionId(imported.id);
+      setNavStack([imported.id]);
     } catch (err) {
       setImportError(err instanceof Error ? err.message : "Import failed");
     }
   }
 
-  function handleTemplateAdded(
-    collectionId: string,
-    template: DiagramTemplate,
-  ) {
+  function handleTemplateAdded(collectionId: string, template: DiagramTemplate) {
     CollectionRepository.addTemplate(collectionId, template);
     refresh();
   }
@@ -498,7 +682,10 @@ export function TemplatePanel() {
 
   function handleDelete(col: TemplateCollection) {
     CollectionRepository.delete(col.id);
-    setOpenCollectionId(null);
+    setNavStack((prev) => {
+      const idx = prev.indexOf(col.id);
+      return idx >= 0 ? prev.slice(0, idx) : prev;
+    });
     refresh();
   }
 
@@ -515,21 +702,21 @@ export function TemplatePanel() {
       {importError && (
         <div className="mx-3 mt-2 px-2 py-1.5 text-[10px] text-red-600 bg-red-50 border border-red-200 rounded">
           {importError}
-          <button
-            onClick={() => setImportError(null)}
-            className="ml-2 underline"
-          >
+          <button onClick={() => setImportError(null)} className="ml-2 underline">
             Dismiss
           </button>
         </div>
       )}
 
-      {openCollection ? (
+      {currentCollection ? (
         <CollectionView
-          collection={openCollection}
+          collection={currentCollection}
+          breadcrumbs={breadcrumbs}
           currentCode={currentCode}
           currentViewMode={currentViewMode}
-          onClose={() => setOpenCollectionId(null)}
+          onNavigateTo={handleNavigateTo}
+          onOpenSubcollection={handleOpenCollection}
+          onCreateSubcollection={handleCreateSubcollection}
           onTemplateAdded={handleTemplateAdded}
           onTemplateRemoved={handleTemplateRemoved}
           onExport={handleExport}
@@ -538,7 +725,7 @@ export function TemplatePanel() {
       ) : (
         <CollectionsView
           collections={collections}
-          onOpen={(col) => setOpenCollectionId(col.id)}
+          onOpen={handleOpenCollection}
           onImport={handleImportClick}
           onCreateCollection={handleCreateCollection}
         />
