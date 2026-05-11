@@ -1620,3 +1620,1275 @@ OrderService --> MessageBroker
 NotificationService --> MessageBroker`,
   },
 ];
+
+export const SOLID_SRP_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "solid-srp-bad",
+    name: "Bad: God Class",
+    description: "One class handles user creation, auth, email, reporting, and storage — any requirement change forces you to edit this single class, making it fragile and hard to test.",
+    tags: ["solid", "srp", "bad", "anti-pattern", "principles", "oop"],
+    preferredView: "hierarchical",
+    code: `UserManager{
+  createUser()
+  validateEmail()
+  hashPassword()
+  sendWelcomeEmail()
+  generateMonthlyReport()
+  logActivity()
+  backupUserDataToS3()
+}`,
+  },
+  {
+    id: "solid-srp-good",
+    name: "Good: Focused Services",
+    description: "Each class has exactly one reason to change. User lifecycle, email delivery, audit logging, and storage are separate concerns with clear boundaries.",
+    tags: ["solid", "srp", "good", "principles", "oop"],
+    preferredView: "hierarchical",
+    code: `UserService{
+  createUser()
+  updateProfile()
+  deleteUser()
+}
+EmailService{
+  sendWelcomeEmail()
+  sendPasswordReset()
+  sendNotification()
+}
+AuditService{
+  logActivity()
+  getAuditTrail()
+}
+StorageService{
+  backupData()
+  restoreData()
+}
+
+UserService --> AuditService
+EmailService --> AuditService`,
+  },
+];
+
+export const SOLID_OCP_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "solid-ocp-bad",
+    name: "Bad: Closed for Extension",
+    description: "Adding a new notification channel (e.g. Slack) requires editing NotificationSender — modifying existing, working code and risking regressions in email and SMS.",
+    tags: ["solid", "ocp", "bad", "anti-pattern", "principles", "oop"],
+    preferredView: "hierarchical",
+    code: `NotificationSender{
+  send()
+  if_email_useSmtp()
+  if_sms_useTwilio()
+  if_push_useFirebase()
+  add_new_type_EDIT_HERE()
+}
+SmtpClient
+TwilioGateway
+FirebaseClient
+
+NotificationSender ..> SmtpClient
+NotificationSender ..> TwilioGateway
+NotificationSender ..> FirebaseClient`,
+  },
+  {
+    id: "solid-ocp-good",
+    name: "Good: Open for Extension",
+    description: "Adding Slack notifications means creating a new SlackNotification class — existing code is never touched.",
+    tags: ["solid", "ocp", "good", "principles", "oop"],
+    preferredView: "hierarchical",
+    code: `Notification[
+  send()
+]
+EmailNotification{
+  recipient
+  send()
+}
+SMSNotification{
+  phone
+  send()
+}
+PushNotification{
+  deviceToken
+  send()
+}
+SlackNotification{
+  channel
+  send()
+}
+
+EmailNotification ..|> Notification
+SMSNotification ..|> Notification
+PushNotification ..|> Notification
+SlackNotification ..|> Notification`,
+  },
+];
+
+export const SOLID_LSP_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "solid-lsp-bad",
+    name: "Bad: Broken Substitution",
+    description: "Penguin extends Bird but throws an exception from fly() — any code that uses Bird cannot safely substitute a Penguin without special-casing it.",
+    tags: ["solid", "lsp", "bad", "anti-pattern", "principles", "oop"],
+    preferredView: "hierarchical",
+    code: `Bird{
+  fly()
+  eat()
+  layEggs()
+}
+Sparrow{
+  fly()
+  eat()
+  layEggs()
+}
+Penguin{
+  fly_ThrowsException()
+  eat()
+  layEggs()
+  swim()
+}
+
+Sparrow --|> Bird
+Penguin --|> Bird`,
+  },
+  {
+    id: "solid-lsp-good",
+    name: "Good: Proper Hierarchy",
+    description: "FlyingBird and Penguin split the hierarchy cleanly — every subtype can be substituted for its declared base without surprises.",
+    tags: ["solid", "lsp", "good", "principles", "oop"],
+    preferredView: "hierarchical",
+    code: `Animal{
+  eat()
+  layEggs()
+}
+FlyingBird{
+  eat()
+  layEggs()
+  fly()
+}
+Sparrow{
+  fly()
+  eat()
+  layEggs()
+}
+Eagle{
+  fly()
+  eat()
+  layEggs()
+}
+Penguin{
+  eat()
+  layEggs()
+  swim()
+}
+
+FlyingBird --|> Animal
+Penguin --|> Animal
+Sparrow --|> FlyingBird
+Eagle --|> FlyingBird`,
+  },
+];
+
+export const SOLID_ISP_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "solid-isp-bad",
+    name: "Bad: Fat Interface",
+    description: "BasicPrinter is forced to stub scan(), fax(), and staple() it cannot support — clients who only need print() still depend on the entire bloated contract.",
+    tags: ["solid", "isp", "bad", "anti-pattern", "principles", "oop"],
+    preferredView: "hierarchical",
+    code: `IDevice[
+  print()
+  scan()
+  fax()
+  staple()
+]
+BasicPrinter{
+  print()
+  scan_NotSupported()
+  fax_NotSupported()
+  staple_NotSupported()
+}
+AllInOnePrinter{
+  print()
+  scan()
+  fax()
+  staple()
+}
+
+BasicPrinter ..|> IDevice
+AllInOnePrinter ..|> IDevice`,
+  },
+  {
+    id: "solid-isp-good",
+    name: "Good: Role Interfaces",
+    description: "Each device implements only the narrow interfaces it actually supports — clients depend on exactly what they need, nothing more.",
+    tags: ["solid", "isp", "good", "principles", "oop"],
+    preferredView: "hierarchical",
+    code: `Printable[
+  print()
+]
+Scannable[
+  scan()
+]
+Faxable[
+  fax()
+]
+MultifunctionPrinter{
+  print()
+  scan()
+  fax()
+}
+BasicPrinter{
+  print()
+}
+Scanner{
+  scan()
+}
+
+MultifunctionPrinter ..|> Printable
+MultifunctionPrinter ..|> Scannable
+MultifunctionPrinter ..|> Faxable
+BasicPrinter ..|> Printable
+Scanner ..|> Scannable`,
+  },
+];
+
+export const SOLID_DIP_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "solid-dip-bad",
+    name: "Bad: Concrete Dependency",
+    description: "OrderProcessor is hardwired to EmailNotifier — switching to SMS or adding push notifications forces changes inside high-level business logic.",
+    tags: ["solid", "dip", "bad", "anti-pattern", "principles", "oop"],
+    preferredView: "hierarchical",
+    code: `OrderProcessor{
+  emailNotifier
+  processOrder()
+  sendEmailConfirmation()
+}
+EmailNotifier{
+  smtpServer
+  sendEmail()
+  formatMessage()
+}
+
+OrderProcessor --> EmailNotifier`,
+  },
+  {
+    id: "solid-dip-good",
+    name: "Good: Depend on Abstraction",
+    description: "OrderProcessor depends only on the Notifier interface — notification channels can be swapped or multiplied without touching business logic.",
+    tags: ["solid", "dip", "good", "principles", "oop"],
+    preferredView: "hierarchical",
+    code: `OrderProcessor{
+  notifier
+  processOrder()
+}
+Notifier[
+  send()
+]
+EmailNotifier{
+  send()
+}
+SMSNotifier{
+  send()
+}
+PushNotifier{
+  send()
+}
+
+OrderProcessor --> Notifier
+EmailNotifier ..|> Notifier
+SMSNotifier ..|> Notifier
+PushNotifier ..|> Notifier`,
+  },
+];
+
+export const CREATIONAL_PATTERN_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "gof-singleton",
+    name: "Singleton",
+    description: "Ensures a class has only one instance and provides global access to it",
+    tags: ["design-pattern", "creational", "gof"],
+    preferredView: "hierarchical",
+    code: `Singleton{
+  instance
+  getInstance()
+  businessLogic()
+}
+Client1
+Client2
+Client3
+
+Client1 ..> Singleton
+Client2 ..> Singleton
+Client3 ..> Singleton`,
+  },
+  {
+    id: "gof-factory-method",
+    name: "Factory Method",
+    description: "Defines an interface for creating objects, letting subclasses decide which class to instantiate",
+    tags: ["design-pattern", "creational", "gof"],
+    preferredView: "hierarchical",
+    code: `Creator[
+  createProduct()
+  operation()
+]
+ConcreteCreatorA{
+  createProduct()
+}
+ConcreteCreatorB{
+  createProduct()
+}
+Product[
+  use()
+]
+ConcreteProductA{
+  use()
+}
+ConcreteProductB{
+  use()
+}
+
+ConcreteCreatorA ..|> Creator
+ConcreteCreatorB ..|> Creator
+ConcreteProductA ..|> Product
+ConcreteProductB ..|> Product
+ConcreteCreatorA ..> ConcreteProductA
+ConcreteCreatorB ..> ConcreteProductB`,
+  },
+  {
+    id: "gof-abstract-factory",
+    name: "Abstract Factory",
+    description: "Produces families of related objects without specifying their concrete classes",
+    tags: ["design-pattern", "creational", "gof"],
+    preferredView: "hierarchical",
+    code: `GUIFactory[
+  createButton()
+  createCheckbox()
+]
+WindowsFactory{
+  createButton()
+  createCheckbox()
+}
+MacFactory{
+  createButton()
+  createCheckbox()
+}
+Button[
+  render()
+]
+WindowsButton{
+  render()
+}
+MacButton{
+  render()
+}
+Checkbox[
+  render()
+]
+WindowsCheckbox{
+  render()
+}
+MacCheckbox{
+  render()
+}
+
+WindowsFactory ..|> GUIFactory
+MacFactory ..|> GUIFactory
+WindowsFactory ..> WindowsButton
+WindowsFactory ..> WindowsCheckbox
+MacFactory ..> MacButton
+MacFactory ..> MacCheckbox
+WindowsButton ..|> Button
+MacButton ..|> Button
+WindowsCheckbox ..|> Checkbox
+MacCheckbox ..|> Checkbox`,
+  },
+  {
+    id: "gof-builder",
+    name: "Builder",
+    description: "Constructs complex objects step by step, separating construction from representation",
+    tags: ["design-pattern", "creational", "gof"],
+    preferredView: "hierarchical",
+    code: `Director{
+  builder
+  construct()
+}
+Builder[
+  buildPartA()
+  buildPartB()
+  buildPartC()
+  getResult()
+]
+ConcreteBuilder{
+  buildPartA()
+  buildPartB()
+  buildPartC()
+  getResult()
+}
+Product{
+  partA
+  partB
+  partC
+}
+
+Director o-- Builder
+ConcreteBuilder ..|> Builder
+ConcreteBuilder ..> Product`,
+  },
+  {
+    id: "gof-prototype",
+    name: "Prototype",
+    description: "Creates new objects by cloning an existing prototype",
+    tags: ["design-pattern", "creational", "gof"],
+    preferredView: "hierarchical",
+    code: `Prototype[
+  clone()
+]
+ConcretePrototypeA{
+  field1
+  field2
+  clone()
+}
+ConcretePrototypeB{
+  field1
+  field2
+  clone()
+}
+Client{
+  prototype
+  makeACopy()
+}
+
+ConcretePrototypeA ..|> Prototype
+ConcretePrototypeB ..|> Prototype
+Client --> Prototype`,
+  },
+];
+
+export const STRUCTURAL_PATTERN_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "gof-adapter",
+    name: "Adapter",
+    description: "Makes incompatible interfaces work together by wrapping one with a compatible interface",
+    tags: ["design-pattern", "structural", "gof"],
+    preferredView: "hierarchical",
+    code: `Client
+Target[
+  request()
+]
+Adapter{
+  adaptee
+  request()
+}
+Adaptee{
+  specificRequest()
+}
+
+Client ..> Target
+Adapter ..|> Target
+Adapter o-- Adaptee`,
+  },
+  {
+    id: "gof-bridge",
+    name: "Bridge",
+    description: "Decouples an abstraction from its implementation so both can vary independently",
+    tags: ["design-pattern", "structural", "gof"],
+    preferredView: "hierarchical",
+    code: `Abstraction{
+  impl
+  operation()
+}
+RefinedAbstraction{
+  operation()
+  extra()
+}
+Implementor[
+  operationImpl()
+]
+ConcreteImplA{
+  operationImpl()
+}
+ConcreteImplB{
+  operationImpl()
+}
+
+RefinedAbstraction --|> Abstraction
+Abstraction o-- Implementor
+ConcreteImplA ..|> Implementor
+ConcreteImplB ..|> Implementor`,
+  },
+  {
+    id: "gof-composite",
+    name: "Composite",
+    description: "Composes objects into tree structures to represent part-whole hierarchies",
+    tags: ["design-pattern", "structural", "gof"],
+    preferredView: "hierarchical",
+    code: `Component[
+  operation()
+  add()
+  remove()
+]
+Leaf{
+  operation()
+}
+Composite{
+  children
+  operation()
+  add()
+  remove()
+}
+
+Leaf ..|> Component
+Composite ..|> Component
+Composite o-- Component`,
+  },
+  {
+    id: "gof-decorator",
+    name: "Decorator",
+    description: "Attaches additional responsibilities to an object dynamically, wrapping the original",
+    tags: ["design-pattern", "structural", "gof"],
+    preferredView: "hierarchical",
+    code: `Component[
+  operation()
+]
+ConcreteComponent{
+  operation()
+}
+BaseDecorator{
+  wrappee
+  operation()
+}
+ConcreteDecoratorA{
+  addedState
+  operation()
+}
+ConcreteDecoratorB{
+  operation()
+  extraBehavior()
+}
+
+ConcreteComponent ..|> Component
+BaseDecorator ..|> Component
+ConcreteDecoratorA --|> BaseDecorator
+ConcreteDecoratorB --|> BaseDecorator
+BaseDecorator o-- Component`,
+  },
+  {
+    id: "gof-facade",
+    name: "Facade",
+    description: "Provides a simplified interface to a complex subsystem",
+    tags: ["design-pattern", "structural", "gof"],
+    preferredView: "hierarchical",
+    code: `Client
+Facade{
+  operation1()
+  operation2()
+}
+SubsystemA{
+  operationA1()
+  operationA2()
+}
+SubsystemB{
+  operationB1()
+  operationB2()
+}
+SubsystemC{
+  operationC1()
+}
+
+Client ..> Facade
+Facade --> SubsystemA
+Facade --> SubsystemB
+Facade --> SubsystemC`,
+  },
+  {
+    id: "gof-proxy",
+    name: "Proxy",
+    description: "Provides a surrogate that controls access to another object",
+    tags: ["design-pattern", "structural", "gof"],
+    preferredView: "hierarchical",
+    code: `Client
+Subject[
+  request()
+]
+RealSubject{
+  request()
+}
+Proxy{
+  realSubject
+  request()
+  checkAccess()
+  logCall()
+}
+
+Client ..> Subject
+RealSubject ..|> Subject
+Proxy ..|> Subject
+Proxy o-- RealSubject`,
+  },
+  {
+    id: "gof-flyweight",
+    name: "Flyweight",
+    description: "Shares intrinsic state between many fine-grained objects to reduce memory usage",
+    tags: ["design-pattern", "structural", "gof"],
+    preferredView: "hierarchical",
+    code: `FlyweightFactory{
+  cache
+  getFlyweight()
+}
+Flyweight[
+  intrinsicState
+  operation()
+]
+ConcreteFlyweight{
+  intrinsicState
+  operation()
+}
+Client{
+  extrinsicState
+  flyweights
+}
+
+FlyweightFactory o-- ConcreteFlyweight
+ConcreteFlyweight ..|> Flyweight
+Client ..> FlyweightFactory
+Client ..> ConcreteFlyweight`,
+  },
+];
+
+export const BEHAVIORAL_PATTERN_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "gof-chain-of-responsibility",
+    name: "Chain of Responsibility",
+    description: "Passes a request along a chain of handlers, each deciding to handle or forward it",
+    tags: ["design-pattern", "behavioral", "gof"],
+    preferredView: "pipeline",
+    code: `Request
+AuthHandler{
+  handle()
+  setNext()
+}
+LoggingHandler{
+  handle()
+  setNext()
+}
+RateLimitHandler{
+  handle()
+  setNext()
+}
+BusinessHandler{
+  processRequest()
+}
+
+Request --> AuthHandler
+AuthHandler --> LoggingHandler
+LoggingHandler --> RateLimitHandler
+RateLimitHandler --> BusinessHandler`,
+  },
+  {
+    id: "gof-command",
+    name: "Command",
+    description: "Encapsulates a request as an object, enabling undo/redo and request queuing",
+    tags: ["design-pattern", "behavioral", "gof"],
+    preferredView: "hierarchical",
+    code: `Invoker{
+  history
+  setCommand()
+  execute()
+  undo()
+}
+Command[
+  execute()
+  undo()
+]
+CopyCommand{
+  receiver
+  execute()
+  undo()
+}
+PasteCommand{
+  receiver
+  execute()
+  undo()
+}
+Editor{
+  selection
+  clipboard
+  copy()
+  paste()
+}
+
+Invoker o-- Command
+CopyCommand ..|> Command
+PasteCommand ..|> Command
+CopyCommand --> Editor
+PasteCommand --> Editor`,
+  },
+  {
+    id: "gof-iterator",
+    name: "Iterator",
+    description: "Provides sequential access to a collection's elements without exposing its internals",
+    tags: ["design-pattern", "behavioral", "gof"],
+    preferredView: "hierarchical",
+    code: `IterableCollection[
+  createIterator()
+]
+ConcreteCollection{
+  items
+  createIterator()
+}
+Iterator[
+  getNext()
+  hasMore()
+  currentItem()
+]
+ConcreteIterator{
+  collection
+  position
+  getNext()
+  hasMore()
+}
+Client
+
+Client ..> IterableCollection
+Client ..> Iterator
+ConcreteCollection ..|> IterableCollection
+ConcreteIterator ..|> Iterator
+ConcreteCollection ..> ConcreteIterator`,
+  },
+  {
+    id: "gof-mediator",
+    name: "Mediator",
+    description: "Reduces chaotic dependencies between objects by routing communication through a mediator",
+    tags: ["design-pattern", "behavioral", "gof"],
+    preferredView: "radial",
+    code: `Mediator{
+  componentA
+  componentB
+  componentC
+  notify()
+}
+ComponentA{
+  mediator
+  doA()
+}
+ComponentB{
+  mediator
+  doB()
+}
+ComponentC{
+  mediator
+  doC()
+}
+
+Mediator o-- ComponentA
+Mediator o-- ComponentB
+Mediator o-- ComponentC
+ComponentA --> Mediator
+ComponentB --> Mediator
+ComponentC --> Mediator`,
+  },
+  {
+    id: "gof-memento",
+    name: "Memento",
+    description: "Captures and restores an object's internal state without violating encapsulation",
+    tags: ["design-pattern", "behavioral", "gof"],
+    preferredView: "hierarchical",
+    code: `Originator{
+  state
+  save()
+  restore()
+}
+Memento{
+  state
+  getState()
+}
+Caretaker{
+  originator
+  history
+  doSomething()
+  undo()
+}
+
+Originator ..> Memento
+Caretaker --> Originator
+Caretaker o-- Memento`,
+  },
+  {
+    id: "gof-observer",
+    name: "Observer",
+    description: "Notifies multiple dependents automatically when one object's state changes",
+    tags: ["design-pattern", "behavioral", "gof"],
+    preferredView: "radial",
+    code: `EventEmitter{
+  subscribers
+  subscribe()
+  unsubscribe()
+  notify()
+}
+Subscriber[
+  update()
+]
+UserInterface{
+  update()
+}
+Logger{
+  update()
+}
+EmailService{
+  update()
+}
+Analytics{
+  update()
+}
+
+EventEmitter o-- Subscriber
+UserInterface ..|> Subscriber
+Logger ..|> Subscriber
+EmailService ..|> Subscriber
+Analytics ..|> Subscriber`,
+  },
+  {
+    id: "gof-state",
+    name: "State",
+    description: "Allows an object to alter its behavior when its internal state changes",
+    tags: ["design-pattern", "behavioral", "gof"],
+    preferredView: "hierarchical",
+    code: `Context{
+  state
+  setState()
+  request()
+}
+State[
+  handle()
+]
+IdleState{
+  handle()
+}
+ProcessingState{
+  handle()
+}
+ErrorState{
+  handle()
+}
+CompletedState{
+  handle()
+}
+
+Context --> State
+IdleState ..|> State
+ProcessingState ..|> State
+ErrorState ..|> State
+CompletedState ..|> State`,
+  },
+  {
+    id: "gof-strategy",
+    name: "Strategy",
+    description: "Defines a family of algorithms, encapsulates each one, and makes them interchangeable",
+    tags: ["design-pattern", "behavioral", "gof"],
+    preferredView: "hierarchical",
+    code: `Context{
+  strategy
+  setStrategy()
+  execute()
+}
+Strategy[
+  execute()
+]
+BubbleSort{
+  execute()
+}
+QuickSort{
+  execute()
+}
+MergeSort{
+  execute()
+}
+
+Context --> Strategy
+BubbleSort ..|> Strategy
+QuickSort ..|> Strategy
+MergeSort ..|> Strategy`,
+  },
+  {
+    id: "gof-template-method",
+    name: "Template Method",
+    description: "Defines the skeleton of an algorithm in a base class, deferring steps to subclasses",
+    tags: ["design-pattern", "behavioral", "gof"],
+    preferredView: "hierarchical",
+    code: `DataProcessor[
+  process()
+  readData()
+  parseData()
+  analyzeData()
+  sendReport()
+]
+CSVDataProcessor{
+  readData()
+  parseData()
+}
+JSONDataProcessor{
+  readData()
+  parseData()
+}
+XMLDataProcessor{
+  readData()
+  parseData()
+  sendReport()
+}
+
+CSVDataProcessor ..|> DataProcessor
+JSONDataProcessor ..|> DataProcessor
+XMLDataProcessor ..|> DataProcessor`,
+  },
+  {
+    id: "gof-visitor",
+    name: "Visitor",
+    description: "Lets you add further operations to objects without modifying them",
+    tags: ["design-pattern", "behavioral", "gof"],
+    preferredView: "hierarchical",
+    code: `Visitor[
+  visitCircle()
+  visitRectangle()
+  visitTriangle()
+]
+AreaCalculator{
+  visitCircle()
+  visitRectangle()
+  visitTriangle()
+}
+XMLExporter{
+  visitCircle()
+  visitRectangle()
+  visitTriangle()
+}
+Shape[
+  accept()
+]
+Circle{
+  accept()
+}
+Rectangle{
+  accept()
+}
+Triangle{
+  accept()
+}
+
+AreaCalculator ..|> Visitor
+XMLExporter ..|> Visitor
+Circle ..|> Shape
+Rectangle ..|> Shape
+Triangle ..|> Shape
+Circle --> Visitor
+Rectangle --> Visitor
+Triangle --> Visitor`,
+  },
+];
+
+export const APP_ARCH_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "arch-mvp",
+    name: "MVP",
+    description: "Model-View-Presenter: View is passive, Presenter handles all UI logic and mediates with Model",
+    tags: ["architecture", "ui", "mvp", "pattern"],
+    preferredView: "hierarchical",
+    code: `Model{
+  DataSource
+  BusinessLogic
+  Repository
+}
+View{
+  UserInterface
+  UserEvents
+  displayData()
+  showError()
+}
+Presenter{
+  handleUserAction()
+  updateView()
+  fetchData()
+}
+
+View --> Presenter
+Presenter --> Model
+Presenter --> View`,
+  },
+  {
+    id: "arch-mvvm",
+    name: "MVVM",
+    description: "Model-View-ViewModel: two-way data binding eliminates direct View↔Model coupling",
+    tags: ["architecture", "ui", "mvvm", "pattern"],
+    preferredView: "hierarchical",
+    code: `Model{
+  DataSource
+  BusinessLogic
+  Repository
+}
+View{
+  UserInterface
+  DataBinding
+  UserInput
+}
+ViewModel{
+  ObservableState
+  Commands
+  formatData()
+  handleCommand()
+}
+
+View --> ViewModel
+ViewModel --> Model
+ViewModel --> View`,
+  },
+  {
+    id: "arch-hexagonal",
+    name: "Hexagonal",
+    description: "Ports & Adapters: core domain is isolated from all external systems via port interfaces",
+    tags: ["architecture", "hexagonal", "ports-adapters", "ddd", "pattern"],
+    preferredView: "radial",
+    code: `Domain{
+  Entities
+  UseCases
+  Ports
+}
+PrimaryAdapters{
+  RESTController
+  GraphQLController
+  CLIAdapter
+  EventListener
+}
+SecondaryAdapters{
+  PostgresAdapter
+  RedisAdapter
+  EmailAdapter
+  S3Adapter
+}
+
+PrimaryAdapters ..> Domain
+Domain ..> SecondaryAdapters`,
+  },
+  {
+    id: "arch-clean",
+    name: "Clean Architecture",
+    description: "Concentric dependency rings — arrows always point inward; outer layers depend on inner layers, never the reverse",
+    tags: ["architecture", "clean", "ddd", "pattern"],
+    preferredView: "hierarchical",
+    code: `Frameworks{
+  WebFramework
+  Database
+  ExternalAPIs
+  UI
+}
+InterfaceAdapters{
+  Controllers
+  Presenters
+  Gateways
+}
+UseCases{
+  ApplicationLogic
+  Interactors
+  DTOs
+}
+Entities{
+  BusinessRules
+  DomainObjects
+  ValueObjects
+}
+
+Frameworks ..> InterfaceAdapters
+InterfaceAdapters ..> UseCases
+UseCases ..> Entities`,
+  },
+  {
+    id: "arch-cqrs",
+    name: "CQRS",
+    description: "Command Query Responsibility Segregation: separate models optimized for reads vs. writes",
+    tags: ["architecture", "cqrs", "pattern", "event-driven"],
+    preferredView: "pipeline",
+    code: `Client
+CommandSide{
+  CommandHandler
+  WriteModel
+  WriteDB
+}
+QuerySide{
+  QueryHandler
+  ReadModel
+  ReadDB
+}
+EventBus
+EventStore
+
+Client --> CommandSide
+Client --> QuerySide
+CommandSide --> EventStore
+EventStore --> EventBus
+EventBus --> QuerySide`,
+  },
+  {
+    id: "arch-event-sourcing",
+    name: "Event Sourcing",
+    description: "State is stored as a sequence of events — current state is rebuilt by replaying them",
+    tags: ["architecture", "event-sourcing", "pattern", "event-driven"],
+    preferredView: "timeline",
+    code: `Command
+CommandHandler{
+  validate()
+  applyLogic()
+  emitEvent()
+}
+EventStore{
+  OrderCreated
+  ItemAdded
+  OrderShipped
+  OrderCancelled
+}
+Projection{
+  currentState
+  rebuild()
+  handleEvent()
+}
+ReadModel
+
+Command --> CommandHandler
+CommandHandler --> EventStore
+EventStore --> Projection
+Projection --> ReadModel`,
+  },
+];
+
+export const SYSTEM_ARCH_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "arch-monolith",
+    name: "Monolith",
+    description: "Single deployable unit containing all application concerns — simple to develop, harder to scale",
+    tags: ["architecture", "monolith", "system", "deployment"],
+    preferredView: "hierarchical",
+    code: `MonolithicApp{
+  PresentationLayer{
+    WebController
+    APIController
+    ViewTemplates
+  }
+  BusinessLayer{
+    UserService
+    OrderService
+    PaymentService
+    NotificationService
+  }
+  DataLayer{
+    UserRepository
+    OrderRepository
+    PaymentRepository
+  }
+}
+Database
+
+MonolithicApp --> Database`,
+  },
+  {
+    id: "arch-soa",
+    name: "SOA",
+    description: "Service-Oriented Architecture: coarse-grained services communicate via an enterprise service bus",
+    tags: ["architecture", "soa", "system", "enterprise"],
+    preferredView: "pipeline",
+    code: `Client
+ESB{
+  Router
+  Transformer
+  Orchestrator
+  MessageBroker
+}
+UserService{
+  SOAP_Endpoint
+  BusinessLogic
+  UserDB
+}
+OrderService{
+  SOAP_Endpoint
+  BusinessLogic
+  OrderDB
+}
+PaymentService{
+  SOAP_Endpoint
+  BusinessLogic
+  PaymentDB
+}
+ServiceRegistry
+
+Client --> ESB
+ESB --> UserService
+ESB --> OrderService
+ESB --> PaymentService
+ServiceRegistry --> ESB`,
+  },
+  {
+    id: "arch-serverless",
+    name: "Serverless",
+    description: "Functions triggered on demand — no servers to manage, scales to zero automatically",
+    tags: ["architecture", "serverless", "cloud", "faas"],
+    preferredView: "radial",
+    code: `APIGateway
+Functions{
+  CreateUser()
+  GetOrders()
+  ProcessPayment()
+  SendEmail()
+  ResizeImage()
+}
+CloudServices{
+  ObjectStorage
+  ManagedDatabase
+  MessageQueue
+  CDN
+  SecretManager
+}
+Triggers{
+  HTTP
+  ScheduledCron
+  QueueMessage
+  FileUpload
+}
+
+Triggers --> Functions
+APIGateway --> Functions
+Functions --> CloudServices`,
+  },
+  {
+    id: "arch-bff",
+    name: "BFF",
+    description: "Backend for Frontend: a dedicated backend per client type, each optimized for its consumer",
+    tags: ["architecture", "bff", "api", "frontend", "system"],
+    preferredView: "hierarchical",
+    code: `WebApp
+MobileApp
+TVApp
+WebBFF{
+  aggregateForWeb()
+  webOptimizedData()
+}
+MobileBFF{
+  aggregateForMobile()
+  compressPayload()
+}
+TVBFF{
+  aggregateForTV()
+  streamingData()
+}
+UserService
+OrderService
+ProductService
+MediaService
+
+WebApp --> WebBFF
+MobileApp --> MobileBFF
+TVApp --> TVBFF
+WebBFF --> UserService
+WebBFF --> OrderService
+MobileBFF --> UserService
+MobileBFF --> ProductService
+TVBFF --> ProductService
+TVBFF --> MediaService`,
+  },
+];

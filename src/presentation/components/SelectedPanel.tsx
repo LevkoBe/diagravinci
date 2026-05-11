@@ -52,10 +52,13 @@ export function SelectedPanel() {
   const defaultId = toSelectorId(`Selected_${TAB_SESSION_ID}`);
   const [activeSelectorId, setActiveSelectorId] = useState(defaultId);
 
-  const selector =
-    visibleSelectors.find((s) => s.id === activeSelectorId) ??
-    visibleSelectors[0] ??
-    null;
+  const selector = useMemo(
+    () =>
+      visibleSelectors.find((s) => s.id === activeSelectorId) ??
+      visibleSelectors[0] ??
+      null,
+    [visibleSelectors, activeSelectorId],
+  );
   const effectiveId = selector?.id ?? null;
 
   const matchedPaths = useMemo(
@@ -109,7 +112,6 @@ export function SelectedPanel() {
   const handleAutoLayout = () => {
     const { model: m, viewState: vs, canvasSize: cs } = store.getState().diagram;
     const layoutVS = ViewStateMerger.merge(vs, m, cs);
-    const matchedSet = new Set(matchedPaths);
     const newPositions = { ...vs.positions };
     for (const path of matchedPaths) {
       if (layoutVS.positions[path]) newPositions[path] = layoutVS.positions[path];

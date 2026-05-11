@@ -41,9 +41,11 @@ export class ElementEventHandler {
       },
 
       onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => {
-        const group = e.target as Konva.Group;
-        const groupWorldPos = screenToWorld(group.getAbsolutePosition(), this.stage);
-        this.callbacks.moveGroupPeers?.(this.path, groupWorldPos);
+        const group = e.target as Konva.Group | null;
+        if (group) {
+          const groupWorldPos = screenToWorld(group.getAbsolutePosition(), this.stage);
+          this.callbacks.moveGroupPeers?.(this.path, groupWorldPos);
+        }
 
         const pointer = this.stage.getPointerPosition();
         if (pointer) {
