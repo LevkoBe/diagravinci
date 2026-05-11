@@ -18,6 +18,8 @@ const VIEW_LABELS: Record<ViewState["viewMode"], string> = {
   pipeline: "Pipeline",
   radial: "Radial",
   execute: "Execute",
+  force: "Force",
+  manual: "Manual",
 };
 
 const VIEW_COLORS: Record<ViewState["viewMode"], string> = {
@@ -28,6 +30,8 @@ const VIEW_COLORS: Record<ViewState["viewMode"], string> = {
   pipeline: "bg-green-500/15 text-green-800",
   radial: "bg-teal-500/15 text-teal-800",
   execute: "bg-indigo-500/15 text-indigo-800",
+  force: "bg-orange-500/15 text-orange-800",
+  manual: "bg-fg-ternary/15 text-fg-muted",
 };
 
 type ThumbSpec = {
@@ -76,6 +80,16 @@ const THUMB: Record<ViewState["viewMode"], ThumbSpec> = {
   basic: {
     bg: "#f1f5f9", dot: "#64748b",
     dots: [{ x: 20, y: 33 }, { x: 50, y: 33 }, { x: 80, y: 33 }, { x: 20, y: 67 }, { x: 50, y: 67 }, { x: 80, y: 67 }],
+  },
+  force: {
+    bg: "#fff7ed", dot: "#f97316",
+    dots: [{ x: 50, y: 50 }, { x: 20, y: 25 }, { x: 80, y: 25 }, { x: 20, y: 75 }, { x: 80, y: 75 }],
+    lines: [[0, 1], [0, 2], [0, 3], [0, 4], [1, 2], [3, 4]],
+  },
+  manual: {
+    bg: "#f8fafc", dot: "#94a3b8",
+    dots: [{ x: 25, y: 30 }, { x: 70, y: 20 }, { x: 50, y: 65 }, { x: 80, y: 70 }],
+    lines: [[0, 2], [1, 3]],
   },
 };
 

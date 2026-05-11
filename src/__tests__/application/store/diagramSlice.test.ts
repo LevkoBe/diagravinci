@@ -5,6 +5,7 @@ import reducer, {
   setCode,
   setCanvasSize,
   updateElementPositionInView,
+  batchUpdatePositions,
   upsertElement,
   removeElement,
   upsertRelationship,
@@ -59,6 +60,31 @@ describe("diagramSlice", () => {
         setCanvasSize({ width: 1200, height: 900 }),
       );
       expect(state.canvasSize).toEqual({ width: 1200, height: 900 });
+    });
+  });
+
+  describe("batchUpdatePositions", () => {
+    it("updates multiple positions at once", () => {
+      const vs = createEmptyViewState();
+      vs.positions["a"] = { id: "a", position: { x: 0, y: 0 }, size: 60, value: 1 };
+      vs.positions["b"] = { id: "b", position: { x: 0, y: 0 }, size: 60, value: 1 };
+      const base = reducer(undefined, setViewState(vs));
+      const next = reducer(base, batchUpdatePositions({ a: { x: 10, y: 20 }, b: { x: 30, y: 40 } }));
+      expect(next.viewState.positions["a"].position).toEqual({ x: 10, y: 20 });
+      expect(next.viewState.positions["b"].position).toEqual({ x: 30, y: 40 });
+    });
+
+    it("ignores paths that do not exist in positions", () => {
+      const state = reducer(undefined, batchUpdatePositions({ ghost: { x: 1, y: 2 } }));
+      expect(state.viewState.positions["ghost"]).toBeUndefined();
+    });
+
+    it("updates nested child paths", () => {
+      const vs = createEmptyViewState();
+      vs.positions["a.child"] = { id: "child", position: { x: 0, y: 0 }, size: 30, value: 1 };
+      const base = reducer(undefined, setViewState(vs));
+      const next = reducer(base, batchUpdatePositions({ "a.child": { x: 5, y: 7 } }));
+      expect(next.viewState.positions["a.child"].position).toEqual({ x: 5, y: 7 });
     });
   });
 

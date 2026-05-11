@@ -20,7 +20,7 @@ export interface PositionedRelationship {
 export interface ViewState {
   positions: Record<string, PositionedElement>;
   relationships: PositionedRelationship[];
-  viewMode: "basic" | "hierarchical" | "timeline" | "pipeline" | "circular" | "radial" | "execute";
+  viewMode: "basic" | "hierarchical" | "timeline" | "pipeline" | "circular" | "radial" | "execute" | "force" | "manual";
   zoom: number;
   pan: Position;
   hiddenPaths: string[];

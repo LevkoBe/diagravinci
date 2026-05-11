@@ -6,6 +6,8 @@ import { TimelineLayout } from "./TimelineLayout";
 import { PipelineLayout } from "./PipelineLayout";
 import { ExecuteLayout } from "./ExecuteLayout";
 import { RadialLayout } from "./RadialLayout";
+import { ForceDirectedLayout } from "./ForceDirectedLayout";
+import { ManualLayout } from "./ManualLayout";
 
 type ViewMode = ViewState["viewMode"];
 
@@ -17,6 +19,8 @@ const registry: Record<ViewMode, LayoutAlgorithm> = {
   pipeline: new PipelineLayout(),
   radial: new RadialLayout(),
   execute: new ExecuteLayout(),
+  force: new ForceDirectedLayout(),
+  manual: new ManualLayout(),
 };
 
 export function getLayout(viewMode: ViewMode): LayoutAlgorithm {

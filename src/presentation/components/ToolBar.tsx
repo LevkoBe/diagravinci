@@ -38,6 +38,8 @@ import {
   SlidersHorizontal,
   ListFilter,
   Eraser,
+  Atom,
+  Move,
 } from "lucide-react";
 import { AppConfig } from "../../config/appConfig";
 import { stageRegistry } from "../../shared/stageRegistry";
@@ -722,6 +724,16 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
               value: "radial",
               label: "Radial",
               icon: <Target size={14} />,
+            },
+            {
+              value: "force",
+              label: "Force",
+              icon: <Atom size={14} />,
+            },
+            {
+              value: "manual",
+              label: "Manual",
+              icon: <Move size={14} />,
             },
           ]}
         />
