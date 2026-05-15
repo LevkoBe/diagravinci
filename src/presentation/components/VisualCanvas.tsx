@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Konva from "konva";
-import { useC7One, detectIsDark } from "@levkobe/c7one";
+import { useC7One, detectIsDark, usePrimaryBounds } from "@levkobe/c7one";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import {
   setCanvasSize,
@@ -36,6 +36,8 @@ import { AppConfig } from "../../config/appConfig";
 import { VConfig } from "./visualConfig";
 import { lightStateTokens, darkStateTokens } from "../../themes";
 import { stageRegistry } from "../../shared/stageRegistry";
+
+const FIT_PADDING_FACTOR = 0.1;
 
 function hexToRgba(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -81,6 +83,7 @@ export function VisualCanvas() {
   const tickIntervalMs = useAppSelector((s) => s.execution.tickIntervalMs);
   const { colors } = useC7One();
   const isDark = detectIsDark(colors["--color-bg-base"]);
+  const primaryBounds = usePrimaryBounds();
 
   const elementSizes = useMemo(
     () => computeElementSizes(model, viewState, zoom),
@@ -462,7 +465,11 @@ export function VisualCanvas() {
   useEffect(() => {
     if (!zoomCommand || !stageRef.current) return;
     const stage = stageRef.current;
-    const center = { x: stage.width() / 2, y: stage.height() / 2 };
+    const visibleW = primaryBounds.ready ? primaryBounds.width : stage.width();
+    const visibleH = primaryBounds.ready ? primaryBounds.height : stage.height();
+    const visibleX = primaryBounds.ready ? primaryBounds.x : 0;
+    const visibleY = primaryBounds.ready ? primaryBounds.y : 0;
+    const center = { x: visibleX + visibleW / 2, y: visibleY + visibleH / 2 };
 
     if (zoomCommand.type === "reset") {
       const positions = Object.values(
@@ -474,8 +481,8 @@ export function VisualCanvas() {
           node: stage,
           scaleX: 1,
           scaleY: 1,
-          x: 0,
-          y: 0,
+          x: center.x,
+          y: center.y,
           duration: 0.4,
           easing: Konva.Easings.EaseInOut,
           onFinish: () => {
@@ -498,10 +505,10 @@ export function VisualCanvas() {
       const W = maxWX - minWX;
       const H = maxWY - minWY;
 
-      const PAD = Math.min(stage.width(), stage.height()) * 0.3;
+      const PAD = Math.min(visibleW, visibleH) * FIT_PADDING_FACTOR;
 
-      const scaleX = stage.width() / (W + PAD * 2);
-      const scaleY = stage.height() / (H + PAD * 2);
+      const scaleX = visibleW / (W + PAD * 2);
+      const scaleY = visibleH / (H + PAD * 2);
 
       let newScale = Math.min(scaleX, scaleY);
 
