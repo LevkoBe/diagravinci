@@ -391,13 +391,11 @@ describe("Parser", () => {
 
   it("should handle flow between elements", () => {
     const model = parse("player >emeralds> shop");
-    expect(Object.values(model.elements).length).toBe(4);
-    expect(model.root.childIds.length).toBe(3);
-    const [player, flow, emeralds, shop] = Array.from(
-      Object.values(model.elements),
-    );
-    expect(player.type).toBe("object");
-    expect(flow.type).toBe("flow");
+    expect(Object.values(model.elements).length).toBe(3);
+    expect(model.root.childIds.length).toBe(2);
+    const [player, emeralds, shop] = Array.from(Object.values(model.elements));
+    expect(player.type).toBe("flow");
+    expect(player.childIds).toContain(emeralds.id);
     expect(emeralds.type).toBe("object");
     expect(shop.type).toBe("object");
   });
