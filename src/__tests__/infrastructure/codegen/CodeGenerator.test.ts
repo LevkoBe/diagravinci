@@ -239,8 +239,8 @@ describe("CodeGenerator", () => {
       model.elements["a"] = createElement("a", "object");
       model.elements["b"] = createElement("b", "object");
       model.root.childIds.push("a", "b");
-      model.relationships["r"] = createRelationship("r", "a", "b", "o--");
-      expect(generate(model)).toContain("a o-- b");
+      model.relationships["r"] = createRelationship("r", "b", "a", "--o");
+      expect(generate(model)).toContain("b --o a");
       expect(generate(model)).not.toContain("--undefined");
     });
   });

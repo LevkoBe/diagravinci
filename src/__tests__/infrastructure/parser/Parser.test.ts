@@ -119,8 +119,8 @@ describe("Parser", () => {
     expect(walk.type).toBe("object");
     expect(fight.type).toBe("object");
     expect(start.type).toBe("function");
-    expect(step1.type).toBe("function");
-    expect(step2.type).toBe("function");
+    expect(step1.type).toBe("object");
+    expect(step2.type).toBe("object");
   });
 
   it("should parse decision tree", () => {
@@ -137,9 +137,16 @@ describe("Parser", () => {
     expect(op3.childIds).toContain(if3.id);
     expect(op3.childIds).toContain(if4.id);
     expect(op3.childIds).toContain(if5.id);
-    Array.from(Object.values(model.elements)).forEach((e) =>
-      expect(e.type).toBe("choice"),
-    );
+    const elements = Array.from(Object.values(model.elements));
+    expect(elements[0].type).toBe("choice");
+    expect(start.type).toBe("choice");
+    expect(op3.type).toBe("choice");
+    expect(if1.type).toBe("object");
+    expect(if2.type).toBe("object");
+    expect(else1.type).toBe("object");
+    expect(if3.type).toBe("object");
+    expect(if4.type).toBe("object");
+    expect(if5.type).toBe("object");
   });
 
   it("should parse simple arrow relationship", () => {
@@ -188,20 +195,24 @@ describe("Parser", () => {
 
     expect(Object.values(model.elements).length).toBe(2);
     const [player, tool] = Array.from(Object.values(model.elements));
-    expect(rel.source).toBe(player.id);
-    expect(rel.target).toBe(tool.id);
+    expect(rel.source).toBe(tool.id);
+    expect(rel.target).toBe(player.id);
   });
 
   it("should parse composition relationship", () => {
     const model = parse("whole *-- part");
     const rel = Array.from(Object.values(model.relationships))[0];
-    expect(rel.type).toBe("*--");
+    expect(rel.type).toBe("--*");
+    expect(rel.source).toBe("part");
+    expect(rel.target).toBe("whole");
   });
 
   it("should parse aggregation relationship", () => {
     const model = parse("container o-- item");
     const rel = Array.from(Object.values(model.relationships))[0];
-    expect(rel.type).toBe("o--");
+    expect(rel.type).toBe("--o");
+    expect(rel.source).toBe("item");
+    expect(rel.target).toBe("container");
   });
 
   it("should parse implementation relationship", () => {
@@ -322,15 +333,15 @@ describe("Parser", () => {
 
     expect(Object.values(model.relationships).length).toBe(3);
     const [rel1, rel2, rel3] = Array.from(Object.values(model.relationships));
-    expect(rel1.source).toBe(match.id);
-    expect(rel1.target).toBe(player.id);
-    expect(rel1.type).toBe("o--");
-    expect(rel2.source).toBe(match.id);
-    expect(rel2.target).toBe(gameSession.id);
-    expect(rel2.type).toBe("*--");
-    expect(rel3.source).toBe(player.id);
-    expect(rel3.target).toBe(inventory.id);
-    expect(rel3.type).toBe("o--");
+    expect(rel1.source).toBe(player.id);
+    expect(rel1.target).toBe(match.id);
+    expect(rel1.type).toBe("--o");
+    expect(rel2.source).toBe(gameSession.id);
+    expect(rel2.target).toBe(match.id);
+    expect(rel2.type).toBe("--*");
+    expect(rel3.source).toBe(inventory.id);
+    expect(rel3.target).toBe(player.id);
+    expect(rel3.type).toBe("--o");
   });
 
   it("should merge double element definition", () => {
@@ -472,10 +483,10 @@ describe("Parser", () => {
     expect(b1.type).toBe("object");
     expect(c.type).toBe("object");
     expect(anon3.type).toBe("function");
-    expect(c1.type).toBe("function");
+    expect(c1.type).toBe("object");
     expect(d.type).toBe("object");
     expect(anon4.type).toBe("choice");
-    expect(d1.type).toBe("choice");
+    expect(d1.type).toBe("object");
     expect(e.type).toBe("object");
     expect(anon5.type).toBe("flow");
     expect(e1.type).toBe("object");
@@ -507,9 +518,9 @@ describe("Parser", () => {
     expect(rel2.source).toBe(b.id);
     expect(rel2.target).toBe(a.id);
     expect(rel2.type).toBe("-->");
-    expect(rel3.source).toBe(b.id);
-    expect(rel3.target).toBe(a.id);
-    expect(rel3.type).toBe("*--");
+    expect(rel3.source).toBe(a.id);
+    expect(rel3.target).toBe(b.id);
+    expect(rel3.type).toBe("--*");
   });
 
   it("should parse relationship of arbitrary length", () => {
@@ -543,9 +554,9 @@ describe("Parser", () => {
     expect(f.childIds).toContain(x.id);
     expect(f.childIds).toContain(y.id);
     expect(f.childIds).toContain(z.id);
-    expect(x.type).toBe("function");
-    expect(y.type).toBe("function");
-    expect(z.type).toBe("function");
+    expect(x.type).toBe("object");
+    expect(y.type).toBe("object");
+    expect(z.type).toBe("object");
   });
 
   it("should parse other chainings", () => {
@@ -558,10 +569,10 @@ describe("Parser", () => {
     expect(f.childIds).toContain(b.id);
     expect(f.childIds).toContain(c.id);
     expect(f.childIds).toContain(d.id);
-    expect(a.type).toBe("function");
+    expect(a.type).toBe("object");
     expect(b.type).toBe("object");
     expect(c.type).toBe("object");
-    expect(d.type).toBe("choice");
+    expect(d.type).toBe("object");
   });
 
   it("should handle relationships inside and outside of scope", () => {

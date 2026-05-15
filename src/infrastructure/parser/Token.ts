@@ -6,15 +6,24 @@ export const RELATIONSHIPS = [
   "..>",
   "--|>",
   "..|>",
-  "o--",
-  "*--",
   "--o",
   "--*",
+  "o--",
+  "*--",
   "<--",
   "<..",
   "<|--",
   "<|..",
 ] as const;
+
+export const BACKWARD_TO_CANONICAL: Partial<Record<RelationshipType, RelationshipType>> = {
+  "o--": "--o",
+  "*--": "--*",
+  "<--": "-->",
+  "<..": "..>",
+  "<|--": "--|>",
+  "<|..": "..|>",
+};
 
 export const TOKEN_LITERALS = [
   ...RELATIONSHIPS,

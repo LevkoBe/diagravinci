@@ -3,10 +3,10 @@ import { Modal } from "@levkobe/c7one";
 const ELEMENTS = [
   { syntax: "name{}", kind: "Object", note: "class, entity, component" },
   { syntax: "name[]", kind: "Collection", note: "array, list, group" },
-  { syntax: "|name|", kind: "State", note: "state machine node" },
+  { syntax: "name||", kind: "State", note: "condition, lifecycle stage" },
   { syntax: "name()", kind: "Function", note: "operation, process" },
-  { syntax: ">name>", kind: "Flow", note: "pipeline stage, I/O" },
-  { syntax: "<name>", kind: "Choice", note: "branch, decision" },
+  { syntax: "name>>", kind: "Flow", note: "pipeline stage, I/O boundary" },
+  { syntax: "name<>", kind: "Choice", note: "branch, decision point" },
 ];
 
 const RELATIONSHIPS = [

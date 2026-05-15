@@ -205,15 +205,15 @@ describe("resolveRelationships", () => {
     const model = makeModel([{ id: "a" }, { id: "b" }], ["a", "b"]);
     model.relationships["r1"] = createRelationship(
       "r1",
-      "a",
       "b",
-      "o--",
+      "a",
+      "--o",
       "uses",
     );
     const positions = { a: pe("a"), b: pe("b") };
 
     const rels = resolveRelationships(model, positions);
-    expect(rels[0].type).toBe("o--");
+    expect(rels[0].type).toBe("--o");
     expect(rels[0].label).toBe("uses");
   });
 

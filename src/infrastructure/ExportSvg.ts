@@ -15,8 +15,8 @@ const ARROW_MARKERS: Record<string, string> = {
   "..>": "arrow-dashed",
   "--|>": "arrow-inherit",
   "..|>": "arrow-inherit-dashed",
-  "o--": "diamond-open",
-  "*--": "diamond-filled",
+  "--o": "diamond-open",
+  "--*": "diamond-filled",
 };
 
 function escapeXml(s: string): string {

@@ -20,6 +20,7 @@ import type { RenderStyle, RelLineStyle } from "../../application/store/uiSlice"
 
 import {
   computeElementSizes,
+  MAX_SCREEN_RATIO,
   type ElementSizes,
 } from "./rendering/elementSizing";
 import {
@@ -40,6 +41,7 @@ function createElementRenderer(
   size: number,
   zoom: number,
   colorOverride: string | null,
+  maxScreenPx: number,
 ): IElementRenderer {
   const args = [
     element,
@@ -52,6 +54,7 @@ function createElementRenderer(
     size,
     zoom,
     colorOverride,
+    maxScreenPx,
   ] as const;
   switch (renderStyle) {
     case "rect":
@@ -100,6 +103,7 @@ export class DiagramLayerRenderer {
   private readonly pixelSizes: Map<string, number>;
 
   private readonly zoom: number;
+  private readonly maxScreenPx: number;
   private readonly renderStyle: RenderStyle;
   private readonly viewportRect: ViewportRect;
 
@@ -134,6 +138,8 @@ export class DiagramLayerRenderer {
     this.callbacks = callbacks;
     this.prevPaths = prevPaths;
     this.zoom = zoom;
+    this.maxScreenPx =
+      Math.min(stage.width(), stage.height()) * MAX_SCREEN_RATIO;
     this.renderStyle = renderStyle;
     this.isReadonly = isReadonly;
     this.executionColorMap = executionColorMap;
@@ -141,7 +147,11 @@ export class DiagramLayerRenderer {
     this.getGroupMoveInfo = getGroupMoveInfo;
 
     const { pixelSizes, zoomHidden, zoomDimmed } =
-      elementSizes ?? computeElementSizes(model, this.viewState, zoom);
+      elementSizes ??
+      computeElementSizes(model, this.viewState, zoom, {
+        width: stage.width(),
+        height: stage.height(),
+      });
     this.pixelSizes = pixelSizes;
 
     this.hiddenSet = new Set([...viewState.hiddenPaths, ...zoomHidden]);
@@ -297,6 +307,7 @@ export class DiagramLayerRenderer {
       size,
       this.zoom,
       colorOverride,
+      this.maxScreenPx,
     );
 
     if (

@@ -26,23 +26,17 @@ describe("parseEndSpec", () => {
     expect(spec.targetFilled).toBe(false);
   });
 
-  it("parses *-- as filled-diamond->none", () => {
-    const spec = parseEndSpec("*--");
-    expect(spec.source).toBe("diamond");
-    expect(spec.sourceFilled).toBe(true);
-    expect(spec.target).toBe("none");
+  it("parses --* as none->filled-diamond", () => {
+    const spec = parseEndSpec("--*");
+    expect(spec.source).toBe("none");
+    expect(spec.target).toBe("diamond");
+    expect(spec.targetFilled).toBe(true);
   });
 
-  it("parses o-- as circle->none", () => {
-    const spec = parseEndSpec("o--");
-    expect(spec.source).toBe("circle");
-    expect(spec.target).toBe("none");
-  });
-
-  it("parses <-- as arrow->none", () => {
-    const spec = parseEndSpec("<--");
-    expect(spec.source).toBe("arrow");
-    expect(spec.target).toBe("none");
+  it("parses --o as none->circle", () => {
+    const spec = parseEndSpec("--o");
+    expect(spec.source).toBe("none");
+    expect(spec.target).toBe("circle");
   });
 
   it("parses -- as none->none", () => {
@@ -50,23 +44,13 @@ describe("parseEndSpec", () => {
     expect(spec.source).toBe("none");
     expect(spec.target).toBe("none");
   });
-
-  it("parses --* as none->filled-diamond", () => {
-    const spec = parseEndSpec("--*");
-    expect(spec.target).toBe("diamond");
-    expect(spec.targetFilled).toBe(true);
-  });
 });
 
 describe("isDashed", () => {
-  const dashedTypes: RelationshipType[] = ["..>", "..|>", "<..", "<|..", ".."];
+  const dashedTypes: RelationshipType[] = ["..>", "..|>", ".."];
   const solidTypes: RelationshipType[] = [
     "-->",
     "--|>",
-    "<--",
-    "<|--",
-    "o--",
-    "*--",
     "--o",
     "--*",
     "--",
@@ -281,9 +265,9 @@ describe("computeRelPoints", () => {
     expect(result.points![2]).toBeCloseTo(66);
   });
 
-  it("applies insets on both ends for bidirectional decorations (<|--)", () => {
-    const result = computeRelPoints(0, 0, 60, 100, 0, 60, "<|--", 1);
-    expect(result.points![0]).toBeCloseTo(42);
-    expect(result.points![2]).toBeCloseTo(70);
+  it("applies target inset for decoration at target end (--|>)", () => {
+    const result = computeRelPoints(0, 0, 60, 100, 0, 60, "--|>", 1);
+    expect(result.points![0]).toBeCloseTo(30);
+    expect(result.points![2]).toBeCloseTo(58);
   });
 });

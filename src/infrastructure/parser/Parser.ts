@@ -1,4 +1,5 @@
 import {
+  BACKWARD_TO_CANONICAL,
   defaultOpeningWrapper,
   defaultRelationshipType,
   type ClosingWrapper,
@@ -34,8 +35,8 @@ const WRAPPERS: Record<
 > = {
   "{": { close: "}", type: "object", defaultChildType: "object" },
   "[": { close: "]", type: "collection", defaultChildType: "object" },
-  "(": { close: ")", type: "function", defaultChildType: "function" },
-  "<": { close: ">", type: "choice", defaultChildType: "choice" },
+  "(": { close: ")", type: "function", defaultChildType: "object" },
+  "<": { close: ">", type: "choice", defaultChildType: "object" },
   ">": { close: ">", type: "flow", defaultChildType: "object" },
   "|": { close: "|", type: "state", defaultChildType: "object" },
 };
@@ -130,7 +131,22 @@ export class Parser {
             lastPath = null;
             break;
           }
-          if (lastRel === null && lastPath === null) {
+          if (
+            lastEl !== null &&
+            lastRel === null &&
+            this.peek(1)?.type === ">"
+          ) {
+            lastEl = this.parseOpeningWrapper(
+              parent,
+              parentPath,
+              null,
+              lastEl,
+              depth,
+              ">",
+            );
+            lastPath = lastEl.id;
+            lastRel = null;
+          } else if (lastRel === null && lastPath === null) {
             lastEl = this.parseOpeningWrapper(
               parent,
               parentPath,
@@ -139,6 +155,8 @@ export class Parser {
               depth,
               ">",
             );
+            lastPath = lastEl.id;
+            lastRel = this.createRelationship(lastEl.id);
           } else {
             lastRel = lastRel ?? this.createRelationship(lastPath ?? parent.id);
             lastEl = this.parseOpeningWrapper(
@@ -149,9 +167,9 @@ export class Parser {
               depth,
               ">",
             );
+            lastPath = lastEl.id;
+            lastRel = this.createRelationship(lastEl.id);
           }
-          lastPath = lastEl.id;
-          lastRel = this.createRelationship(lastEl.id);
           break;
         case "{": {
           lastEl = this.parseOpeningWrapper(
@@ -402,7 +420,14 @@ export class Parser {
 
   private updateRelationship(id: string, newTarget: string) {
     const rel = this.model.relationships[id];
-    rel.target = newTarget;
+    const canonical = BACKWARD_TO_CANONICAL[rel.type];
+    if (canonical) {
+      rel.target = rel.source;
+      rel.source = newTarget;
+      rel.type = canonical;
+    } else {
+      rel.target = newTarget;
+    }
     rel.id = `${rel.source}${rel.type}${rel.target}`;
 
     delete this.model.relationships[id];

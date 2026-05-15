@@ -362,7 +362,24 @@ export function computeExecutionStep(
     };
 
     if (currentEl?.type === "object") {
-      removeInstanceClones();
+      for (const incomingId of instance.clonedElementIds) {
+        const inBase = baseName(incomingId);
+        for (const childId of [...currentEl.childIds]) {
+          if (childId !== incomingId && baseName(childId) === inBase) {
+            delta.removeElements.push(
+              ...collectSubtreeRemoves(
+                model,
+                childId,
+                currentEl.id,
+                `${instance.currentPath}.${childId}`,
+              ),
+            );
+          }
+        }
+      }
+      for (const relId of instance.clonedRelationshipIds) {
+        delta.removeRelationshipIds.push(relId);
+      }
       continue;
     }
 
@@ -380,19 +397,6 @@ export function computeExecutionStep(
     }
 
     if (currentEl?.type === "flow") {
-      const allowed = templateChildTypes(currentEl);
-      if (allowed.size > 0) {
-        const hasMatch = instance.clonedElementIds.some(
-          (cid) => allowed.has(model.elements[cid]?.type ?? ""),
-        );
-        if (!hasMatch) {
-          removeInstanceClones();
-          continue;
-        }
-      }
-    }
-
-    if (currentEl?.type === "collection") {
       const allowed = templateChildTypes(currentEl);
       if (allowed.size > 0) {
         const hasMatch = instance.clonedElementIds.some(
@@ -577,64 +581,10 @@ export function computeExecutionStep(
         continue;
       }
 
-      const tmplChildIds = templateChildren(currentEl);
-
-      if (tmplChildIds.length === 0) {
-        const nextTargetId = targets[0];
-        const nextTargetPath = findElementPath(viewState, nextTargetId);
-        const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
-        forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
-      } else {
-        removeInstanceClones();
-        const nextTargetId = targets[0];
-        const nextTargetPath = findElementPath(viewState, nextTargetId);
-        const targetPos =
-          viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
-        const targetSize = viewState.positions[nextTargetPath]?.size ?? 40;
-
-        for (const component of connectedComponents(tmplChildIds, model)) {
-          const suffix = String(idCounter++);
-          const { all: clonedItems, relationships: clonedRels } =
-            cloneSubtree(model, component, suffix);
-          const idx = parseInt(suffix, 10);
-          const offsetX = (idx % 5) * 6;
-          const offsetY = Math.floor(idx / 5) * 6;
-
-          for (const { element: el, parentCloneId } of clonedItems) {
-            const parentElementId = parentCloneId ?? nextTargetId;
-            const parentPath = parentCloneId
-              ? `${nextTargetPath}.${parentCloneId}`
-              : nextTargetPath;
-            delta.addElements.push({
-              element: el,
-              parentElementId,
-              path: `${parentPath}.${el.id}`,
-              posEntry: {
-                id: el.id,
-                position: { x: targetPos.x + offsetX, y: targetPos.y + offsetY },
-                size: Math.round(targetSize * 0.5),
-                value: 1,
-              },
-              spawnOriginId: instance.currentElementId,
-            });
-          }
-          for (const rel of clonedRels) {
-            delta.addRelationships.push(rel);
-          }
-
-          const topLevelCloneIds = clonedItems
-            .filter((c) => c.parentCloneId === null)
-            .map((c) => c.element.id);
-
-          nextInstances.push({
-            id: `inst_${suffix}`,
-            currentElementId: nextTargetId,
-            currentPath: nextTargetPath,
-            clonedElementIds: topLevelCloneIds,
-            clonedRelationshipIds: clonedRels.map((r) => r.id),
-          });
-        }
-      }
+      const nextTargetId = targets[0];
+      const nextTargetPath = findElementPath(viewState, nextTargetId);
+      const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
+      forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
       continue;
     }
 
