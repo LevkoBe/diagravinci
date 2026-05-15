@@ -5,6 +5,7 @@ import { ViewStateMerger } from "../domain/sync/ViewStateMerger";
 import { setCode, setModel, setViewState } from "./store/diagramSlice";
 import { syncSelectorsFromCode } from "./store/filterSlice";
 import type { AppStore } from "./store/store";
+import { ForceSimulationService } from "./ForceSimulationService";
 
 export interface ICodeParser {
   parse(code: string): DiagramModel;
@@ -28,11 +29,13 @@ export class SyncManager {
   private store: AppStore;
   private parser: ICodeParser;
   private codeGenerator: ICodeGenerator;
+  readonly forceSimulation: ForceSimulationService;
 
   constructor(store: AppStore, parser: ICodeParser, codeGenerator: ICodeGenerator) {
     this.store = store;
     this.parser = parser;
     this.codeGenerator = codeGenerator;
+    this.forceSimulation = new ForceSimulationService();
   }
 
   subscribe(callback: (event: SyncEvent) => void): () => void {
@@ -42,7 +45,7 @@ export class SyncManager {
     };
   }
 
-  syncFromCode(code: string): void {
+  syncFromCode(code: string, preservePositions = false): void {
     try {
       const newModel = this.parser.parse(code);
       const {
@@ -67,6 +70,7 @@ export class SyncManager {
         currentViewState,
         newModel,
         canvasSize,
+        preservePositions,
       );
 
       if (selectorsChanged) {
@@ -81,6 +85,7 @@ export class SyncManager {
       this.store.dispatch(setModel(newModel));
       this.store.dispatch(setViewState(newViewState));
       this.store.dispatch(setCode(code));
+      this.restartForceIfNeeded(newViewState);
       this.notify({
         source: "code",
         model: newModel,
@@ -126,6 +131,7 @@ export class SyncManager {
       preservePositions,
     );
     this.store.dispatch(setViewState(newViewState));
+    this.restartForceIfNeeded(newViewState);
 
     const code = this.codeGenerator.generate(updatedModel);
     this.store.dispatch(setModel(updatedModel));
@@ -146,8 +152,17 @@ export class SyncManager {
   reLayout(): void {
     const { model, viewState, canvasSize } = this.store.getState().diagram;
     if (viewState.viewMode === "execute") return;
+    this.forceSimulation.stop();
     const newViewState = ViewStateMerger.merge(viewState, model, canvasSize);
     this.store.dispatch(setViewState(newViewState));
+    this.restartForceIfNeeded(newViewState);
+  }
+
+  private restartForceIfNeeded(viewState: ViewState): void {
+    this.forceSimulation.stop();
+    if (viewState.viewMode === "force") {
+      this.forceSimulation.start(this.store);
+    }
   }
 
   private notify(event: SyncEvent): void {

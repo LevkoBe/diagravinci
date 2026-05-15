@@ -18,25 +18,19 @@ export function screenToWorld(
 type Source = EndKind;
 type Target = EndKind;
 type Filled = boolean;
-const REL_SPECS: Record<RelationshipType, [Source, Filled, Target, Filled]> = {
+const REL_SPECS: Partial<Record<RelationshipType, [Source, Filled, Target, Filled]>> = {
   "-->": ["none", false, "arrow", false],
   "..>": ["none", false, "arrow", false],
   "--|>": ["none", false, "triangle", false],
   "..|>": ["none", false, "triangle", false],
-  "o--": ["circle", false, "none", false],
-  "*--": ["diamond", true, "none", false],
   "--o": ["none", false, "circle", false],
   "--*": ["none", false, "diamond", true],
-  "<--": ["arrow", false, "none", false],
-  "<..": ["arrow", false, "none", false],
-  "<|--": ["triangle", false, "none", false],
-  "<|..": ["triangle", false, "none", false],
   "--": ["none", false, "none", false],
   "..": ["none", false, "none", false],
 };
 
 export function parseEndSpec(type: RelationshipType): EndSpec {
-  const [source, sourceFilled, target, targetFilled] = REL_SPECS[type];
+  const [source, sourceFilled, target, targetFilled] = REL_SPECS[type] ?? ["none", false, "none", false];
   return { source, sourceFilled, target, targetFilled };
 }
 

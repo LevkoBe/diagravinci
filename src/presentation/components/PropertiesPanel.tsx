@@ -37,6 +37,7 @@ export function PropertiesPanel() {
 
   return (
     <PropertiesPanelContent
+      key={selectedId}
       selectedId={selectedId}
       selectedIds={selectedIds}
       model={model}
@@ -69,11 +70,12 @@ function PropertiesPanelContent({
     (p) => p === selectedId || p.endsWith(`.${selectedId}`),
   );
   const primaryPos = viewState.positions[paths[0]];
+  const pathSet = new Set(paths);
   const outgoing = Object.values(model.relationships).filter(
-    (r) => r.source === selectedId,
+    (r) => r.source === selectedId || pathSet.has(r.source),
   );
   const incoming = Object.values(model.relationships).filter(
-    (r) => r.target === selectedId,
+    (r) => r.target === selectedId || pathSet.has(r.target),
   );
 
   const handleDelete = () => {
@@ -257,11 +259,11 @@ function PropertiesPanelContent({
               <RelRow
                 key={r.id}
                 dir="out"
-                peerId={r.target}
+                peerId={r.target.split(".").pop()!}
                 type={r.type}
                 label={r.label}
                 onNavigate={() => {
-                  dispatch(setSelectedElement(r.target));
+                  dispatch(setSelectedElement(r.target.split(".").pop()!));
                 }}
               />
             ))}
@@ -269,11 +271,11 @@ function PropertiesPanelContent({
               <RelRow
                 key={r.id}
                 dir="in"
-                peerId={r.source}
+                peerId={r.source.split(".").pop()!}
                 type={r.type}
                 label={r.label}
                 onNavigate={() => {
-                  dispatch(setSelectedElement(r.source));
+                  dispatch(setSelectedElement(r.source.split(".").pop()!));
                 }}
               />
             ))}

@@ -77,6 +77,16 @@ export class RelationshipRenderer {
     return this.relGroups;
   }
 
+  private isHidden(path: string): boolean {
+    if (this.hiddenSet.has(path)) return true;
+    let dot = path.lastIndexOf(".");
+    while (dot > 0) {
+      if (this.hiddenSet.has(path.slice(0, dot))) return true;
+      dot = path.lastIndexOf(".", dot - 1);
+    }
+    return false;
+  }
+
   updateRelGroup(
     relId: string,
     srcX: number,
@@ -290,7 +300,7 @@ export class RelationshipRenderer {
 
     this.viewState.relationships.forEach((rel) => {
       const { sourcePath, targetPath } = rel;
-      if (this.hiddenSet.has(sourcePath) || this.hiddenSet.has(targetPath))
+      if (this.isHidden(sourcePath) || this.isHidden(targetPath))
         return;
 
       const sourcePos = this.viewState.positions[sourcePath];

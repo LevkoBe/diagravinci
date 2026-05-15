@@ -50,8 +50,9 @@ export class CodeGenerator {
     for (const element of rootElements)
       lines.push(this.generateElement(element, 0, new AncestryTracker()));
     lines.push("");
-    for (const relationship of Object.values(this.model.relationships))
+    for (const relationship of Object.values(this.model.relationships)) {
       lines.push(this.generateRelationship(relationship));
+    }
 
     return lines.join("\n");
   }
@@ -104,7 +105,9 @@ export class CodeGenerator {
     const opening = wrapper[0];
     const closing = wrapper[1];
     const nameOut = CodeGenerator.quoteId(element.id);
-    const flagSuffix = element.flags?.map((f) => /\s/.test(f) ? `:"${f}"` : `:${f}`).join("") ?? "";
+    const flagSuffix = element.flags
+      ? element.flags.map((f) => /\s/.test(f) ? `:"${f}"` : `:${f}`).join("")
+      : "";
 
     const hasContent = element.childIds.length > 0;
 
@@ -148,7 +151,7 @@ export class CodeGenerator {
       case "function":
         return ["(", ")"];
       case "flow":
-        return [">", ">"];
+        return ["", ">>"];
       case "choice":
         return ["<", ">"];
       default:

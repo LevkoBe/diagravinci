@@ -40,7 +40,13 @@ export class ElementEventHandler {
         this.callbacks.setHovered(null);
       },
 
-      onDragMove: () => {
+      onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => {
+        const group = e.target as Konva.Group | null;
+        if (group) {
+          const groupWorldPos = screenToWorld(group.getAbsolutePosition(), this.stage);
+          this.callbacks.moveGroupPeers?.(this.path, groupWorldPos);
+        }
+
         const pointer = this.stage.getPointerPosition();
         if (pointer) {
           const worldPos = screenToWorld(pointer, this.stage);
@@ -97,6 +103,7 @@ export interface ElementEventCallbacks {
     oldParentPath: string,
     newParentPath: string,
   ) => void;
+  moveGroupPeers?: (path: string, worldPos: { x: number; y: number }) => void;
   setHovered: (path: string | null) => void;
   findHoveredPath: (
     draggedElementId: string,

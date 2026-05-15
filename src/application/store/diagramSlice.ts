@@ -55,6 +55,16 @@ const diagramSlice = createSlice({
         state.viewState.positions[id].position = position;
       }
     },
+    batchUpdatePositions: (
+      state,
+      action: PayloadAction<Record<string, Position>>,
+    ) => {
+      for (const [path, position] of Object.entries(action.payload)) {
+        if (state.viewState.positions[path]) {
+          state.viewState.positions[path].position = position;
+        }
+      }
+    },
     upsertElement: (state, action: PayloadAction<Element>) => {
       state.model.elements[action.payload.id] = action.payload;
     },
@@ -108,6 +118,7 @@ export const {
   setCode,
   setCanvasSize,
   updateElementPositionInView,
+  batchUpdatePositions,
   upsertElement,
   removeElement,
   upsertRelationship,

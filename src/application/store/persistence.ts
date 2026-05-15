@@ -128,6 +128,7 @@ function hydratePersistedState(parsed: PersistedState): HydratedState {
       connectingFromId: null,
       selectedElementIds: [],
       zoomCommand: null,
+      groupMoveSelectorId: null,
     },
   };
 }

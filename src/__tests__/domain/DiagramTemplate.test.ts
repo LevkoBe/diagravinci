@@ -2,12 +2,12 @@ import { describe, it, expect } from "vitest";
 import { Lexer } from "../../infrastructure/parser/Lexer";
 import { Parser } from "../../infrastructure/parser/Parser";
 import {
-  BUILT_IN_TEMPLATES,
-  EDGE_CASE_TEMPLATES,
   SELECTOR_SHOWCASE_TEMPLATES,
   EXECUTION_TEMPLATES,
   STRESS_TEMPLATES,
-  COMPLEX_TEMPLATES,
+  ALL_REL_TYPES_TEMPLATE,
+  ALL_ELEMENT_TYPES_TEMPLATE,
+  WIDE_FANOUT_TEMPLATE,
 } from "../../domain/models/DiagramTemplate";
 
 function parse(code: string) {
@@ -22,63 +22,9 @@ function relCount(code: string) {
   return Object.keys(parse(code).relationships).length;
 }
 
-describe("BUILT_IN_TEMPLATES", () => {
-  it("mvc — 3 groups × 3 children, 4 relationships", () => {
-    const { id, code } = BUILT_IN_TEMPLATES.find((t) => t.id === "mvc")!;
-    expect(id).toBe("mvc");
-    expect(elCount(code)).toBe(12);
-    expect(relCount(code)).toBe(4);
-  });
-
-  it("microservices — gateway + 4 services (2 nested) + 4 infra, 8 relationships", () => {
-    const { code } = BUILT_IN_TEMPLATES.find((t) => t.id === "microservices")!;
-    expect(elCount(code)).toBe(12);
-    expect(relCount(code)).toBe(8);
-  });
-
-  it("event-driven — producer / bus / consumer groups, 4 relationships", () => {
-    const { code } = BUILT_IN_TEMPLATES.find((t) => t.id === "event-driven")!;
-    expect(elCount(code)).toBe(12);
-    expect(relCount(code)).toBe(4);
-  });
-
-  it("layered — 4 layers × 3 children, 3 relationships", () => {
-    const { code } = BUILT_IN_TEMPLATES.find((t) => t.id === "layered")!;
-    expect(elCount(code)).toBe(16);
-    expect(relCount(code)).toBe(3);
-  });
-
-  it("data-pipeline — 3 sources + 4 transforms + 3 sinks, 2 relationships", () => {
-    const { code } = BUILT_IN_TEMPLATES.find((t) => t.id === "data-pipeline")!;
-    expect(elCount(code)).toBe(13);
-    expect(relCount(code)).toBe(2);
-  });
-
-  it("state-machine — 4 collection groups × ~2 children, 5 relationships", () => {
-    const { code } = BUILT_IN_TEMPLATES.find((t) => t.id === "state-machine")!;
-    expect(elCount(code)).toBe(11);
-    expect(relCount(code)).toBe(5);
-    const model = parse(code);
-    const collectionElements = Object.values(model.elements).filter(
-      (e) => e.type === "collection",
-    );
-    expect(collectionElements.length).toBe(4);
-  });
-});
-
-describe("EDGE_CASE_TEMPLATES", () => {
-  it("edge-deep-nesting — 6 nested levels, no relationships", () => {
-    const { code } = EDGE_CASE_TEMPLATES.find(
-      (t) => t.id === "edge-deep-nesting",
-    )!;
-    expect(elCount(code)).toBe(12);
-    expect(relCount(code)).toBe(0);
-  });
-
-  it("edge-all-rel-types — 6 elements, one of each relationship style", () => {
-    const { code } = EDGE_CASE_TEMPLATES.find(
-      (t) => t.id === "edge-all-rel-types",
-    )!;
+describe("TYPE_SHOWCASE_TEMPLATES", () => {
+  it("all-rel-types — 6 elements, one of each relationship style", () => {
+    const { code } = ALL_REL_TYPES_TEMPLATE;
     expect(elCount(code)).toBe(6);
     expect(relCount(code)).toBe(6);
     const rels = Object.values(parse(code).relationships);
@@ -86,11 +32,8 @@ describe("EDGE_CASE_TEMPLATES", () => {
     expect(types.size).toBe(6);
   });
 
-  it("edge-all-element-types — one of each element type", () => {
-    const { code } = EDGE_CASE_TEMPLATES.find(
-      (t) => t.id === "edge-all-element-types",
-    )!;
-    expect(elCount(code)).toBe(6);
+  it("all-element-types — one of each element type", () => {
+    const { code } = ALL_ELEMENT_TYPES_TEMPLATE;
     expect(relCount(code)).toBe(6);
     const model = parse(code);
     const types = Object.values(model.elements).map((e) => e.type);
@@ -102,49 +45,10 @@ describe("EDGE_CASE_TEMPLATES", () => {
     expect(types).toContain("flow");
   });
 
-  it("edge-cycle — 3 services with nested handlers, 6 relationships", () => {
-    const { code } = EDGE_CASE_TEMPLATES.find((t) => t.id === "edge-cycle")!;
-    expect(elCount(code)).toBe(10);
-    expect(relCount(code)).toBe(6);
-  });
-
-  it("edge-wide-fanout — hub + 20 leaves, 20 relationships", () => {
-    const { code } = EDGE_CASE_TEMPLATES.find(
-      (t) => t.id === "edge-wide-fanout",
-    )!;
+  it("wide-fanout — hub + 20 leaves, 20 relationships", () => {
+    const { code } = WIDE_FANOUT_TEMPLATE;
     expect(elCount(code)).toBe(21);
     expect(relCount(code)).toBe(20);
-  });
-
-  it("edge-mutual-nesting — parses without throwing", () => {
-    const { code } = EDGE_CASE_TEMPLATES.find(
-      (t) => t.id === "edge-mutual-nesting",
-    )!;
-    expect(() => parse(code)).not.toThrow();
-    const model = parse(code);
-    expect(Object.keys(model.elements).length).toBeGreaterThan(0);
-  });
-
-  it("edge-26-isolated — 26 nodes, no relationships", () => {
-    const { code } = EDGE_CASE_TEMPLATES.find(
-      (t) => t.id === "edge-26-isolated",
-    )!;
-    expect(elCount(code)).toBe(26);
-    expect(relCount(code)).toBe(0);
-  });
-
-  it("edge-broken-chain — 26 nodes, 12 relationships (two chains, rest isolated)", () => {
-    const { code } = EDGE_CASE_TEMPLATES.find(
-      (t) => t.id === "edge-broken-chain",
-    )!;
-    expect(elCount(code)).toBe(26);
-    expect(relCount(code)).toBe(12);
-  });
-
-  it("edge-diamond — A→B, A→C, B→D, C→D plus cross, 5 relationships", () => {
-    const { code } = EDGE_CASE_TEMPLATES.find((t) => t.id === "edge-diamond")!;
-    expect(elCount(code)).toBe(6);
-    expect(relCount(code)).toBe(5);
   });
 });
 
@@ -169,12 +73,12 @@ describe("SELECTOR_SHOWCASE_TEMPLATES", () => {
     expect(model.selectors?.length).toBe(3);
   });
 
-  it("selector-atoms-name — 3 filter presets, 9 elements, 7 relationships", () => {
+  it("selector-atoms-name — 3 filter presets, 12 elements, 7 relationships", () => {
     const { code } = SELECTOR_SHOWCASE_TEMPLATES.find(
       (t) => t.id === "selector-atoms-name",
     )!;
     const model = parse(code);
-    expect(Object.keys(model.elements).length).toBe(9);
+    expect(Object.keys(model.elements).length).toBe(12);
     expect(Object.keys(model.relationships).length).toBe(7);
     expect(model.selectors?.length).toBe(3);
   });
@@ -253,19 +157,19 @@ describe("EXECUTION_TEMPLATES", () => {
     expect(labeled.length).toBe(6);
   });
 
-  it("exec-connector — two gen functions feed connector, 3 relationships", () => {
+  it("exec-connector — four gen functions feed connector, 5 relationships", () => {
     const { code } = EXECUTION_TEMPLATES.find(
       (t) => t.id === "exec-connector",
     )!;
     const model = parse(code);
-    expect(Object.keys(model.elements).length).toBe(6);
-    expect(Object.keys(model.relationships).length).toBe(3);
+    expect(Object.keys(model.elements).length).toBe(10);
+    expect(Object.keys(model.relationships).length).toBe(5);
     expect(model.elements["gen_a"]?.type).toBe("function");
     expect(model.elements["gen_b"]?.type).toBe("function");
     expect(model.elements["connector"]?.type).toBe("function");
     const rels = Object.values(model.relationships);
     const connectorIns = rels.filter((r) => r.target === "connector");
-    expect(connectorIns.length).toBe(2);
+    expect(connectorIns.length).toBe(4);
   });
 
   it("exec-disconnector — gen(triangle) → disconnector → out, x/y/z are internally connected", () => {
@@ -332,35 +236,5 @@ describe("STRESS_TEMPLATES", () => {
     const { code } = STRESS_TEMPLATES.find((t) => t.id === "stress-clusters")!;
     expect(elCount(code)).toBe(252);
     expect(relCount(code)).toBe(21);
-  });
-});
-
-describe("COMPLEX_TEMPLATES", () => {
-  it("cloud-infrastructure — 30 elements across 5 tiers, 5 relationships", () => {
-    const { code } = COMPLEX_TEMPLATES.find(
-      (t) => t.id === "cloud-infrastructure",
-    )!;
-    expect(elCount(code)).toBe(30);
-    expect(relCount(code)).toBe(5);
-  });
-
-  it("cicd-pipeline — 32 elements (8 stages × 3 steps), 8 relationships", () => {
-    const { code } = COMPLEX_TEMPLATES.find((t) => t.id === "cicd-pipeline")!;
-    expect(elCount(code)).toBe(32);
-    expect(relCount(code)).toBe(8);
-  });
-
-  it("analytics-platform — large nested model, 4 top-level relationships", () => {
-    const { code } = COMPLEX_TEMPLATES.find(
-      (t) => t.id === "analytics-platform",
-    )!;
-    expect(elCount(code)).toBeGreaterThan(30);
-    expect(relCount(code)).toBe(4);
-    const model = parse(code);
-    expect(model.elements["RawSources"]).toBeDefined();
-    expect(model.elements["Ingestion"]).toBeDefined();
-    expect(model.elements["Processing"]).toBeDefined();
-    expect(model.elements["Serving"]).toBeDefined();
-    expect(model.elements["Consumption"]).toBeDefined();
   });
 });

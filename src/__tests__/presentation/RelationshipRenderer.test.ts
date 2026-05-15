@@ -137,11 +137,11 @@ describe("RelationshipRenderer", () => {
     expect(texts.length).toBeGreaterThan(0);
   });
 
-  it("renders relationship with source decoration (<--)", () => {
+  it("renders relationship with arrow at source side (b --> a)", () => {
     const viewState = new ViewStateBuilder()
       .addElement("a", 100, 100, 60)
       .addElement("b", 300, 100, 60)
-      .addRelationship("r1", "a", "b", "<--")
+      .addRelationship("r1", "b", "a", "-->")
       .build();
 
     const renderer = new RelationshipRenderer(
@@ -171,11 +171,11 @@ describe("RelationshipRenderer", () => {
     expect(layer.getChildren().length).toBeGreaterThan(0);
   });
 
-  it("renders filled-diamond relationship (*--)", () => {
+  it("renders filled-diamond relationship (--*)", () => {
     const viewState = new ViewStateBuilder()
       .addElement("a", 100, 100, 60)
       .addElement("b", 300, 100, 60)
-      .addRelationship("r1", "a", "b", "*--")
+      .addRelationship("r1", "b", "a", "--*")
       .build();
 
     const renderer = new RelationshipRenderer(
@@ -270,11 +270,11 @@ describe("RelationshipRenderer", () => {
     expect(group.getChildren().length).toBeGreaterThan(0);
   });
 
-  it("updateLinePosition with source decoration (<--)", () => {
+  it("updateLinePosition with arrow at source side (b --> a)", () => {
     const viewState = new ViewStateBuilder()
       .addElement("a", 100, 100, 60)
       .addElement("b", 300, 100, 60)
-      .addRelationship("r1", "a", "b", "<--")
+      .addRelationship("r1", "b", "a", "-->")
       .build();
 
     const renderer = new RelationshipRenderer(
@@ -674,7 +674,7 @@ describe("RelationshipRenderer", () => {
         .addElement("a", 100, 100, 60)
         .addElement("b", 300, 100, 60)
         .addRelationship("r1", "a", "b", "-->")
-        .addRelationship("r2", "b", "a", "<--")
+        .addRelationship("r2", "a", "b", "-->")
         .build();
 
       const layer2 = new Konva.Layer();
@@ -1061,11 +1061,11 @@ describe("RelationshipRenderer", () => {
       expect(layer.getChildren().length).toBeGreaterThan(0);
     });
 
-    it("renders orthogonal with decorations (source and target)", () => {
+    it("renders orthogonal with decorations (target side only)", () => {
       const viewState = new ViewStateBuilder()
         .addElement("a", 100, 100, 60)
         .addElement("b", 300, 100, 60)
-        .addRelationship("r1", "a", "b", "<--")
+        .addRelationship("r1", "b", "a", "-->")
         .build();
 
       const renderer = new RelationshipRenderer(

@@ -16,7 +16,7 @@ function pathDepth(path: string): number {
   return path.split(".").length;
 }
 
-function matchesSelector(
+export function matchesSelector(
   path: string,
   selector: Selector,
   model: DiagramModel,

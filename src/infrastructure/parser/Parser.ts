@@ -1,4 +1,5 @@
 import {
+  BACKWARD_TO_CANONICAL,
   defaultOpeningWrapper,
   defaultRelationshipType,
   type ClosingWrapper,
@@ -34,8 +35,8 @@ const WRAPPERS: Record<
 > = {
   "{": { close: "}", type: "object", defaultChildType: "object" },
   "[": { close: "]", type: "collection", defaultChildType: "object" },
-  "(": { close: ")", type: "function", defaultChildType: "function" },
-  "<": { close: ">", type: "choice", defaultChildType: "choice" },
+  "(": { close: ")", type: "function", defaultChildType: "object" },
+  "<": { close: ">", type: "choice", defaultChildType: "object" },
   ">": { close: ">", type: "flow", defaultChildType: "object" },
   "|": { close: "|", type: "state", defaultChildType: "object" },
 };
@@ -107,6 +108,7 @@ export class Parser {
     let lastEl: Element | null = null;
     let lastPath: string | null = null;
     let lastRel: Relationship | null = null;
+    let lastElWasWrapped = false;
 
     while (this.peek() && this.peek()!.type !== WRAPPERS[wrapper].close) {
       switch (this.peek()?.kind) {
@@ -122,25 +124,54 @@ export class Parser {
             );
             lastPath = lastEl.id;
             lastRel = null;
+            lastElWasWrapped = true;
             break;
           }
           if (this.peek()?.type !== ">") {
             this.next();
             lastEl = null;
             lastPath = null;
+            lastElWasWrapped = false;
             break;
           }
-          lastRel = lastRel ?? this.createRelationship(lastPath ?? parent.id);
-          lastEl = this.parseOpeningWrapper(
-            parent,
-            parentPath,
-            lastRel,
-            null,
-            depth,
-            ">",
-          );
-          lastPath = lastEl.id;
-          lastRel = this.createRelationship(lastEl.id);
+          if (lastEl !== null && lastRel === null && !lastElWasWrapped) {
+            lastEl = this.parseOpeningWrapper(
+              parent,
+              parentPath,
+              null,
+              lastEl,
+              depth,
+              ">",
+            );
+            lastPath = lastEl.id;
+            lastRel = null;
+            lastElWasWrapped = true;
+          } else if (lastRel === null && lastPath === null) {
+            lastEl = this.parseOpeningWrapper(
+              parent,
+              parentPath,
+              null,
+              null,
+              depth,
+              ">",
+            );
+            lastPath = lastEl.id;
+            lastRel = this.createRelationship(lastEl.id);
+            lastElWasWrapped = true;
+          } else {
+            lastRel = lastRel ?? this.createRelationship(lastPath ?? parent.id);
+            lastEl = this.parseOpeningWrapper(
+              parent,
+              parentPath,
+              lastRel,
+              null,
+              depth,
+              ">",
+            );
+            lastPath = lastEl.id;
+            lastRel = this.createRelationship(lastEl.id);
+            lastElWasWrapped = true;
+          }
           break;
         case "{": {
           lastEl = this.parseOpeningWrapper(
@@ -152,6 +183,7 @@ export class Parser {
           );
           lastPath = lastEl.id;
           lastRel = null;
+          lastElWasWrapped = true;
           break;
         }
         case "-":
@@ -159,6 +191,7 @@ export class Parser {
           lastRel = this.parseRelationship(lastPath ?? parent.id, lastRel);
           lastEl = null;
           lastPath = null;
+          lastElWasWrapped = false;
           break;
         }
         case "!": {
@@ -173,6 +206,7 @@ export class Parser {
             lastRel = null;
             lastEl = null;
             lastPath = null;
+            lastElWasWrapped = false;
             break;
           }
 
@@ -196,6 +230,7 @@ export class Parser {
               lastRel = null;
               lastEl = null;
               lastPath = null;
+              lastElWasWrapped = false;
             } else {
               lastPath = resolved;
               if (resolved) {
@@ -204,6 +239,7 @@ export class Parser {
               } else {
                 lastEl = null;
               }
+              lastElWasWrapped = true;
             }
           } else {
             const existedBefore = !!this.model.elements[tokenValue];
@@ -228,6 +264,7 @@ export class Parser {
               if (!parent.childIds.includes(lastEl.id))
                 parent.childIds.push(lastEl.id);
             }
+            lastElWasWrapped = false;
           }
           break;
         }
@@ -391,7 +428,14 @@ export class Parser {
 
   private updateRelationship(id: string, newTarget: string) {
     const rel = this.model.relationships[id];
-    rel.target = newTarget;
+    const canonical = BACKWARD_TO_CANONICAL[rel.type];
+    if (canonical) {
+      rel.target = rel.source;
+      rel.source = newTarget;
+      rel.type = canonical;
+    } else {
+      rel.target = newTarget;
+    }
     rel.id = `${rel.source}${rel.type}${rel.target}`;
 
     delete this.model.relationships[id];

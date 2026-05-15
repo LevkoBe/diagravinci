@@ -3,10 +3,10 @@ import type { Element } from "../../../domain/models/Element";
 import type { ViewState } from "../../../domain/models/ViewState";
 import { VConfig } from "../visualConfig";
 
-const { BASE_PX, MIN_SCREEN_PX, MAX_SCREEN_PX, WORLD_SIBLING_EXP } =
+const { BASE_PX, MIN_SCREEN_PX, MAX_SCREEN_RATIO, WORLD_SIBLING_EXP } =
   VConfig.sizing;
 
-export { BASE_PX, MIN_SCREEN_PX, MAX_SCREEN_PX };
+export { BASE_PX, MIN_SCREEN_PX, MAX_SCREEN_RATIO };
 
 export interface ElementSizes {
   pixelSizes: Map<string, number>;
@@ -20,7 +20,10 @@ export function computeElementSizes(
   model: DiagramModel,
   viewState: ViewState,
   zoom: number,
+  viewportSize: { width: number; height: number } = { width: 800, height: 600 },
 ): ElementSizes {
+  const maxScreenPx =
+    Math.min(viewportSize.width, viewportSize.height) * MAX_SCREEN_RATIO;
   const pixelSizes = new Map<string, number>();
   const zoomHidden = new Set<string>();
   const zoomDimmed = new Set<string>();
@@ -43,7 +46,7 @@ export function computeElementSizes(
       zoomHidden.add(path);
       return;
     }
-    if (screenSize > MAX_SCREEN_PX) {
+    if (screenSize > maxScreenPx) {
       zoomDimmed.add(path);
     }
 

@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { HierarchicalLayout } from "../../domain/layout/HierarchicalLayout";
 import { TimelineLayout } from "../../domain/layout/TimelineLayout";
 import { PipelineLayout } from "../../domain/layout/PipelineLayout";
+import { ForceDirectedLayout } from "../../domain/layout/ForceDirectedLayout";
+import { ManualLayout } from "../../domain/layout/ManualLayout";
 import { getLayout } from "../../domain/layout/LayoutRegistry";
 import { BUILT_IN_TEMPLATES } from "../../domain/models/DiagramTemplate";
 import { createEmptyDiagram } from "../../domain/models/DiagramModel";
@@ -284,6 +286,129 @@ describe("PipelineLayout", () => {
   });
 });
 
+describe("ForceDirectedLayout", () => {
+  const layout = new ForceDirectedLayout();
+
+  it("has name 'force'", () => {
+    expect(layout.name).toBe("force");
+  });
+
+  it("sets viewMode to force", () => {
+    const vs = layout.apply(makeLinearModel(), CANVAS);
+    expect(vs.viewMode).toBe("force");
+  });
+
+  it("positions all root-level elements", () => {
+    const vs = layout.apply(makeLinearModel(), CANVAS);
+    expect(Object.keys(vs.positions)).toHaveLength(3);
+    expect(vs.positions["A"]).toBeDefined();
+    expect(vs.positions["B"]).toBeDefined();
+    expect(vs.positions["C"]).toBeDefined();
+  });
+
+  it("handles a single element", () => {
+    const model = createEmptyDiagram();
+    model.elements["X"] = createElement("X", "object");
+    model.root.childIds = ["X"];
+    const vs = layout.apply(model, CANVAS);
+    expect(vs.positions["X"]).toBeDefined();
+  });
+
+  it("handles empty model without throwing", () => {
+    const vs = layout.apply(createEmptyDiagram(), CANVAS);
+    expect(vs.positions).toEqual({});
+  });
+
+  it("preserves zoom and pan from previous view state", () => {
+    const prev = {
+      positions: {},
+      relationships: [],
+      viewMode: "force" as const,
+      zoom: 1.5,
+      pan: { x: 10, y: -5 },
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
+    const vs = layout.apply(makeLinearModel(), CANVAS, prev);
+    expect(vs.zoom).toBe(1.5);
+    expect(vs.pan).toEqual({ x: 10, y: -5 });
+  });
+
+  it("resolves relationships", () => {
+    const vs = layout.apply(makeLinearModel(), CANVAS);
+    expect(vs.relationships.length).toBeGreaterThan(0);
+  });
+});
+
+describe("ManualLayout", () => {
+  const layout = new ManualLayout();
+
+  it("has name 'manual'", () => {
+    expect(layout.name).toBe("manual");
+  });
+
+  it("sets viewMode to manual", () => {
+    const vs = layout.apply(makeLinearModel(), CANVAS);
+    expect(vs.viewMode).toBe("manual");
+  });
+
+  it("positions all elements when no previous state exists", () => {
+    const vs = layout.apply(makeLinearModel(), CANVAS);
+    expect(vs.positions["A"]).toBeDefined();
+    expect(vs.positions["B"]).toBeDefined();
+    expect(vs.positions["C"]).toBeDefined();
+  });
+
+  it("preserves existing positions when previous state is provided", () => {
+    const prev = {
+      positions: {
+        A: { id: "A", position: { x: 111, y: 222 }, size: 60, value: 1 },
+        B: { id: "B", position: { x: 333, y: 444 }, size: 60, value: 1 },
+        C: { id: "C", position: { x: 555, y: 666 }, size: 60, value: 1 },
+      },
+      relationships: [],
+      viewMode: "manual" as const,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
+    const vs = layout.apply(makeLinearModel(), CANVAS, prev);
+    expect(vs.positions["A"].position).toEqual({ x: 111, y: 222 });
+    expect(vs.positions["B"].position).toEqual({ x: 333, y: 444 });
+    expect(vs.positions["C"].position).toEqual({ x: 555, y: 666 });
+  });
+
+  it("slots new nodes into view when added to existing layout", () => {
+    const model = makeLinearModel();
+    const prev = {
+      positions: {
+        A: { id: "A", position: { x: 100, y: 100 }, size: 60, value: 1 },
+        B: { id: "B", position: { x: 300, y: 100 }, size: 60, value: 1 },
+      },
+      relationships: [],
+      viewMode: "manual" as const,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
+    const vs = layout.apply(model, CANVAS, prev);
+    expect(vs.positions["C"]).toBeDefined();
+  });
+
+  it("handles empty model without throwing", () => {
+    const vs = layout.apply(createEmptyDiagram(), CANVAS);
+    expect(vs.positions).toEqual({});
+  });
+});
+
 describe("LayoutRegistry", () => {
   it("returns HierarchicalLayout for 'hierarchical'", () => {
     expect(getLayout("hierarchical").name).toBe("hierarchical");
@@ -303,6 +428,14 @@ describe("LayoutRegistry", () => {
 
   it("returns CircularLayout for 'basic'", () => {
     expect(getLayout("basic").name).toBe("circular");
+  });
+
+  it("returns ForceDirectedLayout for 'force'", () => {
+    expect(getLayout("force").name).toBe("force");
+  });
+
+  it("returns ManualLayout for 'manual'", () => {
+    expect(getLayout("manual").name).toBe("manual");
   });
 });
 
@@ -349,6 +482,10 @@ describe("BUILT_IN_TEMPLATES", () => {
       "hierarchical",
       "timeline",
       "pipeline",
+      "radial",
+      "execute",
+      "force",
+      "manual",
     ]);
     for (const t of BUILT_IN_TEMPLATES) {
       expect(validModes.has(t.preferredView)).toBe(true);

@@ -70,9 +70,9 @@ describe("CodeGenerator", () => {
       expect(code).toContain("x()");
     });
 
-    it("uses >> for flow type", () => {
+    it("uses >> for flow type (anonymous — id dropped for round-trip correctness)", () => {
       const code = generate(modelWithElement("x", "flow"));
-      expect(code).toContain("x>>");
+      expect(code).toContain(">>");
     });
 
     it("uses <> for choice type", () => {
@@ -239,8 +239,8 @@ describe("CodeGenerator", () => {
       model.elements["a"] = createElement("a", "object");
       model.elements["b"] = createElement("b", "object");
       model.root.childIds.push("a", "b");
-      model.relationships["r"] = createRelationship("r", "a", "b", "o--");
-      expect(generate(model)).toContain("a o-- b");
+      model.relationships["r"] = createRelationship("r", "b", "a", "--o");
+      expect(generate(model)).toContain("b --o a");
       expect(generate(model)).not.toContain("--undefined");
     });
   });

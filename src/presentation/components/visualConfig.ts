@@ -4,7 +4,7 @@ export const VConfig = {
 
     MIN_SCREEN_PX: 10,
 
-    MAX_SCREEN_PX: 160 * 2,
+    MAX_SCREEN_RATIO: 0.9,
 
     ZOOM_FACTOR: 2,
 
@@ -30,6 +30,7 @@ export const VConfig = {
     LABEL_MAX_FONT_THRESHOLD: 20,
 
     LABEL_WIDTH_RATIO: 1.6,
+    CLASS_LABEL_WIDTH_RATIO: 0.8,
 
     LABEL_BELOW_OFFSET: 10,
     LABEL_FONT_FAMILY: "system-ui, sans-serif",

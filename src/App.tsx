@@ -8,6 +8,7 @@ import {
   ListFilter,
   SlidersHorizontal,
   Wrench,
+  Crosshair,
 } from "lucide-react";
 import { useUndoRedo } from "./presentation/hooks/useUndoRedo";
 import { VisualCanvas } from "./presentation/components/VisualCanvas";
@@ -19,6 +20,7 @@ import AIPanel from "./presentation/components/AIPanel";
 import { TemplatePanel } from "./presentation/components/TemplatePanel";
 import { SelectorsPanel } from "./presentation/components/SelectorModal";
 import { AppSettingsPanel } from "./presentation/components/AppSettingsPanel";
+import { SelectedPanel } from "./presentation/components/SelectedPanel";
 
 const WINDOWS: WindowDef[] = [
   {
@@ -52,6 +54,12 @@ const WINDOWS: WindowDef[] = [
     component: SelectorsPanel,
   },
   {
+    id: "selected",
+    title: "Selected",
+    icon: <Crosshair size={16} aria-hidden="true" />,
+    component: SelectedPanel,
+  },
+  {
     id: "settings",
     title: "Settings",
     icon: <SlidersHorizontal size={16} aria-hidden="true" />,
@@ -83,9 +91,10 @@ const DEFAULT_LAYOUT: LayoutNodeDecl = {
     {
       type: "group",
       direction: "vertical",
-      sizes: [55, 45],
+      sizes: [40, 35, 25],
       children: [
         { type: "leaf", windowId: "properties" },
+        { type: "leaf", windowId: "selected" },
         { type: "leaf", windowId: "templates" },
       ],
     },

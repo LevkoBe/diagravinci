@@ -32,6 +32,8 @@ export abstract class BaseElementRenderer implements IElementRenderer {
 
   protected readonly colorOverride: string | null;
 
+  protected readonly maxScreenPx: number;
+
   constructor(
     element: Element,
     path: string,
@@ -43,6 +45,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     size: number,
     zoom: number,
     colorOverride: string | null = null,
+    maxScreenPx = 320,
   ) {
     this.element = element;
     this.path = path;
@@ -54,6 +57,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     this.size = size;
     this.zoom = zoom;
     this.colorOverride = colorOverride;
+    this.maxScreenPx = maxScreenPx;
   }
 
   protected classDiagramContent: ClassDiagramContent | null = null;
@@ -117,15 +121,35 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     return group;
   }
 
+  private get labelOpacity(): number {
+    const isZoomDimmed = this.isDimmed && this.size * this.zoom > this.maxScreenPx;
+    return this.isDimmed && !isZoomDimmed ? ec.DIM_OPACITY : 1;
+  }
+
+  private computeFontSize(
+    maxWidth: number,
+    longestText: string,
+  ): { fontSize: number; useEllipsis: boolean } {
+    const zoomFactor = Math.max(this.zoom, 0.01);
+    const heuristicFont =
+      (maxWidth * ec.LABEL_TARGET_WIDTH_RATIO) /
+      (longestText.length * ec.CHAR_WIDTH_RATIO);
+    const minFont = ec.LABEL_MIN_FONT / zoomFactor;
+    const maxFont = ec.LABEL_MAX_FONT_THRESHOLD / zoomFactor;
+    return {
+      fontSize: Math.max(minFont, Math.min(maxFont, heuristicFont)),
+      useEllipsis: heuristicFont < minFont,
+    };
+  }
+
   protected addClassDiagramLabel(group: Konva.Group): void {
     const { fields, methods } = this.classDiagramContent!;
     const { size } = this;
     const FONT = ec.LABEL_FONT_FAMILY;
-    const isZoomDimmed =
-      this.isDimmed && this.size * this.zoom > VConfig.sizing.MAX_SCREEN_PX;
-    const OPACITY = this.isDimmed && !isZoomDimmed ? ec.DIM_OPACITY : 1;
+    const opacity = this.labelOpacity;
     const fill = this.colors.fgPrimary;
-    const maxW = size * 0.6;
+    const zoomFactor = Math.max(this.zoom, 0.01);
+    const maxW = size * ec.CLASS_LABEL_WIDTH_RATIO;
     const xStart = -maxW / 2;
 
     const allLines = [this.element.id, ...fields, ...methods];
@@ -133,14 +157,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       (a, b) => (a.length > b.length ? a : b),
       this.element.id,
     );
-    const zoomFactor = Math.max(this.zoom, 0.01);
-    const heuristicFont =
-      (maxW * ec.LABEL_TARGET_WIDTH_RATIO) /
-      (longestLine.length * ec.CHAR_WIDTH_RATIO);
-    const minFont = ec.LABEL_MIN_FONT / zoomFactor;
-    const maxFont = ec.LABEL_MAX_FONT_THRESHOLD / zoomFactor;
-    const fontSize = Math.max(minFont, Math.min(maxFont, heuristicFont));
-    const useEllipsis = heuristicFont < minFont;
+    const { fontSize, useEllipsis } = this.computeFontSize(maxW, longestLine);
 
     const LINE_H = fontSize * 1.3;
     const NAME_H = fontSize * 1.5;
@@ -154,7 +171,12 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       NAME_H + numSeps * SEP_H + (fields.length + methods.length) * LINE_H;
     let y = -totalH / 2;
 
-    group.add(
+    const clip = new Konva.Group({
+      clip: { x: xStart, y: -size / 2, width: maxW, height: size },
+      listening: false,
+    });
+
+    clip.add(
       new Konva.Text({
         text: this.element.id,
         fontSize,
@@ -165,7 +187,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
         width: maxW,
         x: xStart,
         y,
-        opacity: OPACITY,
+        opacity,
         listening: false,
         ellipsis: useEllipsis,
         wrap: "none",
@@ -174,12 +196,12 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     y += NAME_H;
 
     if (hasContent) {
-      group.add(
+      clip.add(
         new Konva.Line({
           points: [xStart, y, xStart + maxW, y],
           stroke: fill,
-          strokeWidth: 0.5,
-          opacity: OPACITY * 0.5,
+          strokeWidth: 0.5 / zoomFactor,
+          opacity: opacity * 0.5,
           listening: false,
         }),
       );
@@ -187,7 +209,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     }
 
     for (const field of fields) {
-      group.add(
+      clip.add(
         new Konva.Text({
           text: field,
           fontSize,
@@ -197,7 +219,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
           width: maxW,
           x: xStart,
           y,
-          opacity: OPACITY,
+          opacity,
           listening: false,
           ellipsis: useEllipsis,
           wrap: "none",
@@ -207,12 +229,12 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     }
 
     if (hasFields && hasMethods) {
-      group.add(
+      clip.add(
         new Konva.Line({
           points: [xStart, y, xStart + maxW, y],
           stroke: fill,
-          strokeWidth: 0.5,
-          opacity: OPACITY * 0.5,
+          strokeWidth: 0.5 / zoomFactor,
+          opacity: opacity * 0.5,
           listening: false,
         }),
       );
@@ -220,7 +242,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     }
 
     for (const method of methods) {
-      group.add(
+      clip.add(
         new Konva.Text({
           text: method,
           fontSize,
@@ -230,7 +252,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
           width: maxW,
           x: xStart,
           y,
-          opacity: OPACITY,
+          opacity,
           listening: false,
           ellipsis: useEllipsis,
           wrap: "none",
@@ -238,6 +260,8 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       );
       y += LINE_H;
     }
+
+    group.add(clip);
   }
 
   protected addLabel(group: Konva.Group): void {
@@ -271,18 +295,9 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       ? iconMatch[1]
       : (rawId ?? this.element.type.toUpperCase());
     const maxWidth = this.size * ec.LABEL_WIDTH_RATIO;
+    const { fontSize, useEllipsis } = this.computeFontSize(maxWidth, labelText);
+    const opacity = this.labelOpacity;
     const zoomFactor = Math.max(this.zoom, 0.01);
-    const heuristicFont =
-      (maxWidth * ec.LABEL_TARGET_WIDTH_RATIO) /
-      (labelText.length * ec.CHAR_WIDTH_RATIO);
-    const minFont = ec.LABEL_MIN_FONT / zoomFactor;
-    const maxFont = ec.LABEL_MAX_FONT_THRESHOLD / zoomFactor;
-    const fontSize = Math.max(minFont, Math.min(maxFont, heuristicFont));
-    const useEllipsis = heuristicFont < minFont;
-
-    const isZoomDimmed =
-      this.isDimmed && this.size * this.zoom > VConfig.sizing.MAX_SCREEN_PX;
-    const labelOpacity = this.isDimmed && !isZoomDimmed ? ec.DIM_OPACITY : 1;
 
     const pathDepth = this.path.split(".").length;
     const hasVisibleChildren =
@@ -299,23 +314,23 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       ? this.size / 2 + ec.LABEL_BELOW_OFFSET / zoomFactor - textPadding
       : -fontSize / 2 - textPadding;
 
-    const textNode = new Konva.Text({
-      text: labelText,
-      fontSize,
-      fontFamily: ec.LABEL_FONT_FAMILY,
-      fill: this.colors.fgPrimary,
-      align: "center",
-      width: maxWidth,
-      x: -maxWidth / 2,
-      y: labelY,
-      ellipsis: useEllipsis,
-      wrap: "none",
-      padding: textPadding,
-      opacity: labelOpacity,
-      listening: false,
-    });
-
-    group.add(textNode);
+    group.add(
+      new Konva.Text({
+        text: labelText,
+        fontSize,
+        fontFamily: ec.LABEL_FONT_FAMILY,
+        fill: this.colors.fgPrimary,
+        align: "center",
+        width: maxWidth,
+        x: -maxWidth / 2,
+        y: labelY,
+        ellipsis: useEllipsis,
+        wrap: "none",
+        padding: textPadding,
+        opacity,
+        listening: false,
+      }),
+    );
   }
 
   protected addDecorationsIfNeeded(group: Konva.Group): void {
