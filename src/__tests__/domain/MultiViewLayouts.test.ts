@@ -482,6 +482,10 @@ describe("BUILT_IN_TEMPLATES", () => {
       "hierarchical",
       "timeline",
       "pipeline",
+      "radial",
+      "execute",
+      "force",
+      "manual",
     ]);
     for (const t of BUILT_IN_TEMPLATES) {
       expect(validModes.has(t.preferredView)).toBe(true);

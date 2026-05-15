@@ -182,7 +182,7 @@ function baseName(id: string): string {
 }
 
 function isGen(el: Element): boolean {
-  return el.type === "function" && el.id === "gen";
+  return el.type === "function" && (el.id === "gen" || el.id.startsWith("gen_"));
 }
 
 function isRoundRobin(el: Element): boolean {
