@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
-import { Trash2, Check, FileText, FolderPlus, Folder } from "lucide-react";
+import { Trash2, Check, FileText, FolderPlus } from "lucide-react";
 import { DangerIconBtn } from "./DangerIconBtn";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { setViewMode } from "../../application/store/diagramSlice";
+import { sendZoomCommand } from "../../application/store/uiSlice";
 import { syncManager } from "../../application/store/store";
 import type { TemplateCollection } from "../../domain/models/TemplateCollection";
 import type { DiagramTemplate } from "../../domain/models/DiagramTemplate";
@@ -202,7 +203,7 @@ function TemplateBadge({ mode }: { mode: ViewState["viewMode"] }) {
   );
 }
 
-function SubcollectionCard({
+function CollectionCard({
   collection,
   onOpen,
   onDelete,
@@ -221,28 +222,37 @@ function SubcollectionCard({
     <div
       role="button"
       tabIndex={0}
-      className="w-full text-left rounded-lg border border-border/30 hover:border-accent/60 hover:shadow-sm transition-all group cursor-pointer flex items-center gap-3 px-3 py-2.5 shrink-0"
+      className="w-full text-left rounded-lg border border-border/30 hover:border-accent/60 hover:shadow-sm transition-all group cursor-pointer shrink-0 flex overflow-hidden"
       onClick={onOpen}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen()}
     >
-      <Folder size={18} className="text-fg-muted group-hover:text-accent transition-colors shrink-0" />
-      <div className="flex-1 min-w-0">
-        <span className="text-sm font-semibold text-fg-primary group-hover:text-accent transition-colors leading-tight truncate block">
-          {collection.name}
-        </span>
-        <p className="text-xs text-fg-disabled">
+      <CollectionThumbnail collection={collection} />
+      <div className="p-3 flex flex-col justify-center min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-fg-primary group-hover:text-accent transition-colors leading-tight truncate">
+            {collection.name}
+          </span>
+          <div className="flex items-center gap-1 shrink-0">
+            {collection.isBuiltIn && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-fg-ternary/15 text-fg-disabled">
+                built-in
+              </span>
+            )}
+            {onDelete && (
+              <DangerIconBtn
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                title="Delete collection"
+                className="p-1! opacity-0 group-hover:opacity-100"
+              >
+                <Trash2 size={12} />
+              </DangerIconBtn>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-fg-disabled mt-0.5">
           {parts.join(", ") || "Empty"}
         </p>
       </div>
-      {onDelete && (
-        <DangerIconBtn
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          title="Delete sub-collection"
-          className="p-1! opacity-0 group-hover:opacity-100"
-        >
-          <Trash2 size={12} />
-        </DangerIconBtn>
-      )}
     </div>
   );
 }
@@ -284,41 +294,13 @@ function CollectionsView({
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-2 flex flex-col gap-2 min-h-0">
-        {collections.map((col) => {
-          const subcols = col.collections?.length ?? 0;
-          const templates = col.templates.length;
-          const parts: string[] = [];
-          if (subcols > 0) parts.push(`${subcols} collection${subcols !== 1 ? "s" : ""}`);
-          if (templates > 0) parts.push(`${templates} template${templates !== 1 ? "s" : ""}`);
-
-          return (
-            <div
-              key={col.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => onOpen(col)}
-              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen(col)}
-              className="w-full text-left rounded-lg border border-border/30 hover:border-accent/60 hover:shadow-sm transition-all group cursor-pointer shrink-0 flex overflow-hidden"
-            >
-              <CollectionThumbnail collection={col} />
-              <div className="p-3 flex flex-col justify-center min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-fg-primary group-hover:text-accent transition-colors leading-tight truncate">
-                    {col.name}
-                  </span>
-                  {col.isBuiltIn && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-fg-ternary/15 text-fg-disabled shrink-0">
-                      built-in
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-fg-disabled mt-0.5">
-                  {parts.join(", ") || "Empty"}
-                </p>
-              </div>
-            </div>
-          );
-        })}
+        {collections.map((col) => (
+          <CollectionCard
+            key={col.id}
+            collection={col}
+            onOpen={() => onOpen(col)}
+          />
+        ))}
       </div>
 
       <form
@@ -449,6 +431,7 @@ function CollectionView({
   function applyTemplate(template: DiagramTemplate) {
     dispatch(setViewMode(template.preferredView));
     syncManager.syncFromCode(template.code);
+    dispatch(sendZoomCommand("reset"));
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -544,7 +527,7 @@ function CollectionView({
 
       <div className="flex-1 overflow-y-auto px-3 pb-2 flex flex-col gap-2 min-h-0">
         {subCollections.map((sub) => (
-          <SubcollectionCard
+          <CollectionCard
             key={sub.id}
             collection={sub}
             onOpen={() => onOpenSubcollection(sub)}

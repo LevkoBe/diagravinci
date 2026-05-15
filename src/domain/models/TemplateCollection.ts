@@ -1,23 +1,24 @@
 import {
+  ALL_ELEMENT_TYPES_TEMPLATE,
+  ALL_REL_TYPES_TEMPLATE,
   APP_ARCH_TEMPLATES,
   BEHAVIORAL_PATTERN_TEMPLATES,
-  BUILT_IN_TEMPLATES,
-  COMPLEX_TEMPLATES,
+  BUSINESS_PROCESS_TEMPLATES,
   CREATIONAL_PATTERN_TEMPLATES,
-  EDGE_CASE_TEMPLATES,
   EXECUTION_TEMPLATES,
   ICON_SHOWCASE_TEMPLATE,
-  RADIAL_TEMPLATES,
+  PLANNING_ROADMAP_TEMPLATES,
   SELECTOR_SHOWCASE_TEMPLATES,
-  SOLID_SRP_TEMPLATES,
-  SOLID_OCP_TEMPLATES,
-  SOLID_LSP_TEMPLATES,
-  SOLID_ISP_TEMPLATES,
   SOLID_DIP_TEMPLATES,
+  SOLID_ISP_TEMPLATES,
+  SOLID_LSP_TEMPLATES,
+  SOLID_OCP_TEMPLATES,
+  SOLID_SRP_TEMPLATES,
   STRESS_TEMPLATES,
   STRUCTURAL_PATTERN_TEMPLATES,
   SYSTEM_ARCH_TEMPLATES,
-  TEACHING_TEMPLATES,
+  USER_CUSTOMER_TEMPLATES,
+  WIDE_FANOUT_TEMPLATE,
   type DiagramTemplate,
 } from "./DiagramTemplate";
 
@@ -28,22 +29,6 @@ export interface TemplateCollection {
   templates: DiagramTemplate[];
   collections?: TemplateCollection[];
 }
-
-export const BUILT_IN_COLLECTION_ID = "__built_in__";
-export const BUILT_IN_COLLECTION: TemplateCollection = {
-  id: BUILT_IN_COLLECTION_ID,
-  name: "Built-in Templates",
-  isBuiltIn: true,
-  templates: [...BUILT_IN_TEMPLATES, ...COMPLEX_TEMPLATES],
-};
-
-export const TEACHING_COLLECTION_ID = "__teaching__";
-export const TEACHING_COLLECTION: TemplateCollection = {
-  id: TEACHING_COLLECTION_ID,
-  name: "Software Engineering Teaching",
-  isBuiltIn: true,
-  templates: TEACHING_TEMPLATES,
-};
 
 export const SOLID_SRP_COLLECTION_ID = "__solid_srp__";
 export const SOLID_SRP_COLLECTION: TemplateCollection = {
@@ -124,6 +109,19 @@ export const BEHAVIORAL_PATTERNS_COLLECTION: TemplateCollection = {
   templates: BEHAVIORAL_PATTERN_TEMPLATES,
 };
 
+export const DESIGN_PATTERNS_COLLECTION_ID = "__design_patterns__";
+export const DESIGN_PATTERNS_COLLECTION: TemplateCollection = {
+  id: DESIGN_PATTERNS_COLLECTION_ID,
+  name: "Design Patterns (GoF)",
+  isBuiltIn: true,
+  templates: [],
+  collections: [
+    CREATIONAL_PATTERNS_COLLECTION,
+    STRUCTURAL_PATTERNS_COLLECTION,
+    BEHAVIORAL_PATTERNS_COLLECTION,
+  ],
+};
+
 export const APP_ARCH_COLLECTION_ID = "__app_arch__";
 export const APP_ARCH_COLLECTION: TemplateCollection = {
   id: APP_ARCH_COLLECTION_ID,
@@ -140,6 +138,20 @@ export const SYSTEM_ARCH_COLLECTION: TemplateCollection = {
   templates: SYSTEM_ARCH_TEMPLATES,
 };
 
+export const ARCHITECTURE_COLLECTION_ID = "__architecture__";
+export const ARCHITECTURE_COLLECTION: TemplateCollection = {
+  id: ARCHITECTURE_COLLECTION_ID,
+  name: "Architecture",
+  isBuiltIn: true,
+  templates: [],
+  collections: [
+    SOLID_COLLECTION,
+    DESIGN_PATTERNS_COLLECTION,
+    APP_ARCH_COLLECTION,
+    SYSTEM_ARCH_COLLECTION,
+  ],
+};
+
 export const STRESS_COLLECTION_ID = "__stress__";
 export const STRESS_COLLECTION: TemplateCollection = {
   id: STRESS_COLLECTION_ID,
@@ -148,20 +160,13 @@ export const STRESS_COLLECTION: TemplateCollection = {
   templates: STRESS_TEMPLATES,
 };
 
-export const EDGE_CASES_COLLECTION_ID = "__edge_cases__";
-export const EDGE_CASES_COLLECTION: TemplateCollection = {
-  id: EDGE_CASES_COLLECTION_ID,
-  name: "Edge Cases",
+export const DEVELOPER_TESTING_COLLECTION_ID = "__developer_testing__";
+export const DEVELOPER_TESTING_COLLECTION: TemplateCollection = {
+  id: DEVELOPER_TESTING_COLLECTION_ID,
+  name: "Developer Testing",
   isBuiltIn: true,
-  templates: [ICON_SHOWCASE_TEMPLATE, ...EDGE_CASE_TEMPLATES],
-};
-
-export const SELECTOR_SHOWCASE_COLLECTION_ID = "__selector_showcase__";
-export const SELECTOR_SHOWCASE_COLLECTION: TemplateCollection = {
-  id: SELECTOR_SHOWCASE_COLLECTION_ID,
-  name: "Selector Showcase",
-  isBuiltIn: true,
-  templates: SELECTOR_SHOWCASE_TEMPLATES,
+  templates: [],
+  collections: [STRESS_COLLECTION],
 };
 
 export const EXECUTION_COLLECTION_ID = "__execution__";
@@ -172,69 +177,72 @@ export const EXECUTION_COLLECTION: TemplateCollection = {
   templates: EXECUTION_TEMPLATES,
 };
 
-export const RADIAL_COLLECTION_ID = "__radial__";
-export const RADIAL_COLLECTION: TemplateCollection = {
-  id: RADIAL_COLLECTION_ID,
-  name: "Radial",
+export const SELECTOR_COLLECTION_ID = "__selectors__";
+export const SELECTOR_COLLECTION: TemplateCollection = {
+  id: SELECTOR_COLLECTION_ID,
+  name: "Selectors",
   isBuiltIn: true,
-  templates: RADIAL_TEMPLATES,
+  templates: SELECTOR_SHOWCASE_TEMPLATES,
 };
 
-export const DESIGN_PATTERNS_COLLECTION_ID = "__design_patterns__";
-export const DESIGN_PATTERNS_COLLECTION: TemplateCollection = {
-  id: DESIGN_PATTERNS_COLLECTION_ID,
-  name: "Design Patterns (GoF)",
+export const LAYOUT_EXAMPLES_COLLECTION_ID = "__layout_examples__";
+export const LAYOUT_EXAMPLES_COLLECTION: TemplateCollection = {
+  id: LAYOUT_EXAMPLES_COLLECTION_ID,
+  name: "Layout Examples",
   isBuiltIn: true,
-  templates: [],
-  collections: [
-    CREATIONAL_PATTERNS_COLLECTION,
-    STRUCTURAL_PATTERNS_COLLECTION,
-    BEHAVIORAL_PATTERNS_COLLECTION,
+  templates: [WIDE_FANOUT_TEMPLATE],
+};
+
+export const EXPLORATION_SHOWCASES_COLLECTION_ID = "__exploration_showcases__";
+export const EXPLORATION_SHOWCASES_COLLECTION: TemplateCollection = {
+  id: EXPLORATION_SHOWCASES_COLLECTION_ID,
+  name: "Exploration & Showcases",
+  isBuiltIn: true,
+  templates: [
+    ICON_SHOWCASE_TEMPLATE,
+    ALL_REL_TYPES_TEMPLATE,
+    ALL_ELEMENT_TYPES_TEMPLATE,
   ],
-};
-
-export const ARCH_STYLES_COLLECTION_ID = "__arch_styles__";
-export const ARCH_STYLES_COLLECTION: TemplateCollection = {
-  id: ARCH_STYLES_COLLECTION_ID,
-  name: "Architecture Styles",
-  isBuiltIn: true,
-  templates: [],
-  collections: [APP_ARCH_COLLECTION, SYSTEM_ARCH_COLLECTION],
-};
-
-export const ARCHITECTURE_COLLECTION_ID = "__architecture__";
-export const ARCHITECTURE_COLLECTION: TemplateCollection = {
-  id: ARCHITECTURE_COLLECTION_ID,
-  name: "Architecture",
-  isBuiltIn: true,
-  templates: [],
-  collections: [
-    BUILT_IN_COLLECTION,
-    TEACHING_COLLECTION,
-    SOLID_COLLECTION,
-    DESIGN_PATTERNS_COLLECTION,
-    ARCH_STYLES_COLLECTION,
-  ],
-};
-
-export const DEVELOPER_TOOLS_COLLECTION_ID = "__developer_tools__";
-export const DEVELOPER_TOOLS_COLLECTION: TemplateCollection = {
-  id: DEVELOPER_TOOLS_COLLECTION_ID,
-  name: "Developer Tools",
-  isBuiltIn: true,
-  templates: [],
-  collections: [EDGE_CASES_COLLECTION, STRESS_COLLECTION],
-};
-
-export const SHOWCASES_COLLECTION_ID = "__showcases__";
-export const SHOWCASES_COLLECTION: TemplateCollection = {
-  id: SHOWCASES_COLLECTION_ID,
-  name: "Showcases",
-  isBuiltIn: true,
-  templates: [],
   collections: [
     EXECUTION_COLLECTION,
-    SELECTOR_SHOWCASE_COLLECTION,
-    RADIAL_COLLECTION,
+    SELECTOR_COLLECTION,
+    LAYOUT_EXAMPLES_COLLECTION,
+  ],
+};
+
+export const USER_CUSTOMER_COLLECTION_ID = "__user_customer__";
+export const USER_CUSTOMER_COLLECTION: TemplateCollection = {
+  id: USER_CUSTOMER_COLLECTION_ID,
+  name: "User & Customer",
+  isBuiltIn: true,
+  templates: USER_CUSTOMER_TEMPLATES,
+};
+
+export const PLANNING_ROADMAP_COLLECTION_ID = "__planning_roadmap__";
+export const PLANNING_ROADMAP_COLLECTION: TemplateCollection = {
+  id: PLANNING_ROADMAP_COLLECTION_ID,
+  name: "Planning & Roadmap",
+  isBuiltIn: true,
+  templates: PLANNING_ROADMAP_TEMPLATES,
+};
+
+export const BUSINESS_PROCESS_COLLECTION_ID = "__business_process__";
+export const BUSINESS_PROCESS_COLLECTION: TemplateCollection = {
+  id: BUSINESS_PROCESS_COLLECTION_ID,
+  name: "Business Process",
+  isBuiltIn: true,
+  templates: BUSINESS_PROCESS_TEMPLATES,
+};
+
+export const PRODUCT_PROCESS_COLLECTION_ID = "__product_process__";
+export const PRODUCT_PROCESS_COLLECTION: TemplateCollection = {
+  id: PRODUCT_PROCESS_COLLECTION_ID,
+  name: "Product & Process",
+  isBuiltIn: true,
+  templates: [],
+  collections: [
+    USER_CUSTOMER_COLLECTION,
+    PLANNING_ROADMAP_COLLECTION,
+    BUSINESS_PROCESS_COLLECTION,
   ],
 };

@@ -11,354 +11,6 @@ export interface DiagramTemplate {
   code: string;
 }
 
-export const BUILT_IN_TEMPLATES: DiagramTemplate[] = [
-  {
-    id: "mvc",
-    name: "MVC",
-    description: "Model-View-Controller pattern",
-    tags: ["architecture", "web", "pattern"],
-    preferredView: "hierarchical",
-    code: `Model{
-  Database
-  Schema
-  Repository
-}
-Controller{
-  Router
-  Handler
-  Middleware
-}
-View{
-  Template
-  Component
-  Stylesheet
-}
-
-Model --> Controller
-Controller --> View
-View --> Controller
-Controller --> Model`,
-  },
-  {
-    id: "microservices",
-    name: "Microservices",
-    description: "API gateway with backend services and databases",
-    tags: ["architecture", "cloud", "backend"],
-    preferredView: "pipeline",
-    code: `Client
-APIGateway
-UserService{
-  Auth
-  Profile
-}
-OrderService{
-  Cart
-  Checkout
-}
-NotificationService
-UserDB
-OrderDB
-MessageBroker
-
-Client --> APIGateway
-APIGateway --> UserService
-APIGateway --> OrderService
-OrderService --> NotificationService
-UserService --> UserDB
-OrderService --> OrderDB
-OrderService --> MessageBroker
-NotificationService --> MessageBroker`,
-  },
-  {
-    id: "event-driven",
-    name: "Event-Driven",
-    description: "Event bus with producers, consumers, and handlers",
-    tags: ["architecture", "async", "messaging"],
-    preferredView: "timeline",
-    code: `Producer{
-  ServiceA
-  ServiceB
-}
-EventBus{
-  Queue
-  Router
-  DeadLetter
-}
-Consumer{
-  HandlerX
-  HandlerY
-  HandlerZ
-}
-Storage
-
-Producer --> EventBus
-EventBus --> Consumer
-Consumer --> Storage
-EventBus --> DeadLetter`,
-  },
-  {
-    id: "layered",
-    name: "Layered Architecture",
-    description: "Classic n-tier separation of concerns",
-    tags: ["architecture", "pattern", "enterprise"],
-    preferredView: "hierarchical",
-    code: `Presentation{
-  WebUI
-  MobileApp
-  APIClient
-}
-Application{
-  UseCases
-  Services
-  DTOs
-}
-Domain{
-  Entities
-  ValueObjects
-  Repositories
-}
-Infrastructure{
-  Database
-  Cache
-  ExternalAPIs
-}
-
-Presentation --> Application
-Application --> Domain
-Domain --> Infrastructure`,
-  },
-  {
-    id: "data-pipeline",
-    name: "Data Pipeline",
-    description: "ETL pipeline from sources through transforms to sinks",
-    tags: ["data", "etl", "pipeline", "analytics"],
-    preferredView: "pipeline",
-    code: `Sources{
-  DatabaseSource
-  APISource
-  FileSource
-}
-Transform{
-  Cleaner
-  Normaliser
-  Enricher
-  Aggregator
-}
-Sinks{
-  DataWarehouse
-  AnalyticsDashboard
-  ReportExport
-}
-
-Sources --> Transform
-Transform --> Sinks`,
-  },
-  {
-    id: "state-machine",
-    name: "State Machine",
-    description: "Finite state machine with transitions",
-    tags: ["state", "workflow", "pattern"],
-    preferredView: "timeline",
-    code: `Idle[
-  WaitingForInput
-]
-Processing[
-  Validating
-  Executing
-  Retrying
-]
-Success[
-  Completed
-]
-Failure[
-  ErrorLogged
-  RolledBack
-]
-
-Idle --> Processing
-Processing --> Success
-Processing --> Failure
-Failure --> Idle
-Success --> Idle`,
-  },
-  {
-    id: "capstone-app",
-    name: "Capstone App",
-    description:
-      "Generic full-stack capstone starter — rename blocks to match your project",
-    tags: ["capstone", "fullstack", "starter", "web", "student"],
-    preferredView: "hierarchical",
-    code: `Frontend{
-  UI{
-    Pages
-    Components
-    Styles
-  }
-  Router
-  StateManager
-}
-API{
-  Auth{
-    Login()
-    Register()
-    Refresh()
-  }
-  Core{
-    Handlers
-    Services
-    Validators
-  }
-}
-DB{
-  Schema
-  Migrations
-  Queries
-}
-ExternalServices
-
-Frontend --> API
-API --> DB
-API --> ExternalServices`,
-  },
-  {
-    id: "user-journey",
-    name: "User Journey",
-    description:
-      "User experience flow with decision points — run in Execute layout to animate",
-    tags: ["ux", "user-flow", "business", "execution", "student"],
-    preferredView: "timeline",
-    code: `>Input>
-Registration{
-  FormInput
-  Validation()
-}
-<AuthGate>
-Onboarding{
-  Welcome
-  ProfileSetup
-}
-CoreAction{
-  MainFeature
-  SecondaryFeature
-}
-<OutcomeGate>
-SuccessPath[
-  Confirmed
-]
-ErrorPath[
-  ErrorMessage
-  RetryOption
-]
-Retention{
-  Notification
-  ReturnVisit
-}
-
->Input> --> Registration
-Registration --> <AuthGate>
-<AuthGate> --success--> Onboarding
-<AuthGate> --fail--> ErrorPath
-Onboarding --> CoreAction
-CoreAction --> <OutcomeGate>
-<OutcomeGate> --ok--> SuccessPath
-<OutcomeGate> --error--> ErrorPath
-ErrorPath --> Registration
-SuccessPath --> Retention
-Retention --> CoreAction`,
-  },
-  {
-    id: "feature-planning",
-    name: "Feature Planning",
-    description: "Scaffold for designing a new feature before writing code",
-    tags: ["planning", "feature", "design", "ideation", "student"],
-    preferredView: "hierarchical",
-    code: `Problem{
-  CurrentPainPoint
-  AffectedUsers
-}
-ProposedSolution{
-  UIChanges{
-    NewScreens
-    UpdatedComponents
-  }
-  BackendChanges{
-    NewEndpoints()
-    DataMigration
-    BusinessLogic()
-  }
-  DataModel{
-    NewEntities
-    RelationshipChanges
-  }
-}
-Impact{
-  UserBenefit
-  TechnicalDebt
-  Dependencies
-}
-Risks
-
-Problem --> ProposedSolution
-ProposedSolution --> Impact
-ProposedSolution --> Risks`,
-  },
-  {
-    id: "database-schema",
-    name: "Database Schema",
-    description:
-      "Entity relationships — enable class diagram mode for an ER diagram look",
-    tags: ["database", "schema", "data", "er-diagram", "student"],
-    preferredView: "hierarchical",
-    code: `User{
-  id
-  email
-  passwordHash
-  createdAt
-}
-Session{
-  id
-  userId
-  token
-  expiresAt
-}
-Post{
-  id
-  authorId
-  title
-  content
-  publishedAt
-}
-Profile{
-  id
-  userId
-  displayName
-  avatarUrl
-}
-Comment{
-  id
-  postId
-  authorId
-  body
-  createdAt
-}
-Tag{
-  id
-  name
-}
-PostTag{
-  postId
-  tagId
-}
-
-User *-- Session
-User *-- Profile
-User *-- Post
-Post *-- Comment
-Post *-- PostTag
-Tag *-- PostTag`,
-  },
-];
-
 function generateStarDsl(spokeCount: number): string {
   const spokes = Array.from(
     { length: spokeCount },
@@ -554,162 +206,76 @@ MiscIcons{
 }`,
 };
 
-export const EDGE_CASE_TEMPLATES: DiagramTemplate[] = [
-  {
-    id: "edge-deep-nesting",
-    name: "Deep Nesting",
-    description:
-      "Six levels of nested elements — tests hierarchical layout depth",
-    tags: ["edge-case", "nesting", "hierarchy"],
-    preferredView: "hierarchical",
-    code: `Root{
-  Level2{
-    Level3{
-      Level4{
-        Level5{
-          Level6{
-            DeepLeaf
-          }
-          SiblingLeaf
-        }
-        Level5B{
-          AnotherLeaf
-        }
-      }
-    }
-  }
-  Branch{
-    BranchChild
-  }
-}`,
-  },
-  {
-    id: "edge-all-rel-types",
-    name: "All Relationship Types",
-    description: "One diagram using all six relationship arrow styles",
-    tags: ["edge-case", "relationships", "syntax"],
-    preferredView: "basic",
-    code: `Alpha{}
-Beta{}
-Gamma{}
-Delta{}
-Epsilon{}
-Zeta{}
+export const ALL_REL_TYPES_TEMPLATE: DiagramTemplate = {
+  id: "all-rel-types",
+  name: "All Relationship Types",
+  description:
+    "Every arrow style — a thought becomes a tool: extends, depends, uses, implements, aggregates, composes",
+  tags: ["reference", "relationships", "syntax"],
+  preferredView: "basic",
+  code: `Thought{}
+Design{}
+Code{}
+Review{}
+Build{}
+Artefact{}
 
-Alpha --> Beta
-Beta ..> Gamma
-Gamma --|> Delta
-Delta ..|> Epsilon
-Epsilon o-- Alpha
-Zeta *-- Alpha`,
-  },
-  {
-    id: "edge-all-element-types",
-    name: "All Element Types",
-    description:
-      "One of each element type: object, collection, function, state, choice, flow",
-    tags: ["edge-case", "element-types", "syntax"],
-    preferredView: "circular",
-    code: `obj{} >> coll[] --> fn() --> st|| --> ch<> --> obj`,
-  },
-  {
-    id: "edge-cycle",
-    name: "Cyclic Dependencies",
-    description:
-      "Three services with a dependency cycle plus cross-cuts — tests cycle rendering",
-    tags: ["edge-case", "cycle", "dependencies"],
-    preferredView: "basic",
-    code: `ServiceA{
-  HandlerA
-  CacheA
-}
-ServiceB{
-  HandlerB
-  CacheB
-}
-ServiceC{
-  HandlerC
-  CacheC
-}
-SharedDB
+Thought --|> Design
+Design --> Code
+Code ..> Review
+Review ..|> Design
+Build o-- Code
+Artefact *-- Build`,
+};
 
-ServiceA --> ServiceB
-ServiceB --> ServiceC
-ServiceC --> ServiceA
-ServiceA ..> ServiceC
-ServiceB ..> SharedDB
-ServiceC ..> SharedDB`,
-  },
-  {
-    id: "edge-wide-fanout",
-    name: "Wide Fan-Out",
-    description:
-      "Hub element connected to 20 leaf nodes — tests flat large fan-out layout",
-    tags: ["edge-case", "fan-out", "performance"],
-    preferredView: "circular",
-    code: [
-      "Hub{}",
-      ...Array.from(
-        { length: 20 },
-        (_, i) => `Leaf${String(i + 1).padStart(2, "0")}[]`,
-      ),
-      "",
-      ...Array.from(
-        { length: 20 },
-        (_, i) => `Hub --> Leaf${String(i + 1).padStart(2, "0")}`,
-      ),
-    ].join("\n"),
-  },
-  {
-    id: "edge-mutual-nesting",
-    name: "Mutual Nesting",
-    description:
-      "a contains b, b contains a — tests circular parent-child with a partial relationship on one line",
-    tags: ["edge-case", "circular", "nesting"],
-    preferredView: "basic",
-    code: `a[b]--b{a}`,
-  },
-  {
-    id: "edge-26-isolated",
-    name: "26 Isolated Nodes",
-    description:
-      "All keyboard-row letters as disconnected flat elements — tests layout of many unrelated nodes",
-    tags: ["edge-case", "isolated", "performance"],
-    preferredView: "circular",
-    code: `q w e r t y u i o p a s d f g h j k l z x c v b n m`,
-  },
-  {
-    id: "edge-broken-chain",
-    name: "Broken Inline Chain",
-    description:
-      "Two chains and trailing islands on one line — the space between i and o silently breaks the chain into q→…→i and o→…→f, then g–m are isolated",
-    tags: ["edge-case", "chain", "parsing"],
-    preferredView: "pipeline",
-    code: `q --> w --> e --> r --> t --> y --> u --> i o --> p --> a --> s --> d --> f g h j k l z x c v b n m`,
-  },
-  {
-    id: "edge-diamond",
-    name: "Diamond Dependency",
-    description:
-      "Classic diamond: A → B, A → C, B → D, C → D — tests multi-path convergence",
-    tags: ["edge-case", "diamond", "convergence"],
-    preferredView: "hierarchical",
-    code: `Root{}
-Left{
-  LeftDetail
+export const ALL_ELEMENT_TYPES_TEMPLATE: DiagramTemplate = {
+  id: "all-element-types",
+  name: "All Element Types",
+  description:
+    "One of each: object, collection, function, state, choice, flow — a small story of a single act",
+  tags: ["reference", "element-types", "syntax"],
+  preferredView: "circular",
+  code: `Object{
+  "Things that hold structure"
+  data
+  identity
 }
-Right{
-  RightDetail
-}
-Merged{}
+Archive[
+  "Memory without judgment"
+  entry
+]
+Act()
+Resting||
+Crossroads<>
 
-Root --> Left
-Root --> Right
-Left --> Merged
-Right --> Merged
-Left ..> Right`,
-  },
-];
+Origin>> --> Object
+Object --> Act()
+Act() --> Resting||
+Resting|| --> Crossroads<>
+Crossroads<> --remember--> Archive
+Crossroads<> --again--> Act()`,
+};
+
+export const WIDE_FANOUT_TEMPLATE: DiagramTemplate = {
+  id: "wide-fanout",
+  name: "Wide Fan-Out",
+  description:
+    "Hub connected to 20 leaves — a simple structure that looks distinct in every layout mode",
+  tags: ["layout", "showcase"],
+  preferredView: "circular",
+  code: [
+    "Hub{}",
+    ...Array.from(
+      { length: 20 },
+      (_, i) => `Leaf${String(i + 1).padStart(2, "0")}{}`,
+    ),
+    "",
+    ...Array.from(
+      { length: 20 },
+      (_, i) => `Hub --> Leaf${String(i + 1).padStart(2, "0")}`,
+    ),
+  ].join("\n"),
+};
 
 export const SELECTOR_SHOWCASE_TEMPLATES: DiagramTemplate[] = [
   {
@@ -798,13 +364,14 @@ Idle --> transform`,
 UserService{}
 OrderService{}
 PaymentService{}
-UserDB{}
-OrderDB{}
+UserDB{ _database_ }
+OrderDB{ _database_ }
 CacheLayer{
+  _cache_
   CacheA
   CacheB
 }
-MessageBus{}
+MessageBus{ _event_ }
 
 UserService --> UserDB
 OrderService --> OrderDB
@@ -951,17 +518,17 @@ branch2 --no--> leaf4`,
       "Two generators each produce their own element; connector merges all arrivals into one token with a loop relationship between them",
     tags: ["execution", "connector"],
     preferredView: "timeline",
-    code: `gen_a(
-  A{}
-)
-gen_b(
-  B{}
-)
+    code: `gen_a(A)
+gen_b(B)
+gen_c(C)
+gen_d(D)
 connector()
 merged[]
 
 gen_a --> connector
 gen_b --> connector
+gen_c --> connector
+gen_d --> connector
 connector --> merged`,
   },
   {
@@ -1020,152 +587,35 @@ gen -->
   },
 ];
 
-export const RADIAL_TEMPLATES: DiagramTemplate[] = [
-  {
-    id: "radial-solar-system",
-    name: "Solar System",
-    description:
-      "Star at center, planets in inner ring, moons in outer ring — natural radial hierarchy",
-    tags: ["radial", "hierarchy", "showcase"],
-    preferredView: "radial",
-    code: `Sun
-Mercury
-Venus
-Earth{
-  Moon
-}
-Mars{
-  Phobos
-  Deimos
-}
-Jupiter{
-  Io
-  Europa
-  Ganymede
-  Callisto
-}
-Saturn{
-  Titan
-  Enceladus
-}
-
-Sun-->Mercury
-Sun-->Venus
-Sun-->Earth
-Sun-->Mars
-Sun-->Jupiter
-Sun-->Saturn`,
-  },
-  {
-    id: "radial-org-chart",
-    name: "Org Chart",
-    description:
-      "CEO at center with VP direct reports in the first ring and their teams in the outer ring",
-    tags: ["radial", "organization", "hierarchy"],
-    preferredView: "radial",
-    code: `CEO
-CTO{
-  Frontend
-  Backend
-  Infrastructure
-}
-CFO{
-  Accounting
-  FPnA
-}
-CMO{
-  Growth
-  Brand
-  Content
-}
-CPO{
-  Product
-  Design
-  Research
-}
-
-CEO-->CTO
-CEO-->CFO
-CEO-->CMO
-CEO-->CPO`,
-  },
-  {
-    id: "radial-api-gateway",
-    name: "API Gateway Hub",
-    description:
-      "Central gateway routing to service rings with their sub-components",
-    tags: ["radial", "architecture", "microservices"],
-    preferredView: "radial",
-    code: `APIGateway
-AuthService{
-  TokenStore
-  SessionManager
-}
-UserService{
-  Profile
-  Preferences
-}
-OrderService{
-  Cart
-  Checkout
-  Fulfillment
-}
-NotificationService{
-  Email
-  Push
-  SMS
-}
-AnalyticsService{
-  Tracker
-  Reporter
-}
-
-APIGateway-->AuthService
-APIGateway-->UserService
-APIGateway-->OrderService
-APIGateway-->NotificationService
-APIGateway-->AnalyticsService`,
-  },
-  {
-    id: "radial-tech-radar",
-    name: "Technology Radar",
-    description:
-      "Engineering disciplines at the hub with specific technologies radiating outward",
-    tags: ["radial", "technology", "engineering"],
-    preferredView: "radial",
-    code: `Engineering
-Frontend{
-  React
-  TypeScript
-  Vite
-  TailwindCSS
-}
-Backend{
-  Node
-  Go
-  PostgreSQL
-  Redis
-}
-Infrastructure{
-  Docker
-  Kubernetes
-  Terraform
-  Grafana
-}
-Mobile{
-  Swift
-  Kotlin
-  ReactNative
-}
-
-Engineering-->Frontend
-Engineering-->Backend
-Engineering-->Infrastructure
-Engineering-->Mobile`,
-  },
-];
-
 export const STRESS_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "edge-deep-nesting",
+    name: "Deep Nesting",
+    description:
+      "Six levels of nested elements — tests hierarchical layout depth",
+    tags: ["edge-case", "nesting", "hierarchy"],
+    preferredView: "hierarchical",
+    code: `Root{
+  Level2{
+    Level3{
+      Level4{
+        Level5{
+          Level6{
+            DeepLeaf
+          }
+          SiblingLeaf
+        }
+        Level5B{
+          AnotherLeaf
+        }
+      }
+    }
+  }
+  Branch{
+    BranchChild
+  }
+}`,
+  },
   {
     id: "stress-star",
     name: "Stress: Star Network (200 nodes)",
@@ -1195,439 +645,14 @@ export const STRESS_TEMPLATES: DiagramTemplate[] = [
   },
 ];
 
-export const COMPLEX_TEMPLATES: DiagramTemplate[] = [
-  {
-    id: "cloud-infrastructure",
-    name: "Cloud Infrastructure",
-    description:
-      "Multi-tier cloud deployment with load balancing, app servers, and data layer",
-    tags: ["architecture", "cloud", "infrastructure", "devops"],
-    preferredView: "hierarchical",
-    code: `Internet
-LoadBalancer{
-  PrimaryLB
-  SecondaryLB
-}
-WebTier{
-  WebServer1
-  WebServer2
-  WebServer3
-}
-AppTier{
-  AppServer1{
-    AuthService
-    UserService
-  }
-  AppServer2{
-    OrderService
-    PaymentService
-  }
-  AppServer3{
-    NotificationService
-    SearchService
-  }
-}
-DataTier{
-  PrimaryDB{
-    UserData
-    OrderData
-  }
-  ReplicaDB
-  CacheLayer{
-    SessionCache
-    QueryCache
-  }
-}
-ExternalServices{
-  PaymentGateway
-  EmailProvider
-  CDN
-}
-
-Internet --> LoadBalancer
-LoadBalancer --> WebTier
-WebTier --> AppTier
-AppTier --> DataTier
-AppTier --> ExternalServices`,
-  },
-
-  {
-    id: "cicd-pipeline",
-    name: "CI/CD Release Pipeline",
-    description:
-      "Continuous delivery pipeline with parallel test and security tracks",
-    tags: ["devops", "cicd", "automation", "release"],
-    preferredView: "timeline",
-    code: `CodeCommit{
-  PullRequest
-  CodeReview
-  MergeApproval
-}
-Build{
-  Compile
-  UnitTests
-  LintCheck
-}
-IntegrationTests{
-  APITests
-  E2ETests
-  ContractTests
-}
-SecurityScan{
-  SAST
-  DependencyScan
-  ContainerScan
-}
-StagingDeploy{
-  BuildImage
-  PushRegistry
-  DeployStaging
-}
-StagingValidation{
-  SmokeTests
-  PerformanceTests
-  UAT
-}
-ProductionDeploy{
-  BlueGreenSwitch
-  CanaryRelease
-  HealthCheck
-}
-Observability{
-  Monitoring
-  Alerting
-  LogAggregation
-}
-
-CodeCommit --> Build
-Build --> IntegrationTests
-Build --> SecurityScan
-IntegrationTests --> StagingDeploy
-SecurityScan --> StagingDeploy
-StagingDeploy --> StagingValidation
-StagingValidation --> ProductionDeploy
-ProductionDeploy --> Observability`,
-  },
-
-  {
-    id: "analytics-platform",
-    name: "Analytics Data Platform",
-    description:
-      "End-to-end data platform from ingestion through transformation to BI consumption",
-    tags: ["data", "analytics", "etl", "platform", "bigdata"],
-    preferredView: "pipeline",
-    code: `RawSources{
-  TransactionalDB{
-    OrdersTable
-    UsersTable
-    ProductsTable
-  }
-  EventStreams{
-    ClickEvents
-    APIEvents
-    AppEvents
-  }
-  ThirdParty{
-    CRMExport
-    MarketingData
-    ExternalFeeds
-  }
-}
-Ingestion{
-  BatchIngestion{
-    DBConnector
-    FileLoader
-    ScheduledJobs
-  }
-  StreamIngestion{
-    KafkaConsumer
-    KinesisReader
-    WebhookReceiver
-  }
-}
-Processing{
-  DataLake{
-    RawZone
-    CleanedZone
-    CuratedZone
-  }
-  Transformations{
-    Deduplication
-    Enrichment
-    Aggregation
-    Normalisation
-  }
-}
-Serving{
-  DataWarehouse{
-    FactTables
-    DimensionTables
-    Materialised
-  }
-  SearchIndex
-  MLFeatureStore{
-    OnlineStore
-    OfflineStore
-  }
-}
-Consumption{
-  BITools{
-    ExecutiveDashboard
-    OperationalReports
-    AdHocQueries
-  }
-  MLPlatform{
-    ModelTraining
-    ModelServing
-    ExperimentTracking
-  }
-  CustomerFacing{
-    Recommendations
-    PersonalisedEmails
-    RealtimeAlerts
-  }
-}
-
-RawSources --> Ingestion
-Ingestion --> Processing
-Processing --> Serving
-Serving --> Consumption`,
-  },
-];
-
-export const TEACHING_TEMPLATES: DiagramTemplate[] = [
-  {
-    id: "teach-observer",
-    name: "Observer Pattern",
-    description:
-      "Behavioral pattern: Subject notifies registered Observers on state change",
-    tags: ["design-patterns", "oop", "behavioral", "teaching"],
-    preferredView: "hierarchical",
-    code: `Subject{
-  state
-  observers[]
-  attach()
-  detach()
-  notify()
-}
-ConcreteSubject{
-  concreteState
-  getState()
-  setState()
-}
-Observer{
-  update()
-}
-ConcreteObserverA{
-  observerState
-  update()
-}
-ConcreteObserverB{
-  observerState
-  update()
-}
-
-ConcreteSubject --|> Subject
-ConcreteObserverA ..|> Observer
-ConcreteObserverB ..|> Observer
-Observer --o Subject`,
-  },
-  {
-    id: "teach-strategy",
-    name: "Strategy Pattern",
-    description:
-      "Behavioral pattern: Context delegates behavior to interchangeable Strategy objects",
-    tags: ["design-patterns", "oop", "behavioral", "teaching"],
-    preferredView: "hierarchical",
-    code: `Context{
-  strategy
-  setStrategy()
-  executeStrategy()
-}
-Strategy{
-  execute()
-}
-ConcreteStrategyA{
-  execute()
-}
-ConcreteStrategyB{
-  execute()
-}
-ConcreteStrategyC{
-  execute()
-}
-
-Strategy --o Context
-ConcreteStrategyA ..|> Strategy
-ConcreteStrategyB ..|> Strategy
-ConcreteStrategyC ..|> Strategy`,
-  },
-  {
-    id: "teach-http-lifecycle",
-    name: "HTTP Request Lifecycle",
-    description:
-      "Full request path from client through load balancer, middleware, and service layers to database",
-    tags: ["web", "http", "architecture", "teaching"],
-    preferredView: "pipeline",
-    code: `Client
-DNS
-LoadBalancer
-WebServer{
-  TLSTermination
-  RequestParser
-  MiddlewareChain{
-    AuthMiddleware()
-    CorsMiddleware()
-    RateLimiter()
-    Logger()
-  }
-}
-AppServer{
-  Router
-  Controller{
-    InputValidator()
-    Handler()
-    ResponseFormatter()
-  }
-  ServiceLayer{
-    BusinessLogic()
-    CacheLayer{
-      RedisCache
-    }
-    DataLayer{
-      Repository()
-      Database
-    }
-  }
-}
-
-Client --> DNS
-DNS --> LoadBalancer
-LoadBalancer --> WebServer
-WebServer --> AppServer
-AppServer --> Client`,
-  },
-  {
-    id: "teach-auth-flow",
-    name: "Authentication Flow",
-    description:
-      "JWT-based auth with token validation, role check, and error paths — run in Execute to animate",
-    tags: ["security", "auth", "teaching", "execution"],
-    preferredView: "timeline",
-    code: `>Request>
-<TokenPresent>
-TokenValidator{
-  JWTParser()
-  SignatureCheck()
-  ExpiryCheck()
-}
-<TokenValid>
-RoleChecker{
-  RoleLoader()
-  PolicyEngine()
-}
-<HasPermission>
-Resource{
-  ReadHandler()
-  WriteHandler()
-}
-ErrorResponse[
-  Unauthorized
-  Forbidden
-  ExpiredToken
-]
->Response>
-
->Request> --> <TokenPresent>
-<TokenPresent> --yes--> TokenValidator
-<TokenPresent> --no--> ErrorResponse
-TokenValidator --> <TokenValid>
-<TokenValid> --valid--> RoleChecker
-<TokenValid> --invalid--> ErrorResponse
-RoleChecker --> <HasPermission>
-<HasPermission> --yes--> Resource
-<HasPermission> --no--> ErrorResponse
-Resource --> >Response>
-ErrorResponse --> >Response>`,
-  },
-  {
-    id: "teach-producer-consumer",
-    name: "Producer-Consumer",
-    description:
-      "Concurrent message passing with bounded buffer and round-robin consumers — run in Execute",
-    tags: ["concurrency", "patterns", "teaching", "execution"],
-    preferredView: "timeline",
-    code: `gen(
-  Message{}
-)
-BoundedBuffer[]
-round_robin()
-Consumer1()
-Consumer2()
-Consumer3()
-Processed{}
-
-gen --> BoundedBuffer
-BoundedBuffer --> round_robin
-round_robin --> Consumer1
-round_robin --> Consumer2
-round_robin --> Consumer3
-Consumer1 --> Processed
-Consumer2 --> Processed
-Consumer3 --> Processed`,
-  },
-  {
-    id: "teach-arch-evolution",
-    name: "Monolith to Microservices",
-    description:
-      "Both architectures in one diagram — selector highlights the contrast; use to teach trade-offs",
-    tags: ["architecture", "microservices", "teaching", "comparison"],
-    preferredView: "hierarchical",
-    code: `!atom id=mono name=Monolith
-!selector name=MonolithView mode=color color=#a78bfa combiner=mono
-
-Monolith{
-  UI
-  BusinessLogic{
-    UserModule
-    OrderModule
-    NotificationModule
-    ReportingModule
-  }
-  DataAccess{
-    UserRepo
-    OrderRepo
-  }
-  Database
-}
-
-APIGateway
-UserService{
-  UserAPI
-  UserDB
-}
-OrderService{
-  OrderAPI
-  OrderDB
-}
-NotificationService
-MessageBroker
-
-APIGateway --> UserService
-APIGateway --> OrderService
-OrderService --> NotificationService
-OrderService --> MessageBroker
-NotificationService --> MessageBroker`,
-  },
-];
-
 export const SOLID_SRP_TEMPLATES: DiagramTemplate[] = [
   {
     id: "solid-srp-bad",
     name: "Bad: God Class",
-    description: "One class handles user creation, auth, email, reporting, and storage — any requirement change forces you to edit this single class, making it fragile and hard to test.",
+    description:
+      "One class handles user creation, auth, email, reporting, and storage — any requirement change forces you to edit this single class, making it fragile and hard to test.",
     tags: ["solid", "srp", "bad", "anti-pattern", "principles", "oop"],
-    preferredView: "hierarchical",
+    preferredView: "circular",
     code: `UserManager{
   createUser()
   validateEmail()
@@ -1641,7 +666,8 @@ export const SOLID_SRP_TEMPLATES: DiagramTemplate[] = [
   {
     id: "solid-srp-good",
     name: "Good: Focused Services",
-    description: "Each class has exactly one reason to change. User lifecycle, email delivery, audit logging, and storage are separate concerns with clear boundaries.",
+    description:
+      "Each class has exactly one reason to change. User lifecycle, email delivery, audit logging, and storage are separate concerns with clear boundaries.",
     tags: ["solid", "srp", "good", "principles", "oop"],
     preferredView: "hierarchical",
     code: `UserService{
@@ -1663,8 +689,10 @@ StorageService{
   restoreData()
 }
 
-UserService --> AuditService
-EmailService --> AuditService`,
+UserService --"on user change"--> EmailService
+UserService --"audit events"--> AuditService
+EmailService --"audit events"--> AuditService
+StorageService --"audit events"--> AuditService`,
   },
 ];
 
@@ -1672,7 +700,8 @@ export const SOLID_OCP_TEMPLATES: DiagramTemplate[] = [
   {
     id: "solid-ocp-bad",
     name: "Bad: Closed for Extension",
-    description: "Adding a new notification channel (e.g. Slack) requires editing NotificationSender — modifying existing, working code and risking regressions in email and SMS.",
+    description:
+      "Adding a new notification channel (e.g. Slack) requires editing NotificationSender — modifying existing, working code and risking regressions in email and SMS.",
     tags: ["solid", "ocp", "bad", "anti-pattern", "principles", "oop"],
     preferredView: "hierarchical",
     code: `NotificationSender{
@@ -1693,12 +722,18 @@ NotificationSender ..> FirebaseClient`,
   {
     id: "solid-ocp-good",
     name: "Good: Open for Extension",
-    description: "Adding Slack notifications means creating a new SlackNotification class — existing code is never touched.",
+    description:
+      "Adding Slack notifications means creating a new SlackNotification class — existing code is never touched.",
     tags: ["solid", "ocp", "good", "principles", "oop"],
     preferredView: "hierarchical",
-    code: `Notification[
+    code: `!rule  id=root  all_level=1
+!rule  id=impls  object_name=.+Notification
+!selector  name=interface  color=#451c82  mode=color  expression="-impls & root"
+!selector  name=implementations  color=#7b47c7  mode=color  expression=impls
+
+Notification{
   send()
-]
+}
 EmailNotification{
   recipient
   send()
@@ -1727,7 +762,8 @@ export const SOLID_LSP_TEMPLATES: DiagramTemplate[] = [
   {
     id: "solid-lsp-bad",
     name: "Bad: Broken Substitution",
-    description: "Penguin extends Bird but throws an exception from fly() — any code that uses Bird cannot safely substitute a Penguin without special-casing it.",
+    description:
+      "Penguin extends Bird but throws an exception from fly() — any code that uses Bird cannot safely substitute a Penguin without special-casing it.",
     tags: ["solid", "lsp", "bad", "anti-pattern", "principles", "oop"],
     preferredView: "hierarchical",
     code: `Bird{
@@ -1753,29 +789,33 @@ Penguin --|> Bird`,
   {
     id: "solid-lsp-good",
     name: "Good: Proper Hierarchy",
-    description: "FlyingBird and Penguin split the hierarchy cleanly — every subtype can be substituted for its declared base without surprises.",
+    description:
+      "FlyingBird and Penguin split the hierarchy cleanly — every subtype can be substituted for its declared base without surprises.",
     tags: ["solid", "lsp", "good", "principles", "oop"],
     preferredView: "hierarchical",
-    code: `Animal{
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+Animal:interface{
   eat()
   layEggs()
 }
-FlyingBird{
+FlyingBird:interface{
   eat()
   layEggs()
   fly()
 }
-Sparrow{
+Sparrow:impl{
   fly()
   eat()
   layEggs()
 }
-Eagle{
+Eagle:impl{
   fly()
   eat()
   layEggs()
 }
-Penguin{
+Penguin:impl{
   eat()
   layEggs()
   swim()
@@ -1792,15 +832,16 @@ export const SOLID_ISP_TEMPLATES: DiagramTemplate[] = [
   {
     id: "solid-isp-bad",
     name: "Bad: Fat Interface",
-    description: "BasicPrinter is forced to stub scan(), fax(), and staple() it cannot support — clients who only need print() still depend on the entire bloated contract.",
+    description:
+      "BasicPrinter is forced to stub scan(), fax(), and staple() it cannot support — clients who only need print() still depend on the entire bloated contract.",
     tags: ["solid", "isp", "bad", "anti-pattern", "principles", "oop"],
     preferredView: "hierarchical",
-    code: `IDevice[
+    code: `IDevice{
   print()
   scan()
   fax()
   staple()
-]
+}
 BasicPrinter{
   print()
   scan_NotSupported()
@@ -1820,27 +861,31 @@ AllInOnePrinter ..|> IDevice`,
   {
     id: "solid-isp-good",
     name: "Good: Role Interfaces",
-    description: "Each device implements only the narrow interfaces it actually supports — clients depend on exactly what they need, nothing more.",
+    description:
+      "Each device implements only the narrow interfaces it actually supports — clients depend on exactly what they need, nothing more.",
     tags: ["solid", "isp", "good", "principles", "oop"],
     preferredView: "hierarchical",
-    code: `Printable[
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+Printable:interface{
   print()
-]
-Scannable[
+}
+Scannable:interface{
   scan()
-]
-Faxable[
+}
+Faxable:interface{
   fax()
-]
-MultifunctionPrinter{
+}
+MultifunctionPrinter:impl{
   print()
   scan()
   fax()
 }
-BasicPrinter{
+BasicPrinter:impl{
   print()
 }
-Scanner{
+Scanner:impl{
   scan()
 }
 
@@ -1856,7 +901,8 @@ export const SOLID_DIP_TEMPLATES: DiagramTemplate[] = [
   {
     id: "solid-dip-bad",
     name: "Bad: Concrete Dependency",
-    description: "OrderProcessor is hardwired to EmailNotifier — switching to SMS or adding push notifications forces changes inside high-level business logic.",
+    description:
+      "OrderProcessor is hardwired to EmailNotifier — switching to SMS or adding push notifications forces changes inside high-level business logic.",
     tags: ["solid", "dip", "bad", "anti-pattern", "principles", "oop"],
     preferredView: "hierarchical",
     code: `OrderProcessor{
@@ -1875,23 +921,27 @@ OrderProcessor --> EmailNotifier`,
   {
     id: "solid-dip-good",
     name: "Good: Depend on Abstraction",
-    description: "OrderProcessor depends only on the Notifier interface — notification channels can be swapped or multiplied without touching business logic.",
+    description:
+      "OrderProcessor depends only on the Notifier interface — notification channels can be swapped or multiplied without touching business logic.",
     tags: ["solid", "dip", "good", "principles", "oop"],
     preferredView: "hierarchical",
-    code: `OrderProcessor{
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+OrderProcessor{
   notifier
   processOrder()
 }
-Notifier[
-  send()
-]
-EmailNotifier{
+Notifier:interface{
   send()
 }
-SMSNotifier{
+EmailNotifier:impl{
   send()
 }
-PushNotifier{
+SMSNotifier:impl{
+  send()
+}
+PushNotifier:impl{
   send()
 }
 
@@ -1906,7 +956,8 @@ export const CREATIONAL_PATTERN_TEMPLATES: DiagramTemplate[] = [
   {
     id: "gof-singleton",
     name: "Singleton",
-    description: "Ensures a class has only one instance and provides global access to it",
+    description:
+      "Ensures a class has only one instance and provides global access to it",
     tags: ["design-pattern", "creational", "gof"],
     preferredView: "hierarchical",
     code: `Singleton{
@@ -1925,26 +976,30 @@ Client3 ..> Singleton`,
   {
     id: "gof-factory-method",
     name: "Factory Method",
-    description: "Defines an interface for creating objects, letting subclasses decide which class to instantiate",
+    description:
+      "Defines an interface for creating objects, letting subclasses decide which class to instantiate",
     tags: ["design-pattern", "creational", "gof"],
     preferredView: "hierarchical",
-    code: `Creator[
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+Creator:interface{
   createProduct()
   operation()
-]
-ConcreteCreatorA{
+}
+ConcreteCreatorA:impl{
   createProduct()
 }
-ConcreteCreatorB{
+ConcreteCreatorB:impl{
   createProduct()
 }
-Product[
-  use()
-]
-ConcreteProductA{
+Product:interface{
   use()
 }
-ConcreteProductB{
+ConcreteProductA:impl{
+  use()
+}
+ConcreteProductB:impl{
   use()
 }
 
@@ -1958,37 +1013,41 @@ ConcreteCreatorB ..> ConcreteProductB`,
   {
     id: "gof-abstract-factory",
     name: "Abstract Factory",
-    description: "Produces families of related objects without specifying their concrete classes",
+    description:
+      "Produces families of related objects without specifying their concrete classes",
     tags: ["design-pattern", "creational", "gof"],
     preferredView: "hierarchical",
-    code: `GUIFactory[
-  createButton()
-  createCheckbox()
-]
-WindowsFactory{
-  createButton()
-  createCheckbox()
-}
-MacFactory{
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+GUIFactory:interface{
   createButton()
   createCheckbox()
 }
-Button[
-  render()
-]
-WindowsButton{
+WindowsFactory:impl{
+  createButton()
+  createCheckbox()
+}
+MacFactory:impl{
+  createButton()
+  createCheckbox()
+}
+Button:interface{
   render()
 }
-MacButton{
+WindowsButton:impl{
   render()
 }
-Checkbox[
-  render()
-]
-WindowsCheckbox{
+MacButton:impl{
   render()
 }
-MacCheckbox{
+Checkbox:interface{
+  render()
+}
+WindowsCheckbox:impl{
+  render()
+}
+MacCheckbox:impl{
   render()
 }
 
@@ -2006,20 +1065,24 @@ MacCheckbox ..|> Checkbox`,
   {
     id: "gof-builder",
     name: "Builder",
-    description: "Constructs complex objects step by step, separating construction from representation",
+    description:
+      "Constructs complex objects step by step, separating construction from representation",
     tags: ["design-pattern", "creational", "gof"],
     preferredView: "hierarchical",
-    code: `Director{
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+Director{
   builder
   construct()
 }
-Builder[
+Builder:interface{
   buildPartA()
   buildPartB()
   buildPartC()
   getResult()
-]
-ConcreteBuilder{
+}
+ConcreteBuilder:impl{
   buildPartA()
   buildPartB()
   buildPartC()
@@ -2041,15 +1104,18 @@ ConcreteBuilder ..> Product`,
     description: "Creates new objects by cloning an existing prototype",
     tags: ["design-pattern", "creational", "gof"],
     preferredView: "hierarchical",
-    code: `Prototype[
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+Prototype:interface{
   clone()
-]
-ConcretePrototypeA{
+}
+ConcretePrototypeA:impl{
   field1
   field2
   clone()
 }
-ConcretePrototypeB{
+ConcretePrototypeB:impl{
   field1
   field2
   clone()
@@ -2069,14 +1135,18 @@ export const STRUCTURAL_PATTERN_TEMPLATES: DiagramTemplate[] = [
   {
     id: "gof-adapter",
     name: "Adapter",
-    description: "Makes incompatible interfaces work together by wrapping one with a compatible interface",
+    description:
+      "Makes incompatible interfaces work together by wrapping one with a compatible interface",
     tags: ["design-pattern", "structural", "gof"],
     preferredView: "hierarchical",
-    code: `Client
-Target[
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+Client
+Target:interface{
   request()
-]
-Adapter{
+}
+Adapter:impl{
   adaptee
   request()
 }
@@ -2091,10 +1161,14 @@ Adapter o-- Adaptee`,
   {
     id: "gof-bridge",
     name: "Bridge",
-    description: "Decouples an abstraction from its implementation so both can vary independently",
+    description:
+      "Decouples an abstraction from its implementation so both can vary independently",
     tags: ["design-pattern", "structural", "gof"],
     preferredView: "hierarchical",
-    code: `Abstraction{
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+Abstraction{
   impl
   operation()
 }
@@ -2102,13 +1176,13 @@ RefinedAbstraction{
   operation()
   extra()
 }
-Implementor[
-  operationImpl()
-]
-ConcreteImplA{
+Implementor:interface{
   operationImpl()
 }
-ConcreteImplB{
+ConcreteImplA:impl{
+  operationImpl()
+}
+ConcreteImplB:impl{
   operationImpl()
 }
 
@@ -2120,18 +1194,22 @@ ConcreteImplB ..|> Implementor`,
   {
     id: "gof-composite",
     name: "Composite",
-    description: "Composes objects into tree structures to represent part-whole hierarchies",
+    description:
+      "Composes objects into tree structures to represent part-whole hierarchies",
     tags: ["design-pattern", "structural", "gof"],
     preferredView: "hierarchical",
-    code: `Component[
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+Component:interface{
   operation()
   add()
   remove()
-]
-Leaf{
+}
+Leaf:impl{
   operation()
 }
-Composite{
+Composite:impl{
   children
   operation()
   add()
@@ -2145,24 +1223,28 @@ Composite o-- Component`,
   {
     id: "gof-decorator",
     name: "Decorator",
-    description: "Attaches additional responsibilities to an object dynamically, wrapping the original",
+    description:
+      "Attaches additional responsibilities to an object dynamically, wrapping the original",
     tags: ["design-pattern", "structural", "gof"],
     preferredView: "hierarchical",
-    code: `Component[
-  operation()
-]
-ConcreteComponent{
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+Component:interface{
   operation()
 }
-BaseDecorator{
+ConcreteComponent:impl{
+  operation()
+}
+BaseDecorator:impl{
   wrappee
   operation()
 }
-ConcreteDecoratorA{
+ConcreteDecoratorA:impl{
   addedState
   operation()
 }
-ConcreteDecoratorB{
+ConcreteDecoratorB:impl{
   operation()
   extraBehavior()
 }
@@ -2207,14 +1289,17 @@ Facade --> SubsystemC`,
     description: "Provides a surrogate that controls access to another object",
     tags: ["design-pattern", "structural", "gof"],
     preferredView: "hierarchical",
-    code: `Client
-Subject[
-  request()
-]
-RealSubject{
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+Client
+Subject:interface{
   request()
 }
-Proxy{
+RealSubject:impl{
+  request()
+}
+Proxy:impl{
   realSubject
   request()
   checkAccess()
@@ -2229,18 +1314,22 @@ Proxy o-- RealSubject`,
   {
     id: "gof-flyweight",
     name: "Flyweight",
-    description: "Shares intrinsic state between many fine-grained objects to reduce memory usage",
+    description:
+      "Shares intrinsic state between many fine-grained objects to reduce memory usage",
     tags: ["design-pattern", "structural", "gof"],
     preferredView: "hierarchical",
-    code: `FlyweightFactory{
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+FlyweightFactory{
   cache
   getFlyweight()
 }
-Flyweight[
+Flyweight:interface{
   intrinsicState
   operation()
-]
-ConcreteFlyweight{
+}
+ConcreteFlyweight:impl{
   intrinsicState
   operation()
 }
@@ -2260,10 +1349,13 @@ export const BEHAVIORAL_PATTERN_TEMPLATES: DiagramTemplate[] = [
   {
     id: "gof-chain-of-responsibility",
     name: "Chain of Responsibility",
-    description: "Passes a request along a chain of handlers, each deciding to handle or forward it",
+    description:
+      "Passes a request along a chain of handlers, each deciding to handle or forward it",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "pipeline",
-    code: `Request
+    code: `!selector  name=terminal  color=#4caf50  mode=color
+
+Request:terminal
 AuthHandler{
   handle()
   setNext()
@@ -2276,7 +1368,7 @@ RateLimitHandler{
   handle()
   setNext()
 }
-BusinessHandler{
+BusinessHandler:terminal{
   processRequest()
 }
 
@@ -2288,25 +1380,29 @@ RateLimitHandler --> BusinessHandler`,
   {
     id: "gof-command",
     name: "Command",
-    description: "Encapsulates a request as an object, enabling undo/redo and request queuing",
+    description:
+      "Encapsulates a request as an object, enabling undo/redo and request queuing",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "hierarchical",
-    code: `Invoker{
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+Invoker{
   history
   setCommand()
   execute()
   undo()
 }
-Command[
+Command:interface{
   execute()
   undo()
-]
-CopyCommand{
+}
+CopyCommand:impl{
   receiver
   execute()
   undo()
 }
-PasteCommand{
+PasteCommand:impl{
   receiver
   execute()
   undo()
@@ -2327,22 +1423,26 @@ PasteCommand --> Editor`,
   {
     id: "gof-iterator",
     name: "Iterator",
-    description: "Provides sequential access to a collection's elements without exposing its internals",
+    description:
+      "Provides sequential access to a collection's elements without exposing its internals",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "hierarchical",
-    code: `IterableCollection[
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+IterableCollection:interface{
   createIterator()
-]
-ConcreteCollection{
+}
+ConcreteCollection:impl{
   items
   createIterator()
 }
-Iterator[
+Iterator:interface{
   getNext()
   hasMore()
   currentItem()
-]
-ConcreteIterator{
+}
+ConcreteIterator:impl{
   collection
   position
   getNext()
@@ -2359,7 +1459,8 @@ ConcreteCollection ..> ConcreteIterator`,
   {
     id: "gof-mediator",
     name: "Mediator",
-    description: "Reduces chaotic dependencies between objects by routing communication through a mediator",
+    description:
+      "Reduces chaotic dependencies between objects by routing communication through a mediator",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "radial",
     code: `Mediator{
@@ -2391,7 +1492,8 @@ ComponentC --> Mediator`,
   {
     id: "gof-memento",
     name: "Memento",
-    description: "Captures and restores an object's internal state without violating encapsulation",
+    description:
+      "Captures and restores an object's internal state without violating encapsulation",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "hierarchical",
     code: `Originator{
@@ -2417,28 +1519,32 @@ Caretaker o-- Memento`,
   {
     id: "gof-observer",
     name: "Observer",
-    description: "Notifies multiple dependents automatically when one object's state changes",
+    description:
+      "Notifies multiple dependents automatically when one object's state changes",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "radial",
-    code: `EventEmitter{
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+EventEmitter{
   subscribers
   subscribe()
   unsubscribe()
   notify()
 }
-Subscriber[
-  update()
-]
-UserInterface{
+Subscriber:interface{
   update()
 }
-Logger{
+UserInterface:impl{
   update()
 }
-EmailService{
+Logger:impl{
   update()
 }
-Analytics{
+EmailService:impl{
+  update()
+}
+Analytics:impl{
   update()
 }
 
@@ -2451,27 +1557,31 @@ Analytics ..|> Subscriber`,
   {
     id: "gof-state",
     name: "State",
-    description: "Allows an object to alter its behavior when its internal state changes",
+    description:
+      "Allows an object to alter its behavior when its internal state changes",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "hierarchical",
-    code: `Context{
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+Context{
   state
   setState()
   request()
 }
-State[
-  handle()
-]
-IdleState{
+State:interface{
   handle()
 }
-ProcessingState{
+IdleState:impl{
   handle()
 }
-ErrorState{
+ProcessingState:impl{
   handle()
 }
-CompletedState{
+ErrorState:impl{
+  handle()
+}
+CompletedState:impl{
   handle()
 }
 
@@ -2484,24 +1594,29 @@ CompletedState ..|> State`,
   {
     id: "gof-strategy",
     name: "Strategy",
-    description: "Defines a family of algorithms, encapsulates each one, and makes them interchangeable",
+    description:
+      "Defines a family of algorithms, encapsulates each one, and makes them interchangeable",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "hierarchical",
-    code: `Context{
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+!selector  name=context    color=#ff9800  mode=color
+
+Context:context{
   strategy
   setStrategy()
   execute()
 }
-Strategy[
-  execute()
-]
-BubbleSort{
+Strategy:interface{
   execute()
 }
-QuickSort{
+BubbleSort:impl{
   execute()
 }
-MergeSort{
+QuickSort:impl{
+  execute()
+}
+MergeSort:impl{
   execute()
 }
 
@@ -2513,25 +1628,29 @@ MergeSort ..|> Strategy`,
   {
     id: "gof-template-method",
     name: "Template Method",
-    description: "Defines the skeleton of an algorithm in a base class, deferring steps to subclasses",
+    description:
+      "Defines the skeleton of an algorithm in a base class, deferring steps to subclasses",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "hierarchical",
-    code: `DataProcessor[
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+DataProcessor:interface{
   process()
   readData()
   parseData()
   analyzeData()
   sendReport()
-]
-CSVDataProcessor{
+}
+CSVDataProcessor:impl{
   readData()
   parseData()
 }
-JSONDataProcessor{
+JSONDataProcessor:impl{
   readData()
   parseData()
 }
-XMLDataProcessor{
+XMLDataProcessor:impl{
   readData()
   parseData()
   sendReport()
@@ -2544,34 +1663,38 @@ XMLDataProcessor ..|> DataProcessor`,
   {
     id: "gof-visitor",
     name: "Visitor",
-    description: "Lets you add further operations to objects without modifying them",
+    description:
+      "Lets you add further operations to objects without modifying them",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "hierarchical",
-    code: `Visitor[
-  visitCircle()
-  visitRectangle()
-  visitTriangle()
-]
-AreaCalculator{
-  visitCircle()
-  visitRectangle()
-  visitTriangle()
-}
-XMLExporter{
+    code: `!selector  name=interface  color=#451c82  mode=color
+!selector  name=impl       color=#7b47c7  mode=color
+
+Visitor:interface{
   visitCircle()
   visitRectangle()
   visitTriangle()
 }
-Shape[
-  accept()
-]
-Circle{
+AreaCalculator:impl{
+  visitCircle()
+  visitRectangle()
+  visitTriangle()
+}
+XMLExporter:impl{
+  visitCircle()
+  visitRectangle()
+  visitTriangle()
+}
+Shape:interface{
   accept()
 }
-Rectangle{
+Circle:impl{
   accept()
 }
-Triangle{
+Rectangle:impl{
+  accept()
+}
+Triangle:impl{
   accept()
 }
 
@@ -2590,7 +1713,8 @@ export const APP_ARCH_TEMPLATES: DiagramTemplate[] = [
   {
     id: "arch-mvp",
     name: "MVP",
-    description: "Model-View-Presenter: View is passive, Presenter handles all UI logic and mediates with Model",
+    description:
+      "Model-View-Presenter: View is passive, Presenter handles all UI logic and mediates with Model",
     tags: ["architecture", "ui", "mvp", "pattern"],
     preferredView: "hierarchical",
     code: `Model{
@@ -2598,16 +1722,16 @@ export const APP_ARCH_TEMPLATES: DiagramTemplate[] = [
   BusinessLogic
   Repository
 }
+Presenter{
+  handleUserAction()
+  updateView()
+  fetchData()
+}
 View{
   UserInterface
   UserEvents
   displayData()
   showError()
-}
-Presenter{
-  handleUserAction()
-  updateView()
-  fetchData()
 }
 
 View --> Presenter
@@ -2617,7 +1741,8 @@ Presenter --> View`,
   {
     id: "arch-mvvm",
     name: "MVVM",
-    description: "Model-View-ViewModel: two-way data binding eliminates direct View↔Model coupling",
+    description:
+      "Model-View-ViewModel: two-way data binding eliminates direct View↔Model coupling",
     tags: ["architecture", "ui", "mvvm", "pattern"],
     preferredView: "hierarchical",
     code: `Model{
@@ -2625,16 +1750,16 @@ Presenter --> View`,
   BusinessLogic
   Repository
 }
-View{
-  UserInterface
-  DataBinding
-  UserInput
-}
 ViewModel{
   ObservableState
   Commands
   formatData()
   handleCommand()
+}
+View{
+  UserInterface
+  DataBinding
+  UserInput
 }
 
 View --> ViewModel
@@ -2644,9 +1769,10 @@ ViewModel --> View`,
   {
     id: "arch-hexagonal",
     name: "Hexagonal",
-    description: "Ports & Adapters: core domain is isolated from all external systems via port interfaces",
+    description:
+      "Ports & Adapters: core domain is isolated from all external systems via port interfaces",
     tags: ["architecture", "hexagonal", "ports-adapters", "ddd", "pattern"],
-    preferredView: "radial",
+    preferredView: "circular",
     code: `Domain{
   Entities
   UseCases
@@ -2659,10 +1785,10 @@ PrimaryAdapters{
   EventListener
 }
 SecondaryAdapters{
-  PostgresAdapter
-  RedisAdapter
-  EmailAdapter
-  S3Adapter
+  PostgresAdapter{ _database_ }
+  RedisAdapter{ _cache_ }
+  EmailAdapter{ _mail_ }
+  S3Adapter{ _storage_ }
 }
 
 PrimaryAdapters ..> Domain
@@ -2671,26 +1797,32 @@ Domain ..> SecondaryAdapters`,
   {
     id: "arch-clean",
     name: "Clean Architecture",
-    description: "Concentric dependency rings — arrows always point inward; outer layers depend on inner layers, never the reverse",
+    description:
+      "Concentric dependency rings — arrows always point inward; outer layers depend on inner layers, never the reverse",
     tags: ["architecture", "clean", "ddd", "pattern"],
     preferredView: "hierarchical",
-    code: `Frameworks{
+    code: `!selector  name=infra    color=#607d8b  mode=color
+!selector  name=adapters  color=#2196f3  mode=color
+!selector  name=app       color=#ff9800  mode=color
+!selector  name=domain    color=#4caf50  mode=color
+
+Frameworks:infra{
   WebFramework
   Database
   ExternalAPIs
   UI
 }
-InterfaceAdapters{
+InterfaceAdapters:adapters{
   Controllers
   Presenters
   Gateways
 }
-UseCases{
+UseCases:app{
   ApplicationLogic
   Interactors
   DTOs
 }
-Entities{
+Entities:domain{
   BusinessRules
   DomainObjects
   ValueObjects
@@ -2703,22 +1835,23 @@ UseCases ..> Entities`,
   {
     id: "arch-cqrs",
     name: "CQRS",
-    description: "Command Query Responsibility Segregation: separate models optimized for reads vs. writes",
+    description:
+      "Command Query Responsibility Segregation: separate models optimized for reads vs. writes",
     tags: ["architecture", "cqrs", "pattern", "event-driven"],
     preferredView: "pipeline",
     code: `Client
 CommandSide{
   CommandHandler
   WriteModel
-  WriteDB
+  WriteDB{ _database_ }
 }
 QuerySide{
   QueryHandler
   ReadModel
-  ReadDB
+  ReadDB{ _database_ }
 }
-EventBus
-EventStore
+EventBus{ _event_ }
+EventStore{ _storage_ }
 
 Client --> CommandSide
 Client --> QuerySide
@@ -2729,7 +1862,8 @@ EventBus --> QuerySide`,
   {
     id: "arch-event-sourcing",
     name: "Event Sourcing",
-    description: "State is stored as a sequence of events — current state is rebuilt by replaying them",
+    description:
+      "State is stored as a sequence of events — current state is rebuilt by replaying them",
     tags: ["architecture", "event-sourcing", "pattern", "event-driven"],
     preferredView: "timeline",
     code: `Command
@@ -2739,6 +1873,7 @@ CommandHandler{
   emitEvent()
 }
 EventStore{
+  _storage_
   OrderCreated
   ItemAdded
   OrderShipped
@@ -2762,7 +1897,8 @@ export const SYSTEM_ARCH_TEMPLATES: DiagramTemplate[] = [
   {
     id: "arch-monolith",
     name: "Monolith",
-    description: "Single deployable unit containing all application concerns — simple to develop, harder to scale",
+    description:
+      "Single deployable unit containing all application concerns — simple to develop, harder to scale",
     tags: ["architecture", "monolith", "system", "deployment"],
     preferredView: "hierarchical",
     code: `MonolithicApp{
@@ -2783,14 +1919,17 @@ export const SYSTEM_ARCH_TEMPLATES: DiagramTemplate[] = [
     PaymentRepository
   }
 }
-Database
+Database{
+  _database_
+}
 
 MonolithicApp --> Database`,
   },
   {
     id: "arch-soa",
     name: "SOA",
-    description: "Service-Oriented Architecture: coarse-grained services communicate via an enterprise service bus",
+    description:
+      "Service-Oriented Architecture: coarse-grained services communicate via an enterprise service bus",
     tags: ["architecture", "soa", "system", "enterprise"],
     preferredView: "pipeline",
     code: `Client
@@ -2803,17 +1942,17 @@ ESB{
 UserService{
   SOAP_Endpoint
   BusinessLogic
-  UserDB
+  UserDB{ _database_ }
 }
 OrderService{
   SOAP_Endpoint
   BusinessLogic
-  OrderDB
+  OrderDB{ _database_ }
 }
 PaymentService{
   SOAP_Endpoint
   BusinessLogic
-  PaymentDB
+  PaymentDB{ _database_ }
 }
 ServiceRegistry
 
@@ -2826,10 +1965,11 @@ ServiceRegistry --> ESB`,
   {
     id: "arch-serverless",
     name: "Serverless",
-    description: "Functions triggered on demand — no servers to manage, scales to zero automatically",
+    description:
+      "Functions triggered on demand — no servers to manage, scales to zero automatically",
     tags: ["architecture", "serverless", "cloud", "faas"],
     preferredView: "radial",
-    code: `APIGateway
+    code: `APIGateway{ _api_ }
 Functions{
   CreateUser()
   GetOrders()
@@ -2838,11 +1978,11 @@ Functions{
   ResizeImage()
 }
 CloudServices{
-  ObjectStorage
-  ManagedDatabase
-  MessageQueue
-  CDN
-  SecretManager
+  ObjectStorage{ _storage_ }
+  ManagedDatabase{ _database_ }
+  MessageQueue{ _queue_ }
+  CDN{ _network_ }
+  SecretManager{ _key_ }
 }
 Triggers{
   HTTP
@@ -2858,7 +1998,8 @@ Functions --> CloudServices`,
   {
     id: "arch-bff",
     name: "BFF",
-    description: "Backend for Frontend: a dedicated backend per client type, each optimized for its consumer",
+    description:
+      "Backend for Frontend: a dedicated backend per client type, each optimized for its consumer",
     tags: ["architecture", "bff", "api", "frontend", "system"],
     preferredView: "hierarchical",
     code: `WebApp
@@ -2891,4 +2032,367 @@ MobileBFF --> ProductService
 TVBFF --> ProductService
 TVBFF --> MediaService`,
   },
+];
+
+export const USER_CUSTOMER_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "product-user-journey",
+    name: "User Journey",
+    description:
+      "Lifecycle stages a user passes through — from unaware to retained, with drop-off and re-entry paths",
+    tags: ["product", "user", "journey", "lifecycle"],
+    preferredView: "pipeline",
+    code: `!selector  name=goal  color=#4caf50  mode=color
+!selector  name=risk  color=#f44336  mode=color
+
+Unaware||
+Discovering||
+Evaluating||
+Onboarding||
+Engaged||
+Retained:goal||
+Churned:risk||
+
+Unaware|| --encounters--> Discovering||
+Discovering|| --tries--> Evaluating||
+Evaluating|| --signs_up--> Onboarding||
+Onboarding|| --first_value--> Engaged||
+Engaged|| --builds_habit--> Retained||
+Engaged|| --drops_off--> Churned||
+Retained|| --refers--> Unaware||`,
+  },
+  {
+    id: "exec-onboarding-funnel",
+    name: "Exec: User Onboarding Funnel",
+    description:
+      "Three user types flow through two gates — BounceRisk drops at signup, ChurnRisk churns after onboarding, Visitor reaches Active",
+    tags: ["product", "execution", "user", "funnel", "onboarding"],
+    preferredView: "timeline",
+    code: `gen(
+  Visitor{}
+  BounceRisk{}
+  ChurnRisk{}
+)
+LandingPage>>
+SignupGate<BounceRisk{}>
+Onboarding>>
+EngagementCheck<ChurnRisk{}>
+Active[]
+Bounced[]
+Churned[]
+
+gen --> LandingPage
+LandingPage --> SignupGate
+SignupGate --yes--> Bounced
+SignupGate --no--> Onboarding
+Onboarding --> EngagementCheck
+EngagementCheck --yes--> Churned
+EngagementCheck --no--> Active`,
+  },
+  {
+    id: "product-customer-funnel",
+    name: "Customer Funnel",
+    description:
+      "Classic conversion funnel from first touch to advocacy — each stage is a condition the customer is in",
+    tags: ["product", "marketing", "funnel", "conversion"],
+    preferredView: "circular",
+    code: `Awareness||
+Interest||
+Consideration||
+Decision||
+Retention||
+Advocacy||
+
+Awareness|| --> Interest||
+Interest|| --> Consideration||
+Consideration|| --> Decision||
+Decision|| --> Retention||
+Retention|| --> Advocacy||
+Advocacy|| --word_of_mouth--> Awareness||`,
+  },
+  {
+    id: "product-persona-map",
+    name: "Persona Map",
+    description:
+      "Key user archetypes with their behaviours and primary needs — each persona connects to the outcome it optimises for",
+    tags: ["product", "personas", "ux", "research"],
+    preferredView: "pipeline",
+    code: `PowerUser{
+  daily_active
+  keyboard_shortcuts()
+  api_access()
+  custom_workflows()
+}
+CasualUser{
+  weekly_active
+  templates()
+  drag_drop()
+}
+Collaborator{
+  sharing()
+  commenting()
+  team_spaces()
+}
+Admin{
+  user_management()
+  sso_setup()
+  billing()
+  audit_logs()
+}
+
+Speed||
+Simplicity||
+Teamwork||
+Oversight||
+
+PowerUser --> Speed||
+CasualUser --> Simplicity||
+Collaborator --> Teamwork||
+Admin --> Oversight||
+CasualUser ..> PowerUser
+Collaborator --> CasualUser
+Admin ..> Collaborator`,
+  },
+];
+
+export const PLANNING_ROADMAP_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "exec-feature-pipeline",
+    name: "Exec: Feature Delivery Pipeline",
+    description:
+      "Features go through QA before shipping; hotfixes are expedited straight to production via the review gate",
+    tags: ["product", "execution", "pipeline", "delivery", "kanban"],
+    preferredView: "timeline",
+    code: `gen(
+  Feature{}
+  Hotfix{}
+)
+Backlog>>
+Development>>
+ReviewGate<Hotfix{}>
+QATesting>>
+Shipped[]
+FastTracked[]
+
+gen --> Backlog
+Backlog --> Development
+Development --> ReviewGate
+ReviewGate --expedite--> FastTracked
+ReviewGate --standard--> QATesting
+QATesting --> Shipped`,
+  },
+  {
+    id: "product-roadmap",
+    name: "Feature Roadmap",
+    description:
+      "Now / Next / Later buckets group features by delivery horizon — dependencies link sequenced work",
+    tags: ["product", "roadmap", "planning", "features"],
+    preferredView: "pipeline",
+    code: `!selector  name=completed  color=#4caf50  mode=color
+
+Now{
+  UserAuth:completed
+  CoreEditor:completed
+  BasicExport
+}
+Next{
+  Collaboration
+  AdvancedLayouts
+  IntegrationAPI
+}
+Later{
+  MobileApp
+  EnterpriseSSO
+  AIAssistant
+}
+
+Now --> Next
+Next --> Later`,
+  },
+  {
+    id: "product-okr-tree",
+    name: "OKR Tree",
+    description:
+      "Annual mission cascades into objectives, each carrying measurable key results as children",
+    tags: ["product", "okr", "goals", "planning"],
+    preferredView: "circular",
+    code: `AnnualMission
+
+GrowAdoption{
+  Reach_10k_MAU
+  Trial_Conversion_5pct
+  Churn_Below_2pct
+}
+ImproveExperience{
+  NPS_Above_40
+  Zero_P1_Bugs
+  Load_Under_2s
+}
+DriveRevenue{
+  MRR_50k
+  Close_3_Enterprise
+  Launch_Paid_Tier
+}
+
+AnnualMission --> GrowAdoption
+AnnualMission --> ImproveExperience
+AnnualMission --> DriveRevenue
+GrowAdoption ..> ImproveExperience
+ImproveExperience ..> DriveRevenue`,
+  },
+  {
+    id: "product-story-map",
+    name: "User Story Map",
+    description:
+      "Epics as top-level objects, each carrying its user stories as function children — dependency arrows show sequencing",
+    tags: ["product", "stories", "backlog", "agile"],
+    preferredView: "pipeline",
+    code: `Authenticate{
+  SignUpByEmail()
+  LoginSocially()
+  ResetPassword()
+  Enable2FA()
+}
+Create{
+  NewDiagram()
+  UseTemplate()
+  AddElements()
+  UndoRedo()
+}
+Share{
+  CopyShareLink()
+  SetPermissions()
+  ExportImage()
+}
+Collaborate{
+  LeaveComment()
+  RealtimeEditing()
+  ViewHistory()
+}
+
+Authenticate --> Create
+Create --> Share
+Create --> Collaborate
+Share --> Collaborate`,
+  },
+];
+
+export const BUSINESS_PROCESS_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "exec-ticket-triage",
+    name: "Exec: Support Ticket Triage",
+    description:
+      "Incoming tickets are classified at two gates — bugs go to the engineering queue, inquiries are resolved directly, feature requests land in the product backlog",
+    tags: ["product", "execution", "support", "triage", "process"],
+    preferredView: "timeline",
+    code: `gen(
+  BugReport{}
+  FeatureRequest{}
+  Inquiry{}
+)
+Inbox>>
+Classify<BugReport{}>
+CustomerSupport>>
+QuickResolve<Inquiry{}>
+BugQueue[]
+Resolved[]
+ProductBacklog[]
+
+gen --> Inbox
+Inbox --> Classify
+Classify --yes--> BugQueue
+Classify --no--> CustomerSupport
+CustomerSupport --> QuickResolve
+QuickResolve --yes--> Resolved
+QuickResolve --no--> ProductBacklog`,
+  },
+  {
+    id: "product-service-blueprint",
+    name: "Service Blueprint",
+    description:
+      "Four horizontal lanes — customer actions, frontstage UI, backstage processes, and supporting systems — reveal where service breaks down",
+    tags: ["product", "service-design", "process", "ux"],
+    preferredView: "pipeline",
+    code: `CustomerActions{
+  SearchProduct()
+  SelectOption()
+  Checkout()
+  TrackOrder()
+}
+FrontstageInteractions{
+  ProductListing
+  ConfiguratorUI
+  PaymentPage
+  TrackingPage
+}
+BackstageProcesses{
+  InventoryCheck()
+  FraudDetection()
+  OrderFulfillment()
+  ShipmentUpdate()
+}
+SupportingSystems{
+  InventoryDB
+  PaymentGateway
+  FulfillmentService
+  NotificationService
+}
+
+CustomerActions --> FrontstageInteractions
+FrontstageInteractions --> BackstageProcesses
+BackstageProcesses --> SupportingSystems`,
+  },
+  {
+    id: "product-decision-flow",
+    name: "Opportunity Decision Flow",
+    description:
+      "Three gates — viable, desirable, feasible — route an opportunity to approval or a named holding state",
+    tags: ["product", "decision", "prioritisation", "process"],
+    preferredView: "hierarchical",
+    code: `Opportunity
+
+Viable<>
+Desirable<>
+Feasible<>
+
+Approved{
+  LaunchPlan()
+  Stakeholders
+  Timeline
+}
+Deprioritised||
+Backlogged||
+Deferred||
+
+Opportunity --> Viable
+Viable --yes--> Desirable
+Viable --no--> Deprioritised||
+Desirable --yes--> Feasible
+Desirable --no--> Backlogged||
+Feasible --yes--> Approved
+Feasible --no--> Deferred||`,
+  },
+];
+
+export const BUILT_IN_TEMPLATES: DiagramTemplate[] = [
+  ICON_SHOWCASE_TEMPLATE,
+  ALL_REL_TYPES_TEMPLATE,
+  ALL_ELEMENT_TYPES_TEMPLATE,
+  WIDE_FANOUT_TEMPLATE,
+  ...SELECTOR_SHOWCASE_TEMPLATES,
+  ...EXECUTION_TEMPLATES,
+  ...STRESS_TEMPLATES,
+  ...SOLID_SRP_TEMPLATES,
+  ...SOLID_OCP_TEMPLATES,
+  ...SOLID_LSP_TEMPLATES,
+  ...SOLID_ISP_TEMPLATES,
+  ...SOLID_DIP_TEMPLATES,
+  ...CREATIONAL_PATTERN_TEMPLATES,
+  ...STRUCTURAL_PATTERN_TEMPLATES,
+  ...BEHAVIORAL_PATTERN_TEMPLATES,
+  ...APP_ARCH_TEMPLATES,
+  ...SYSTEM_ARCH_TEMPLATES,
+  ...USER_CUSTOMER_TEMPLATES,
+  ...PLANNING_ROADMAP_TEMPLATES,
+  ...BUSINESS_PROCESS_TEMPLATES,
 ];
