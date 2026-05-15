@@ -3,7 +3,7 @@ import {
   computeElementSizes,
   BASE_PX,
   MIN_SCREEN_PX,
-  MAX_SCREEN_PX,
+  MAX_SCREEN_RATIO,
 } from "../../presentation/components/rendering/elementSizing";
 import { createElement } from "../../domain/models/Element";
 import { createEmptyDiagram } from "../../domain/models/DiagramModel";
@@ -87,7 +87,8 @@ describe("computeElementSizes", () => {
       m.root.childIds.push("a");
     });
 
-    const largeZoom = (MAX_SCREEN_PX / BASE_PX) * 2;
+    const maxScreenPx = Math.min(800, 600) * MAX_SCREEN_RATIO;
+    const largeZoom = (maxScreenPx / BASE_PX) * 2;
     const viewState = createEmptyViewState();
     const result = computeElementSizes(model, viewState, largeZoom);
     expect(result.zoomDimmed.has("a")).toBe(true);

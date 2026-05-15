@@ -73,12 +73,12 @@ describe("SELECTOR_SHOWCASE_TEMPLATES", () => {
     expect(model.selectors?.length).toBe(3);
   });
 
-  it("selector-atoms-name — 3 filter presets, 9 elements, 7 relationships", () => {
+  it("selector-atoms-name — 3 filter presets, 12 elements, 7 relationships", () => {
     const { code } = SELECTOR_SHOWCASE_TEMPLATES.find(
       (t) => t.id === "selector-atoms-name",
     )!;
     const model = parse(code);
-    expect(Object.keys(model.elements).length).toBe(9);
+    expect(Object.keys(model.elements).length).toBe(12);
     expect(Object.keys(model.relationships).length).toBe(7);
     expect(model.selectors?.length).toBe(3);
   });

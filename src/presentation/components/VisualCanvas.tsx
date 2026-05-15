@@ -84,6 +84,8 @@ export function VisualCanvas() {
   const { colors } = useC7One();
   const isDark = detectIsDark(colors["--color-bg-base"]);
   const primaryBounds = usePrimaryBounds();
+  const primaryBoundsRef = useRef(primaryBounds);
+  primaryBoundsRef.current = primaryBounds;
 
   const elementSizes = useMemo(
     () => computeElementSizes(model, viewState, zoom),
@@ -465,10 +467,11 @@ export function VisualCanvas() {
   useEffect(() => {
     if (!zoomCommand || !stageRef.current) return;
     const stage = stageRef.current;
-    const visibleW = primaryBounds.ready ? primaryBounds.width : stage.width();
-    const visibleH = primaryBounds.ready ? primaryBounds.height : stage.height();
-    const visibleX = primaryBounds.ready ? primaryBounds.x : 0;
-    const visibleY = primaryBounds.ready ? primaryBounds.y : 0;
+    const pb = primaryBoundsRef.current;
+    const visibleW = pb.ready ? pb.width : stage.width();
+    const visibleH = pb.ready ? pb.height : stage.height();
+    const visibleX = pb.ready ? pb.x : 0;
+    const visibleY = pb.ready ? pb.y : 0;
     const center = { x: visibleX + visibleW / 2, y: visibleY + visibleH / 2 };
 
     if (zoomCommand.type === "reset") {
