@@ -112,8 +112,9 @@ export class Parser {
 
     while (this.peek() && this.peek()!.type !== WRAPPERS[wrapper].close) {
       switch (this.peek()?.kind) {
-        case "}":
-          if (this.peek()?.type === "|") {
+        case "}": {
+          const peekType = this.peek()?.type;
+          if (peekType === "|") {
             lastEl = this.parseOpeningWrapper(
               parent,
               parentPath,
@@ -127,7 +128,7 @@ export class Parser {
             lastElWasWrapped = true;
             break;
           }
-          if (this.peek()?.type !== ">") {
+          if (peekType !== ">") {
             this.next();
             lastEl = null;
             lastPath = null;
@@ -173,6 +174,7 @@ export class Parser {
             lastElWasWrapped = true;
           }
           break;
+        }
         case "{": {
           lastEl = this.parseOpeningWrapper(
             parent,
@@ -288,7 +290,7 @@ export class Parser {
     const next = this.next();
     nextToken = nextToken ?? defaultOpeningWrapper(next?.type);
 
-    if (!lastEl) lastEl = this.createElement(this.genId(parent, "anon"));
+    if (!lastEl) lastEl = this.createElement(this.genId());
     if (lastRel) this.updateRelationship(lastRel.id, lastEl.id);
     lastEl.type = WRAPPERS[nextToken].type;
 
@@ -465,7 +467,7 @@ export class Parser {
     label: string = "",
   ): Relationship {
     const rel = createRelationship(
-      this.genId(null, "rel"),
+      this.genId("rel"),
       source,
       target,
       type,
@@ -481,8 +483,6 @@ export class Parser {
   private nextLike = (pattern: string) =>
     pattern.split("").every((k, i) => this.peek(i)?.kind === k);
 
-  private genId = (parent: Element | null, prefix: string = "anon") =>
-    parent
-      ? `${prefix}_${parent.childIds.length + 1}`
-      : `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  private idCount = 0;
+  private genId = (prefix = "anon") => `${prefix}_${++this.idCount}`;
 }

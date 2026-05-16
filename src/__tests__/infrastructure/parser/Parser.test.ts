@@ -543,6 +543,43 @@ describe("Parser", () => {
     expect(a.childIds.length).toBe(1);
   });
 
+  it("anonymous nested objects get unique ids: {{}}", () => {
+    const model = parse("{{}}");
+    const elements = Object.values(model.elements);
+    expect(elements.length).toBe(2);
+    const [outer, inner] = elements;
+    expect(outer.id).not.toBe(inner.id);
+    expect(outer.type).toBe("object");
+    expect(inner.type).toBe("object");
+    expect(outer.childIds).toContain(inner.id);
+  });
+
+  it("anonymous nested wrappers get unique ids: [()]", () => {
+    const model = parse("[()]");
+    const elements = Object.values(model.elements);
+    expect(elements.length).toBe(2);
+    const [outer, inner] = elements;
+    expect(outer.id).not.toBe(inner.id);
+    expect(outer.type).toBe("collection");
+    expect(inner.type).toBe("function");
+    expect(outer.childIds).toContain(inner.id);
+  });
+
+  it("anonymous elements across different scopes get unique ids: ||--{[]}", () => {
+    const model = parse("||--{[]}");
+    const elements = Object.values(model.elements);
+    expect(elements.length).toBe(3);
+    const ids = elements.map((e) => e.id);
+    expect(new Set(ids).size).toBe(3);
+    const state = elements.find((e) => e.type === "state");
+    const obj = elements.find((e) => e.type === "object");
+    const coll = elements.find((e) => e.type === "collection");
+    expect(state).toBeDefined();
+    expect(obj).toBeDefined();
+    expect(coll).toBeDefined();
+    expect(obj!.childIds).toContain(coll!.id);
+  });
+
   it("should parse curried function (QUESTIONABLE)", () => {
     const model = parse("f(x)(y)(z)");
     expect(Object.values(model.elements).length).toBe(4);
