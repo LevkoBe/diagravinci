@@ -434,6 +434,49 @@ describe("Parser", () => {
     expect(rel2.target).toBe(shop.id);
   });
 
+  it("flow at end of line does not connect to next line", () => {
+    const model = parse("f1()\n>>\nf2()");
+    const rels = Object.values(model.relationships);
+    const f1 = model.elements["f1"];
+    const f2 = model.elements["f2"];
+    expect(f1).toBeDefined();
+    expect(f2).toBeDefined();
+    expect(rels.every((r) => !(r.source === f1.id && r.target === f2.id))).toBe(true);
+    expect(rels.every((r) => r.target !== f2.id)).toBe(true);
+  });
+
+  it("function return type notation: func(input)>output>", () => {
+    const model = parse("func(input)>output>");
+    const func = model.elements["func"];
+    const output = model.elements["output"];
+    expect(func?.type).toBe("function");
+    expect(output?.type).toBe("object");
+    const rels = Object.values(model.relationships);
+    // flow's outgoing rel is cancelled; output is a child of the flow, not a rel target
+    expect(rels.every((r) => r.target !== output.id)).toBe(true);
+  });
+
+  it("function with named flow output: f()named_out>out>", () => {
+    const model = parse("f()named_out>out>");
+    expect(Object.values(model.elements).length).toBe(3);
+    const f = model.elements["f"];
+    const named_out = model.elements["named_out"];
+    const out = model.elements["out"];
+    expect(f?.type).toBe("function");
+    expect(named_out?.type).toBe("flow");
+    expect(named_out?.childIds).toContain("out");
+    expect(out?.type).toBe("object");
+    const rels = Object.values(model.relationships);
+    expect(rels).toHaveLength(1);
+    expect(rels[0].source).toBe("f");
+    expect(rels[0].target).toBe("named_out");
+  });
+
+  it("subsequent wrappers do not override the first type", () => {
+    const model = parse("a[](){}");
+    expect(model.elements["a"].type).toBe("collection");
+  });
+
   it("should handle anonymity", () => {
     const model = parse("player-->{}-->X");
     expect(Object.values(model.elements).length).toBe(3);
@@ -599,7 +642,7 @@ describe("Parser", () => {
     expect(Object.values(model.elements).length).toBe(5);
     const [f, a, b, c, d] = Array.from(Object.values(model.elements));
     expect(f.id).toBe("f");
-    expect(f.type).toBe("choice");
+    expect(f.type).toBe("function");
     expect(f.childIds).toContain(a.id);
     expect(f.childIds).toContain(b.id);
     expect(f.childIds).toContain(c.id);

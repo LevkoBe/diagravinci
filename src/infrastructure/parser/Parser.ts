@@ -83,7 +83,7 @@ export class Parser {
   private validationErrors: string[] = [];
 
   constructor(tokens: Token[]) {
-    this.tokens = tokens.filter((t) => t.type !== "NEWLINE");
+    this.tokens = tokens;
     this.model = createEmptyDiagram();
   }
 
@@ -111,6 +111,18 @@ export class Parser {
     let lastElWasWrapped = false;
 
     while (this.peek() && this.peek()!.type !== WRAPPERS[wrapper].close) {
+      if (this.peek()!.type === "NEWLINE") {
+        this.next();
+        if (lastRel) {
+          const src = this.model.elements[lastRel.source];
+          if (src?.type === "flow") {
+            this.cancelRelationship(lastRel.id);
+            lastRel = null;
+          }
+        }
+        lastElWasWrapped = false;
+        continue;
+      }
       switch (this.peek()?.kind) {
         case "}": {
           const peekType = this.peek()?.type;
@@ -122,6 +134,7 @@ export class Parser {
               lastEl,
               depth,
               "|",
+              lastElWasWrapped,
             );
             lastPath = lastEl.id;
             lastRel = null;
@@ -145,7 +158,7 @@ export class Parser {
               ">",
             );
             lastPath = lastEl.id;
-            lastRel = null;
+            lastRel = this.createRelationship(lastEl.id);
             lastElWasWrapped = true;
           } else if (lastRel === null && lastPath === null) {
             lastEl = this.parseOpeningWrapper(
@@ -182,6 +195,8 @@ export class Parser {
             lastRel,
             lastEl,
             depth,
+            undefined,
+            lastElWasWrapped,
           );
           lastPath = lastEl.id;
           lastRel = null;
@@ -246,6 +261,15 @@ export class Parser {
           } else {
             const existedBefore = !!this.model.elements[tokenValue];
             lastEl = this.parseElement(WRAPPERS[wrapper].defaultChildType);
+            if (
+              !lastRel &&
+              lastElWasWrapped &&
+              lastPath !== null &&
+              this.peek()?.type === ">"
+            ) {
+              const implRel = this.createRelationship(lastPath);
+              this.updateRelationship(implRel.id, lastEl.id);
+            }
             const isRelSource =
               !lastRel &&
               (this.peek()?.kind === "-" || this.peek()?.kind === ">");
@@ -275,7 +299,14 @@ export class Parser {
           break;
       }
     }
-    if (lastRel) this.updateRelationship(lastRel.id, parent.id);
+    if (lastRel) {
+      const src = this.model.elements[lastRel.source];
+      if (src?.type === "flow") {
+        this.cancelRelationship(lastRel.id);
+      } else {
+        this.updateRelationship(lastRel.id, parent.id);
+      }
+    }
     this.next();
   }
 
@@ -286,13 +317,14 @@ export class Parser {
     lastEl: Element | null,
     depth: number,
     nextToken?: OpeningWrapper,
+    preserveType = false,
   ): Element {
     const next = this.next();
     nextToken = nextToken ?? defaultOpeningWrapper(next?.type);
 
     if (!lastEl) lastEl = this.createElement(this.genId());
     if (lastRel) this.updateRelationship(lastRel.id, lastEl.id);
-    lastEl.type = WRAPPERS[nextToken].type;
+    if (!preserveType) lastEl.type = WRAPPERS[nextToken].type;
 
     const childPath = parentPath ? `${parentPath}.${lastEl.id}` : lastEl.id;
     this.parseContents(lastEl, childPath, nextToken, depth + 1);
