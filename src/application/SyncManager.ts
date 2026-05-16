@@ -119,6 +119,7 @@ export class SyncManager {
       for (const [path, pe] of Object.entries(currentViewState.positions)) {
         if (path === oldPrefix || path.startsWith(oldPrefix + ".")) {
           remappedPositions[newPrefix + path.slice(oldPrefix.length)] = pe;
+          delete remappedPositions[path];
         }
       }
       mergeViewState = { ...currentViewState, positions: remappedPositions };
