@@ -24,6 +24,7 @@ const MODE_KEYS: Record<string, InteractionMode> = {
   "4": "delete",
   "5": "disconnect",
   "6": "readonly",
+  "7": "presentation",
 };
 
 const QWERTY = ["q", "w", "e", "r", "t", "y"] as const;

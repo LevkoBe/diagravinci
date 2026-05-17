@@ -9,7 +9,8 @@ export type InteractionMode =
   | "connect"
   | "delete"
   | "disconnect"
-  | "readonly";
+  | "readonly"
+  | "presentation";
 export type ZoomCommand = { type: "in" | "out" | "reset"; ts: number };
 export type RenderStyle = "svg" | "rect" | "polygon";
 export type RelLineStyle = "straight" | "curved" | "orthogonal";

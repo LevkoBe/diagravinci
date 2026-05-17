@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { configureStore } from "@reduxjs/toolkit";
 import { applyReparent } from "../../application/reparent";
 import { SyncManager } from "../../application/SyncManager";
+import type { AppStore } from "../../application/store/store";
 import { createEmptyDiagram } from "../../domain/models/DiagramModel";
 import { createElement } from "../../domain/models/Element";
 import { createEmptyViewState } from "../../domain/models/ViewState";
@@ -65,8 +66,8 @@ describe("SyncManager.syncFromVis – path remapping removes stale old key", () 
     store.dispatch(setModel(model));
     store.dispatch(setViewState(viewState));
 
-    const noop = { parse: createEmptyDiagram.bind(null) as any, generate: () => "" };
-    const syncManager = new SyncManager(store as any, noop, { generate: () => "" });
+    const noop = { parse: (_: string) => createEmptyDiagram(), generate: () => "" };
+    const syncManager = new SyncManager(store as unknown as AppStore, noop, noop);
 
     // After reparenting inner "a" (path "a.a") to root (new path "a")
     const updatedModel = applyReparent(model, "a", "a", model.root.id);

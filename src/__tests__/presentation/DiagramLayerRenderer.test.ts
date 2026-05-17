@@ -701,6 +701,7 @@ describe("DiagramLayerRenderer", () => {
         "polygon",
         "straight",
         false,
+        false,
         {},
         false,
       );
@@ -904,6 +905,7 @@ describe("DiagramLayerRenderer", () => {
         1,
         "polygon",
         "straight",
+        false,
         false,
         {},
         false,

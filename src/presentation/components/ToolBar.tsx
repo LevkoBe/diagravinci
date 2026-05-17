@@ -24,6 +24,7 @@ import {
   Trash2,
   Unlink,
   Lock,
+  Presentation,
   Circle,
   Network,
   ArrowRightLeft,
@@ -640,6 +641,11 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
               icon: <Unlink size={14} />,
             },
             { value: "readonly", label: "Read-only", icon: <Lock size={14} /> },
+            {
+              value: "presentation",
+              label: "Presentation",
+              icon: <Presentation size={14} />,
+            },
           ]}
         />
 

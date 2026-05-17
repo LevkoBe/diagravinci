@@ -108,6 +108,7 @@ export class DiagramLayerRenderer {
   private readonly viewportRect: ViewportRect;
 
   private readonly isReadonly: boolean;
+  private readonly isPresentation: boolean;
   private readonly executionColorMap: Record<string, string>;
   private readonly classDiagramMode: boolean;
   private readonly getGroupMoveInfo?: () => { selectorId: string | null; filterSelectors: Selector[] };
@@ -124,6 +125,7 @@ export class DiagramLayerRenderer {
     renderStyle: RenderStyle = "polygon",
     relLineStyle: RelLineStyle = "straight",
     isReadonly = false,
+    isPresentation = false,
     executionColorMap: Record<string, string> = {},
     classDiagramMode = true,
     elementSizes?: ElementSizes,
@@ -142,6 +144,7 @@ export class DiagramLayerRenderer {
       Math.min(stage.width(), stage.height()) * MAX_SCREEN_RATIO;
     this.renderStyle = renderStyle;
     this.isReadonly = isReadonly;
+    this.isPresentation = isPresentation;
     this.executionColorMap = executionColorMap;
     this.classDiagramMode = classDiagramMode;
     this.getGroupMoveInfo = getGroupMoveInfo;
@@ -349,6 +352,26 @@ export class DiagramLayerRenderer {
       group.on("mouseleave", () => {
         this.stage.container().style.cursor = "default";
         this.setHovered(null);
+      });
+      return group;
+    }
+
+    if (this.isPresentation) {
+      group.draggable(false);
+      group.on("mouseenter", () => {
+        this.stage.container().style.cursor = "pointer";
+        this.setHovered(path);
+      });
+      group.on("mouseleave", () => {
+        this.stage.container().style.cursor = "default";
+        this.setHovered(null);
+      });
+      group.on("click tap", (e: Konva.KonvaEventObject<MouseEvent>) => {
+        this.callbacks.onClick?.(
+          element.id,
+          e.evt.shiftKey,
+          e.evt.ctrlKey || e.evt.metaKey,
+        );
       });
       return group;
     }

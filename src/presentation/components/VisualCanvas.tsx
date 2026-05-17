@@ -24,7 +24,10 @@ import { getExecutionColorMap } from "../../application/ExecutionEngine";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
 import { computeElementSizes } from "./rendering/elementSizing";
 import type { GeometryCache } from "./rendering/relationships/RelationshipRenderer";
-import { FilterResolver, matchesSelector } from "../../domain/sync/FilterResolver";
+import {
+  FilterResolver,
+  matchesSelector,
+} from "../../domain/sync/FilterResolver";
 import {
   getSubtreeIds,
   type DiagramModel,
@@ -38,7 +41,7 @@ import { lightStateTokens, darkStateTokens } from "../../themes";
 import { stageRegistry } from "../../shared/stageRegistry";
 import { applyReparent } from "../../application/reparent";
 
-const FIT_PADDING_FACTOR = 0.1;
+const FIT_PADDING_FACTOR = 0.2;
 
 function hexToRgba(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -184,7 +187,9 @@ export function VisualCanvas() {
     }
 
     const existingSelectors = currentModel.selectors ?? [];
-    const existingSel = existingSelectors.find((s) => s.id === SELECTION_SEL_ID);
+    const existingSel = existingSelectors.find(
+      (s) => s.id === SELECTION_SEL_ID,
+    );
     const needsSelector = !existingSel && selectedElementIds.length > 0;
 
     if (!flagsChanged && !needsSelector) return;
@@ -212,6 +217,67 @@ export function VisualCanvas() {
     const newCode = new CodeGenerator(updatedModel).generate();
     syncManager.syncFromCode(newCode, true);
   }, [selectedElementIds]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (interactionMode !== "presentation") return;
+    if (selectedElementIds.length === 0) return;
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const positions = store.getState().diagram.viewState.positions;
+    const selectedPaths = Object.entries(positions)
+      .filter(([path]) => {
+        const id = path.split(".").at(-1)!;
+        return selectedElementIds.includes(id);
+      })
+      .map(([, v]) => v);
+
+    if (selectedPaths.length === 0) return;
+
+    const pb = primaryBoundsRef.current;
+    const visibleW = pb.ready ? pb.width : stage.width();
+    const visibleH = pb.ready ? pb.height : stage.height();
+    const visibleX = pb.ready ? pb.x : 0;
+    const visibleY = pb.ready ? pb.y : 0;
+    const center = { x: visibleX + visibleW / 2, y: visibleY + visibleH / 2 };
+
+    const cx = selectedPaths.map((p) => p.position.x);
+    const cy = selectedPaths.map((p) => p.position.y);
+    const radii = selectedPaths.map((p) => p.size / 2);
+
+    const minWX = Math.min(...cx.map((x, i) => x - radii[i]));
+    const minWY = Math.min(...cy.map((y, i) => y - radii[i]));
+    const maxWX = Math.max(...cx.map((x, i) => x + radii[i]));
+    const maxWY = Math.max(...cy.map((y, i) => y + radii[i]));
+
+    const W = maxWX - minWX;
+    const H = maxWY - minWY;
+
+    const scaleX = (visibleW * (1 - 2 * FIT_PADDING_FACTOR)) / W;
+    const scaleY = (visibleH * (1 - 2 * FIT_PADDING_FACTOR)) / H;
+
+    const { ZOOM_MIN, ZOOM_MAX } = AppConfig.canvas;
+    const newScale = Math.max(ZOOM_MIN, Math.min(scaleX, scaleY, ZOOM_MAX));
+
+    const bboxCenterX = minWX + W / 2;
+    const bboxCenterY = minWY + H / 2;
+    const newX = center.x - bboxCenterX * newScale;
+    const newY = center.y - bboxCenterY * newScale;
+
+    new Konva.Tween({
+      node: stage,
+      scaleX: newScale,
+      scaleY: newScale,
+      x: newX,
+      y: newY,
+      duration: 0.4,
+      easing: Konva.Easings.EaseInOut,
+      onFinish: () => {
+        setZoom(newScale);
+        setStagePan((n) => n + 1);
+      },
+    }).play();
+  }, [selectedElementIds, interactionMode]);
 
   useEffect(() => {
     const newLists = FilterResolver.resolve(
@@ -324,7 +390,10 @@ export function VisualCanvas() {
         );
       } else if (modeRef.current === "connect") {
         dispatch(setConnectingFromId(null));
-      } else if (modeRef.current === "select") {
+      } else if (
+        modeRef.current === "select" ||
+        modeRef.current === "presentation"
+      ) {
         dispatch(setSelectedElements([]));
       }
     });
@@ -332,7 +401,8 @@ export function VisualCanvas() {
     stage.on("mousedown", (e) => {
       if (e.evt.button !== 0) return;
       if (e.target !== stage) return;
-      if (modeRef.current !== "select") return;
+      if (modeRef.current !== "select" && modeRef.current !== "presentation")
+        return;
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
       stage.draggable(false);
@@ -561,7 +631,9 @@ export function VisualCanvas() {
   useEffect(() => {
     if (!stageRef.current) return;
     stageRef.current.container().style.cursor =
-      interactionMode === "select" || interactionMode === "readonly"
+      interactionMode === "select" ||
+      interactionMode === "readonly" ||
+      interactionMode === "presentation"
         ? "default"
         : "crosshair";
   }, [interactionMode]);
@@ -590,24 +662,36 @@ export function VisualCanvas() {
               const positions = state.diagram.viewState.positions;
               const m = state.diagram.model;
               const rules = m.rules ?? [];
-              const sel = state.filter.selectors.find((s) => s.id === groupSelId);
+              const sel = state.filter.selectors.find(
+                (s) => s.id === groupSelId,
+              );
               if (sel && matchesSelector(path, sel, m, rules)) {
                 const startPos = positions[path]?.position;
                 if (startPos) {
-                  const delta = { x: worldPos.x - startPos.x, y: worldPos.y - startPos.y };
+                  const delta = {
+                    x: worldPos.x - startPos.x,
+                    y: worldPos.y - startPos.y,
+                  };
                   for (const [gp, posEntry] of Object.entries(positions)) {
                     if (gp === path) continue;
                     if (!matchesSelector(gp, sel, m, rules)) continue;
-                    dispatch(updateElementPositionInView({
-                      id: gp,
-                      position: { x: posEntry.position.x + delta.x, y: posEntry.position.y + delta.y },
-                    }));
+                    dispatch(
+                      updateElementPositionInView({
+                        id: gp,
+                        position: {
+                          x: posEntry.position.x + delta.x,
+                          y: posEntry.position.y + delta.y,
+                        },
+                      }),
+                    );
                   }
                 }
               }
             }
             justDraggedPathsRef.current.add(path);
-            dispatch(updateElementPositionInView({ id: path, position: worldPos }));
+            dispatch(
+              updateElementPositionInView({ id: path, position: worldPos }),
+            );
           } else {
             syncManager.syncFromVis(model);
           }
@@ -751,6 +835,7 @@ export function VisualCanvas() {
       renderStyle,
       relLineStyle,
       interactionMode === "readonly",
+      interactionMode === "presentation",
       getExecutionColorMap(execInstances, execColor),
       classDiagramMode,
       elementSizes,
@@ -976,6 +1061,7 @@ export function VisualCanvas() {
         renderStyle,
         relLineStyle,
         true,
+        false,
         {},
         classDiagramMode,
         elementSizes,
@@ -1064,4 +1150,3 @@ function createNewElement(
     dispatch(updateElementPositionInView({ id: newId, position: worldPos }));
   dispatch(setSelectedElement(newId));
 }
-
