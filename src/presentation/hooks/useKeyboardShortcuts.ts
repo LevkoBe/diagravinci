@@ -4,6 +4,8 @@ import {
   setInteractionMode,
   setActiveElementType,
   setActiveRelationshipType,
+  setSelectedElements,
+  setNavigationParentId,
   sendZoomCommand,
   toggleClassDiagramMode,
   type InteractionMode,
@@ -13,6 +15,12 @@ import {
   pauseExecution,
 } from "../../application/store/executionSlice";
 import { setViewMode } from "../../application/store/diagramSlice";
+import { store } from "../../application/store/store";
+import {
+  navigateSelection,
+  navigateAlternative,
+  type NavDirection,
+} from "../../application/navigate";
 import type { ElementType } from "../../domain/models/Element";
 import type { RelationshipType } from "../../infrastructure/parser/Token";
 import type { ViewState } from "../../domain/models/ViewState";
@@ -118,6 +126,54 @@ export function useKeyboardShortcuts({
           dispatch(startExecution());
         }
         return;
+      }
+
+      if (interactionModeRef.current === "presentation") {
+        let dir: NavDirection | null = null;
+        if (e.key === "ArrowRight") dir = "forward";
+        else if (e.key === "ArrowLeft") dir = "backward";
+        else if (e.key === "ArrowUp") dir = "parent";
+        else if (e.key === "ArrowDown") dir = "child";
+
+        if (dir !== null) {
+          e.preventDefault();
+          const state = store.getState();
+          const currentIds = state.ui.selectedElementIds;
+
+          if (e.altKey && (dir === "backward" || dir === "forward")) {
+            const newIds = navigateAlternative(
+              currentIds,
+              state.diagram.model,
+              dir === "forward" ? "next" : "prev",
+              state.ui.navigationParentId,
+            );
+            if (newIds.length > 0) dispatch(setSelectedElements(newIds));
+            return;
+          }
+
+          const effectiveDir =
+            e.shiftKey && dir === "child"
+              ? "child-all"
+              : e.shiftKey && dir === "forward"
+                ? "forward-all"
+                : e.shiftKey && dir === "backward"
+                  ? "backward-all"
+                  : dir;
+          const newIds = navigateSelection(
+            currentIds,
+            state.diagram.model,
+            effectiveDir,
+          );
+          if (newIds.length > 0) {
+            if (effectiveDir === "child" || effectiveDir === "child-all") {
+              dispatch(setNavigationParentId(currentIds.at(-1) ?? null));
+            } else {
+              dispatch(setNavigationParentId(null));
+            }
+            dispatch(setSelectedElements(newIds));
+          }
+          return;
+        }
       }
 
       if (ctrl || e.metaKey || e.altKey) return;

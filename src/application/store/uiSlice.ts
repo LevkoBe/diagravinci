@@ -26,6 +26,7 @@ export interface UIState {
   renderStyle: RenderStyle;
   relLineStyle: RelLineStyle;
   classDiagramMode: boolean;
+  navigationParentId: string | null;
 }
 
 const { ui } = AppConfig;
@@ -41,6 +42,7 @@ const initialState: UIState = {
   renderStyle: ui.DEFAULT_RENDER_STYLE,
   relLineStyle: "straight",
   classDiagramMode: true,
+  navigationParentId: null,
 };
 
 const uiSlice = createSlice({
@@ -50,6 +52,7 @@ const uiSlice = createSlice({
     setInteractionMode(state, action: PayloadAction<InteractionMode>) {
       state.interactionMode = action.payload;
       state.connectingFromId = null;
+      state.navigationParentId = null;
     },
     setActiveElementType(state, action: PayloadAction<ElementType>) {
       state.activeElementType = action.payload;
@@ -98,6 +101,9 @@ const uiSlice = createSlice({
     setRelLineStyle(state, action: PayloadAction<RelLineStyle>) {
       state.relLineStyle = action.payload;
     },
+    setNavigationParentId(state, action: PayloadAction<string | null>) {
+      state.navigationParentId = action.payload;
+    },
     toggleClassDiagramMode(state) {
       state.classDiagramMode = !state.classDiagramMode;
     },
@@ -117,6 +123,7 @@ export const {
   sendZoomCommand,
   setRenderStyle,
   setRelLineStyle,
+  setNavigationParentId,
   toggleClassDiagramMode,
 } = uiSlice.actions;
 

@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { Trash2, ChevronRight, Check, X } from "lucide-react";
+import {
+  Trash2,
+  ChevronRight,
+  ChevronLeft,
+  ChevronUp,
+  ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
+  Check,
+  X,
+} from "lucide-react";
 import { DangerIconBtn } from "./DangerIconBtn";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { syncManager } from "../../application/store/store";
@@ -8,6 +18,13 @@ import {
   setSelectedElements,
 } from "../../application/store/uiSlice";
 import { setViewState } from "../../application/store/diagramSlice";
+import {
+  navigateSelection,
+  navigateAlternative,
+  findParentId,
+  type NavDirection,
+} from "../../application/navigate";
+import { setNavigationParentId } from "../../application/store/uiSlice";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { ViewState } from "../../domain/models/ViewState";
 
@@ -16,6 +33,7 @@ export function PropertiesPanel() {
   const model = useAppSelector((s) => s.diagram.model);
   const viewState = useAppSelector((s) => s.diagram.viewState);
   const selectedIds = useAppSelector((s) => s.ui.selectedElementIds);
+  const navigationParentId = useAppSelector((s) => s.ui.navigationParentId);
 
   const selectedId = selectedIds.at(-1) ?? null;
 
@@ -40,6 +58,7 @@ export function PropertiesPanel() {
       key={selectedId}
       selectedId={selectedId}
       selectedIds={selectedIds}
+      navigationParentId={navigationParentId}
       model={model}
       viewState={viewState}
       dispatch={dispatch}
@@ -50,12 +69,14 @@ export function PropertiesPanel() {
 function PropertiesPanelContent({
   selectedId,
   selectedIds,
+  navigationParentId,
   model,
   viewState,
   dispatch,
 }: {
   selectedId: string;
   selectedIds: string[];
+  navigationParentId: string | null;
   model: DiagramModel;
   viewState: ViewState;
   dispatch: ReturnType<
@@ -77,6 +98,52 @@ function PropertiesPanelContent({
   const incoming = Object.values(model.relationships).filter(
     (r) => r.target === selectedId || pathSet.has(r.target),
   );
+
+  const parentId = findParentId(selectedId, model);
+  const canForward = outgoing.length > 0;
+  const canBackward = incoming.length > 0;
+  const canParent = parentId !== null && parentId !== model.root.id;
+  const canChild = element.childIds.length > 0;
+
+  const altParentId = (() => {
+    if (navigationParentId !== null) {
+      const hint =
+        navigationParentId === model.root.id
+          ? model.root
+          : model.elements[navigationParentId];
+      if (hint?.childIds.includes(selectedId)) return navigationParentId;
+    }
+    return parentId;
+  })();
+  const altParent =
+    altParentId === null
+      ? null
+      : altParentId === model.root.id
+        ? model.root
+        : model.elements[altParentId];
+  const canAlt = (altParent?.childIds.length ?? 0) > 1;
+
+  const navigate = (dir: NavDirection) => {
+    const newIds = navigateSelection(selectedIds, model, dir);
+    if (newIds.length > 0) {
+      if (dir === "child") {
+        dispatch(setNavigationParentId(selectedId));
+      } else {
+        dispatch(setNavigationParentId(null));
+      }
+      dispatch(setSelectedElements(newIds));
+    }
+  };
+
+  const navigateAlt = (dir: "next" | "prev") => {
+    const newIds = navigateAlternative(
+      selectedIds,
+      model,
+      dir,
+      navigationParentId,
+    );
+    if (newIds.length > 0) dispatch(setSelectedElements(newIds));
+  };
 
   const handleDelete = () => {
     const newElements = { ...model.elements };
@@ -189,6 +256,51 @@ function PropertiesPanelContent({
           {selectedIds.length} selected · showing last
         </div>
       )}
+
+      <div className="px-3 py-2 border-b border-border/40 flex items-center justify-between gap-1 shrink-0">
+        <NavBtn
+          title="Previous alternative / sibling (Alt+←)"
+          disabled={!canAlt}
+          onClick={() => navigateAlt("prev")}
+        >
+          <ChevronsLeft size={13} />
+        </NavBtn>
+        <NavBtn
+          title="Previous relationship (←)"
+          disabled={!canBackward}
+          onClick={() => navigate("backward")}
+        >
+          <ChevronLeft size={13} />
+        </NavBtn>
+        <NavBtn
+          title="Parent element (↑)"
+          disabled={!canParent}
+          onClick={() => navigate("parent")}
+        >
+          <ChevronUp size={13} />
+        </NavBtn>
+        <NavBtn
+          title="First child (↓) / All children (Shift+↓)"
+          disabled={!canChild}
+          onClick={() => navigate("child")}
+        >
+          <ChevronDown size={13} />
+        </NavBtn>
+        <NavBtn
+          title="Next relationship (→)"
+          disabled={!canForward}
+          onClick={() => navigate("forward")}
+        >
+          <ChevronRight size={13} />
+        </NavBtn>
+        <NavBtn
+          title="Next alternative / sibling (Alt+→)"
+          disabled={!canAlt}
+          onClick={() => navigateAlt("next")}
+        >
+          <ChevronsRight size={13} />
+        </NavBtn>
+      </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-4">
         <div className="flex flex-wrap gap-1.5">
@@ -332,6 +444,29 @@ function renameElement(
   );
 
   return { ...model, root, elements, relationships };
+}
+
+function NavBtn({
+  children,
+  disabled,
+  title,
+  onClick,
+}: {
+  children: React.ReactNode;
+  disabled: boolean;
+  title: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      title={title}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex-1 flex items-center justify-center rounded py-1 text-fg-muted hover:bg-accent/10 hover:text-accent transition-colors disabled:opacity-25 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+    >
+      {children}
+    </button>
+  );
 }
 
 function PanelSection({
