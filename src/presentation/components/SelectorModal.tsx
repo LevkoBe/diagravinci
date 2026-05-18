@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback } from "react";
-import { Trash2, Plus, Check, Download, Upload, X, Pencil } from "lucide-react";
+import { Trash2, Plus, Check, Download, Upload, X, Pencil, Eraser } from "lucide-react";
+import { Select } from "@levkobe/c7one";
 import { DangerIconBtn } from "./DangerIconBtn";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import {
@@ -17,11 +18,13 @@ import {
 } from "../../domain/models/Selector";
 import { AppConfig } from "../../config/appConfig";
 import { store, syncManager } from "../../application/store/store";
+import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 import {
   upsertRuleInCode,
   removeRuleFromCode,
   upsertSelectorInCode,
   removeSelectorFromCode,
+  upsertSessionModeInCode,
 } from "../utils/selectorCodeUtils";
 
 const PALETTE = AppConfig.ui.COLOR_PALETTE;
@@ -46,7 +49,6 @@ function freshSelector(): Selector {
     id: "",
     label: "New selector",
     expression: "",
-    mode: "color",
     color: randomColor(),
   };
 }
@@ -400,6 +402,9 @@ export function SelectorsPanel() {
   const dispatch = useAppDispatch();
   const { selectors } = useAppSelector((s) => s.filter);
   const rules = useAppSelector((s) => s.diagram.model.rules ?? []);
+  const sessions = useAppSelector((s) => s.diagram.model.sessions ?? []);
+  const activeSessionId = useAppSelector((s) => s.ui.activeSessionId);
+  const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
   const importRef = useRef<HTMLInputElement>(null);
   const expressionRef = useRef<HTMLInputElement>(null);
 
@@ -658,6 +663,33 @@ export function SelectorsPanel() {
     e.target.value = "";
   };
 
+  const handleClearOrphanedFlags = () => {
+    const { model: currentModel } = store.getState().diagram;
+    const { selectors: currentSelectors } = store.getState().filter;
+    const selectorIds = new Set(currentSelectors.map((s) => s.id));
+
+    let changed = false;
+    const updatedElements = { ...currentModel.elements };
+    for (const [id, el] of Object.entries(currentModel.elements)) {
+      if (!el.flags || el.flags.length === 0) continue;
+      const cleanedFlags = el.flags.filter((f) => selectorIds.has(toSelectorId(f)));
+      if (cleanedFlags.length !== el.flags.length) {
+        changed = true;
+        updatedElements[id] = {
+          ...el,
+          flags: cleanedFlags.length > 0 ? cleanedFlags : undefined,
+        };
+      }
+    }
+
+    if (!changed) return;
+    const newCode = new CodeGenerator({
+      ...currentModel,
+      elements: updatedElements,
+    }).generate();
+    syncManager.syncFromCode(newCode, true);
+  };
+
   const editingRuleDraft =
     editingRuleId !== null ? (ruleDrafts.get(editingRuleId) ?? null) : null;
 
@@ -678,6 +710,13 @@ export function SelectorsPanel() {
         >
           <Upload size={13} />
         </button>
+        <button
+          onClick={handleClearOrphanedFlags}
+          className="btn-icon p-1! shrink-0"
+          title="Clear orphaned flags (flags whose selector no longer exists)"
+        >
+          <Eraser size={13} />
+        </button>
         <input
           ref={importRef}
           type="file"
@@ -688,30 +727,20 @@ export function SelectorsPanel() {
 
         <div className="w-px h-4 bg-border/60 mx-0.5 shrink-0" />
 
-        <div className="flex items-center overflow-x-auto gap-1 flex-1 scrollbar-none">
-          {visibleSelectors.map((sel) => (
-            <button
-              key={sel.id}
-              onClick={() => selectTab(sel)}
-              className={[
-                "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap shrink-0 border transition-colors",
-                !isNew && activeId === sel.id
-                  ? "border-accent bg-accent/15 text-fg-primary"
-                  : "border-transparent text-fg-muted hover:bg-bg-elevated hover:text-fg-primary",
-              ].join(" ")}
-            >
-              <span
-                className="w-2 h-2 rounded-full shrink-0 border"
-                style={
-                  sel.mode === "off"
-                    ? { background: "transparent", borderColor: "currentColor" }
-                    : { background: sel.color, borderColor: sel.color }
-                }
-              />
-              {sel.label}
-            </button>
-          ))}
-        </div>
+        {visibleSelectors.length > 0 && (
+          <Select
+            value={isNew ? "" : (activeId ?? visibleSelectors[0]?.id ?? "")}
+            onValueChange={(v) => {
+              const sel = visibleSelectors.find((s) => s.id === v);
+              if (sel) selectTab(sel);
+            }}
+            options={visibleSelectors.map((sel) => ({
+              value: sel.id,
+              label: sel.label,
+            }))}
+            className="w-auto"
+          />
+        )}
 
         <button
           onClick={startNew}
@@ -776,22 +805,43 @@ export function SelectorsPanel() {
             <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider shrink-0 w-20">
               Mode
             </span>
-            <div className="flex gap-1">
-              {MODES.map((m) => (
-                <button
-                  key={m}
-                  onClick={() => updateDraft((d) => ({ ...d, mode: m }))}
-                  className={[
-                    "px-3 py-1 rounded text-[11px] font-semibold border transition-colors",
-                    draft.mode === m
-                      ? "border-accent bg-accent text-bg-base"
-                      : "border-border text-fg-muted hover:border-accent/50 hover:text-fg-primary",
-                  ].join(" ")}
-                >
-                  {m.charAt(0).toUpperCase() + m.slice(1)}
-                </button>
-              ))}
-            </div>
+            {activeSessionId ? (
+              <div className="flex gap-1">
+                {MODES.map((m) => {
+                  const currentMode =
+                    activeSession?.selectorModes[draft.id] ?? "off";
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => {
+                        const code = store.getState().diagram.code;
+                        syncManager.syncFromCode(
+                          upsertSessionModeInCode(
+                            activeSessionId,
+                            draft.id,
+                            m,
+                            code,
+                          ),
+                          true,
+                        );
+                      }}
+                      className={[
+                        "px-3 py-1 rounded text-[11px] font-semibold border transition-colors",
+                        currentMode === m
+                          ? "border-accent bg-accent text-bg-base"
+                          : "border-border text-fg-muted hover:border-accent/50 hover:text-fg-primary",
+                      ].join(" ")}
+                    >
+                      {m.charAt(0).toUpperCase() + m.slice(1)}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <span className="text-[11px] text-fg-disabled italic">
+                Select a session in the toolbar to set mode
+              </span>
+            )}
           </div>
 
           <div className="px-4 pt-2.5 pb-2 border-b border-border/30 shrink-0">

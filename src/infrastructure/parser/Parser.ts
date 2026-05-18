@@ -26,6 +26,7 @@ import type {
   Rule,
   Selector,
   SelectorMode,
+  Session,
 } from "../../domain/models/Selector";
 import { toSelectorId } from "../../domain/models/Selector";
 
@@ -420,6 +421,7 @@ export class Parser {
     const type = parts[0];
     if (type === "atom" || type === "rule") this.parseRuleDirective(parts);
     else if (type === "selector") this.parseSelectorDirective(parts);
+    else if (type === "session") this.parseSessionDirective(parts);
   }
 
   private parseRuleDirective(parts: string[]): void {
@@ -441,22 +443,43 @@ export class Parser {
     const name = kvs["name"];
     if (!name) return;
 
-    const rawMode = kvs["mode"];
-    const mode: SelectorMode = (VALID_MODES as string[]).includes(rawMode ?? "")
-      ? (rawMode as SelectorMode)
-      : "color";
-
     const id = toSelectorId(name);
     const selector: Selector = {
       id,
       label: name,
       expression: kvs["expression"] ?? kvs["formula"] ?? kvs["combiner"] ?? "",
-      mode,
       color: kvs["color"] ?? "#888888",
     };
 
     if (!(this.model.selectors ?? []).some((s) => s.id === id)) {
       (this.model.selectors ??= []).push(selector);
+    }
+  }
+
+  private parseSessionDirective(parts: string[]): void {
+    const kvs = parseKVs(parts, 1);
+    const id = kvs["id"];
+    if (!id) return;
+
+    const label = kvs["label"] ?? id;
+    const selectorModes: Record<string, SelectorMode> = {};
+
+    const selectorsRaw = kvs["selectors"] ?? "";
+    if (selectorsRaw) {
+      for (const entry of selectorsRaw.split(",")) {
+        const colonIdx = entry.lastIndexOf(":");
+        if (colonIdx < 0) continue;
+        const selectorId = entry.slice(0, colonIdx).trim();
+        const rawMode = entry.slice(colonIdx + 1).trim();
+        if (selectorId && (VALID_MODES as string[]).includes(rawMode)) {
+          selectorModes[selectorId] = rawMode as SelectorMode;
+        }
+      }
+    }
+
+    const session: Session = { id, label, selectorModes };
+    if (!(this.model.sessions ?? []).some((s) => s.id === id)) {
+      (this.model.sessions ??= []).push(session);
     }
   }
 

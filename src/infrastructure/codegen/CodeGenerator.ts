@@ -1,5 +1,5 @@
 import type { DiagramModel } from "../../domain/models/DiagramModel";
-import type { Rule, Selector } from "../../domain/models/Selector";
+import type { Rule, Selector, Session } from "../../domain/models/Selector";
 import {
   createElement,
   type Element,
@@ -36,9 +36,13 @@ export class CodeGenerator {
     for (const selector of this.model.selectors ?? [])
       lines.push(this.generateSelector(selector));
 
+    for (const session of this.model.sessions ?? [])
+      lines.push(this.generateSession(session));
+
     if (
       (this.model.rules ?? []).length > 0 ||
-      (this.model.selectors ?? []).length > 0
+      (this.model.selectors ?? []).length > 0 ||
+      (this.model.sessions ?? []).length > 0
     )
       lines.push("");
 
@@ -82,11 +86,19 @@ export class CodeGenerator {
   private generateSelector(selector: Selector): string {
     const parts = [`!selector`, `name=${CodeGenerator.quoteLabel(selector.label)}`];
     parts.push(`color=${selector.color}`);
-    parts.push(`mode=${selector.mode}`);
     if (selector.expression) {
       const v = /\s/.test(selector.expression) ? `"${selector.expression}"` : selector.expression;
       parts.push(`expression=${v}`);
     }
+    return parts.join("  ");
+  }
+
+  private generateSession(session: Session): string {
+    const parts = [`!session`, `id=${session.id}`, `label=${CodeGenerator.quoteLabel(session.label)}`];
+    const modes = Object.entries(session.selectorModes)
+      .map(([id, mode]) => `${id}:${mode}`)
+      .join(",");
+    if (modes) parts.push(`selectors=${modes}`);
     return parts.join("  ");
   }
 

@@ -6,7 +6,7 @@ import {
   setSelectedElements,
   setGroupMoveSelectorId,
 } from "../../application/store/uiSlice";
-import { setSelectorMode, setSelectorColor } from "../../application/store/filterSlice";
+import { setSelectorColor } from "../../application/store/filterSlice";
 import { setViewState } from "../../application/store/diagramSlice";
 import { matchesSelector } from "../../domain/sync/FilterResolver";
 import { ViewStateMerger } from "../../domain/sync/ViewStateMerger";
@@ -15,7 +15,7 @@ import { toSelectorId } from "../../domain/models/Selector";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { PositionedElement } from "../../domain/models/ViewState";
 import { TAB_SESSION_ID } from "../../shared/tabSessionId";
-import { upsertSelectorInCode } from "../utils/selectorCodeUtils";
+import { upsertSelectorInCode, upsertSessionModeInCode } from "../utils/selectorCodeUtils";
 import { syncManager, store } from "../../application/store/store";
 
 const MODES: { value: SelectorMode; label: string }[] = [
@@ -44,7 +44,7 @@ export function SelectedPanel() {
   const model = useAppSelector((s) => s.diagram.model);
   const viewState = useAppSelector((s) => s.diagram.viewState);
   const { selectors } = useAppSelector((s) => s.filter);
-  const { groupMoveSelectorId } = useAppSelector((s) => s.ui);
+  const { groupMoveSelectorId, activeSessionId } = useAppSelector((s) => s.ui);
 
   const FOLD_SELECTOR_ID = "__fold__";
   const visibleSelectors = selectors.filter((s) => s.id !== FOLD_SELECTOR_ID);
@@ -60,6 +60,13 @@ export function SelectedPanel() {
     [visibleSelectors, activeSelectorId],
   );
   const effectiveId = selector?.id ?? null;
+
+  const sessions = model.sessions ?? [];
+  const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
+  const effectiveMode: SelectorMode =
+    effectiveId === null
+      ? "off"
+      : (activeSession?.selectorModes[effectiveId] ?? "off");
 
   const matchedPaths = useMemo(
     () =>
@@ -90,10 +97,9 @@ export function SelectedPanel() {
   }
 
   const handleModeChange = (newMode: SelectorMode) => {
-    if (!selector) return;
-    dispatch(setSelectorMode({ id: selector.id, mode: newMode }));
+    if (!selector || !activeSessionId) return;
     const { code } = store.getState().diagram;
-    const newCode = upsertSelectorInCode({ ...selector, mode: newMode }, code);
+    const newCode = upsertSessionModeInCode(activeSessionId, selector.id, newMode, code);
     syncManager.syncFromCode(newCode, true);
   };
 
@@ -194,8 +200,10 @@ export function SelectedPanel() {
                 <button
                   key={value}
                   onClick={() => handleModeChange(value)}
-                  className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors ${
-                    selector.mode === value
+                  disabled={!activeSessionId}
+                  title={!activeSessionId ? "Select a session to change mode" : undefined}
+                  className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                    effectiveMode === value
                       ? "border-accent bg-accent/15 text-accent"
                       : "border-border/40 text-fg-muted hover:border-accent/50 hover:text-fg-primary"
                   }`}
@@ -203,7 +211,7 @@ export function SelectedPanel() {
                   {label}
                 </button>
               ))}
-              {selector.mode === "color" && (
+              {effectiveMode === "color" && (
                 <input
                   type="color"
                   value={selector.color}

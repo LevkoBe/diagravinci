@@ -17,9 +17,14 @@ export interface Selector {
   id: string;
   label: string;
   expression: string;
-  mode: SelectorMode;
   color: string;
   selectionPattern?: string;
+}
+
+export interface Session {
+  id: string;
+  label: string;
+  selectorModes: Record<string, SelectorMode>;
 }
 
 export const FOLD_SELECTOR_ID = "__fold__";

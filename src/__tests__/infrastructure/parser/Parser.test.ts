@@ -737,7 +737,6 @@ describe("Parser edge cases", () => {
     const s = (model.selectors ?? [])[0];
     expect(s.id).toBe("warn");
     expect(s.color).toBe("#f00");
-    expect(s.mode).toBe("dim");
     expect(s.expression).toBe("1");
   });
 

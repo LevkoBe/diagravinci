@@ -12,7 +12,7 @@ import { Lexer } from "../../infrastructure/parser/Lexer";
 import { Parser } from "../../infrastructure/parser/Parser";
 import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
-import { loadState, loadStateAsync, saveState } from "./persistence";
+import { loadState, loadStateAsync, saveState, saveActiveSessionId } from "./persistence";
 import {
   setRenderStyle,
   setInteractionMode,
@@ -53,12 +53,19 @@ if (!preloadedState) {
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let lastActiveSessionId: string | null | undefined = undefined;
 store.subscribe(() => {
   if (saveTimer !== null) return;
   saveTimer = setTimeout(() => {
     saveState(store.getState());
     saveTimer = null;
   }, AppConfig.history.SAVE_DEBOUNCE_MS);
+
+  const { activeSessionId } = store.getState().ui;
+  if (activeSessionId !== lastActiveSessionId) {
+    lastActiveSessionId = activeSessionId;
+    saveActiveSessionId(activeSessionId);
+  }
 });
 
 const codeParser = {

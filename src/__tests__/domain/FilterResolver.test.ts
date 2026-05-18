@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { FilterResolver } from "../../domain/sync/FilterResolver";
+import { SELECTION_SELECTOR_ID } from "../../domain/models/Selector";
 import type { FilterState } from "../../application/store/filterSlice";
 import type { PositionedElement } from "../../domain/models/ViewState";
 import { createEmptyDiagram } from "../../domain/models/DiagramModel";
 import { createElement } from "../../domain/models/Element";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
-import type { Selector, Rule } from "../../domain/models/Selector";
+import type { Selector, Rule, SelectorMode } from "../../domain/models/Selector";
 
 function makeFilterState(overrides: Partial<FilterState> = {}): FilterState {
   return {
@@ -23,20 +24,12 @@ function makePositions(paths: string[]): Record<string, PositionedElement> {
   return Object.fromEntries(
     paths.map((p) => [
       p,
-      {
-        id: p.split(".").at(-1)!,
-        position: { x: 0, y: 0 },
-        size: 60,
-        value: 1,
-      },
+      { id: p.split(".").at(-1)!, position: { x: 0, y: 0 }, size: 60, value: 1 },
     ]),
   );
 }
 
-function makeModel(
-  elementIds: string[],
-  rules: Rule[] = [],
-): DiagramModel {
+function makeModel(elementIds: string[], rules: Rule[] = []): DiagramModel {
   const model = createEmptyDiagram();
   model.rules = rules;
   for (const id of elementIds) {
@@ -45,17 +38,18 @@ function makeModel(
   return model;
 }
 
-function makeSelector(
-  id: string,
-  mode: "hide" | "dim" | "color",
-  expression = "r1",
-): Selector {
+function makeSelector(id: string, expression = "r1"): Selector {
+  return { id, label: id, color: "#e05c5c", expression };
+}
+
+function withSession(
+  model: DiagramModel,
+  selectorModes: Record<string, SelectorMode>,
+): { model: DiagramModel; sessionId: string } {
+  const sessionId = "test";
   return {
-    id,
-    label: id,
-    mode,
-    color: "#e05c5c",
-    expression,
+    model: { ...model, sessions: [{ id: sessionId, label: "Test", selectorModes }] },
+    sessionId,
   };
 }
 
@@ -65,18 +59,15 @@ function ruleForSelector(pathRegex: string): Rule {
 
 function makeSelectorWithFormula(
   id: string,
-  mode: "hide" | "dim" | "color",
+  mode: SelectorMode,
   rulePatterns: { path: string }[],
   expression: string,
-): { selector: Selector; rules: Rule[] } {
+): { selector: Selector; rules: Rule[]; mode: SelectorMode } {
   const rules: Rule[] = rulePatterns.map((a, i) => ({
     id: String(i + 1),
     patterns: { all: a.path },
   }));
-  return {
-    selector: { id, label: id, mode, color: "#e05c5c", expression },
-    rules,
-  };
+  return { selector: { id, label: id, color: "#e05c5c", expression }, rules, mode };
 }
 
 describe("FilterResolver.resolve", () => {
@@ -92,11 +83,12 @@ describe("FilterResolver.resolve", () => {
   });
 
   it("colors matched paths with selector color", () => {
-    const selector = { ...makeSelector("p1", "color"), color: "#ff0000" };
+    const selector = { ...makeSelector("p1"), color: "#ff0000" };
     const filterState = makeFilterState({ selectors: [selector] });
     const positions = makePositions(["a", "b"]);
-    const model = makeModel(["a", "b"], [ruleForSelector("^a$")]);
-    const result = FilterResolver.resolve(filterState, positions, model);
+    const baseModel = makeModel(["a", "b"], [ruleForSelector("^a$")]);
+    const { model, sessionId } = withSession(baseModel, { p1: "color" });
+    const result = FilterResolver.resolve(filterState, positions, model, sessionId);
     expect(result.coloredPaths["a"]).toBe("#ff0000");
     expect(result.coloredPaths["b"]).toBeUndefined();
     expect(result.hiddenPaths).toHaveLength(0);
@@ -104,85 +96,75 @@ describe("FilterResolver.resolve", () => {
   });
 
   it("hides paths not matching an active hide selector", () => {
-    const filterState = makeFilterState({
-      selectors: [makeSelector("p1", "hide")],
-    });
+    const filterState = makeFilterState({ selectors: [makeSelector("p1")] });
     const positions = makePositions(["a", "b", "c"]);
-    const model = makeModel(["a", "b", "c"], [ruleForSelector("^a$")]);
-    const result = FilterResolver.resolve(filterState, positions, model);
+    const baseModel = makeModel(["a", "b", "c"], [ruleForSelector("^a$")]);
+    const { model, sessionId } = withSession(baseModel, { p1: "hide" });
+    const result = FilterResolver.resolve(filterState, positions, model, sessionId);
     expect(result.hiddenPaths).toContain("b");
     expect(result.hiddenPaths).toContain("c");
     expect(result.hiddenPaths).not.toContain("a");
   });
 
   it("dims paths not matching an active dim selector", () => {
-    const filterState = makeFilterState({
-      selectors: [makeSelector("p1", "dim")],
-    });
+    const filterState = makeFilterState({ selectors: [makeSelector("p1")] });
     const positions = makePositions(["a", "b"]);
-    const model = makeModel(["a", "b"], [ruleForSelector("^a$")]);
-    const result = FilterResolver.resolve(filterState, positions, model);
+    const baseModel = makeModel(["a", "b"], [ruleForSelector("^a$")]);
+    const { model, sessionId } = withSession(baseModel, { p1: "dim" });
+    const result = FilterResolver.resolve(filterState, positions, model, sessionId);
     expect(result.dimmedPaths).toContain("b");
     expect(result.dimmedPaths).not.toContain("a");
   });
 
   describe("formula logic", () => {
     it("-r1: hides paths that MATCH rule r1 (inverted)", () => {
-      const { selector, rules } = makeSelectorWithFormula(
-        "p1",
-        "hide",
-        [{ path: "^a$" }],
-        "-1",
+      const { selector, rules, mode } = makeSelectorWithFormula(
+        "p1", "hide", [{ path: "^a$" }], "-1",
       );
       const filterState = makeFilterState({ selectors: [selector] });
       const positions = makePositions(["a", "b", "c"]);
-      const model = makeModel(["a", "b", "c"], rules);
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const baseModel = makeModel(["a", "b", "c"], rules);
+      const { model, sessionId } = withSession(baseModel, { p1: mode });
+      const result = FilterResolver.resolve(filterState, positions, model, sessionId);
       expect(result.hiddenPaths).toContain("a");
       expect(result.hiddenPaths).not.toContain("b");
       expect(result.hiddenPaths).not.toContain("c");
     });
 
     it("1 & 2: hides paths matching neither rule", () => {
-      const { selector, rules } = makeSelectorWithFormula(
-        "p1",
-        "hide",
-        [{ path: "svc" }, { path: "auth" }],
-        "1 & 2",
+      const { selector, rules, mode } = makeSelectorWithFormula(
+        "p1", "hide", [{ path: "svc" }, { path: "auth" }], "1 & 2",
       );
       const positions = makePositions(["svc.auth", "svc.other", "other"]);
-      const model = makeModel(["auth", "other", "other"], rules);
+      const baseModel = makeModel(["auth", "other", "other"], rules);
       const filterState = makeFilterState({ selectors: [selector] });
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const { model, sessionId } = withSession(baseModel, { p1: mode });
+      const result = FilterResolver.resolve(filterState, positions, model, sessionId);
       expect(result.hiddenPaths).not.toContain("svc.auth");
       expect(result.hiddenPaths).toContain("svc.other");
       expect(result.hiddenPaths).toContain("other");
     });
 
     it("1 | 2: hides paths matching neither rule", () => {
-      const { selector, rules } = makeSelectorWithFormula(
-        "p1",
-        "hide",
-        [{ path: "^a$" }, { path: "^b$" }],
-        "1 | 2",
+      const { selector, rules, mode } = makeSelectorWithFormula(
+        "p1", "hide", [{ path: "^a$" }, { path: "^b$" }], "1 | 2",
       );
       const positions = makePositions(["a", "b", "c"]);
-      const model = makeModel(["a", "b", "c"], rules);
+      const baseModel = makeModel(["a", "b", "c"], rules);
       const filterState = makeFilterState({ selectors: [selector] });
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const { model, sessionId } = withSession(baseModel, { p1: mode });
+      const result = FilterResolver.resolve(filterState, positions, model, sessionId);
       expect(result.hiddenPaths).not.toContain("a");
       expect(result.hiddenPaths).not.toContain("b");
       expect(result.hiddenPaths).toContain("c");
     });
   });
 
-  it("ignores selectors with mode=off", () => {
-    const filterState = makeFilterState({
-      selectors: [{ ...makeSelector("p1", "hide"), mode: "off" }],
-    });
+  it("ignores selectors when no active session (all default to off)", () => {
+    const filterState = makeFilterState({ selectors: [makeSelector("p1")] });
     const positions = makePositions(["a", "b"]);
     const model = makeModel(["a", "b"]);
-    const result = FilterResolver.resolve(filterState, positions, model);
+    const result = FilterResolver.resolve(filterState, positions, model, null);
     expect(result.hiddenPaths).toHaveLength(0);
   });
 
@@ -190,12 +172,7 @@ describe("FilterResolver.resolve", () => {
     it("folds paths at the specified depth level", () => {
       const filterState = makeFilterState({ foldActive: true, foldLevel: 1 });
       const positions = makePositions(["a", "b", "a.child"]);
-      const result = FilterResolver.resolve(
-        filterState,
-        positions,
-        makeModel([]),
-      );
-
+      const result = FilterResolver.resolve(filterState, positions, makeModel([]));
       expect(result.foldedPaths).toContain("a");
       expect(result.foldedPaths).toContain("b");
       expect(result.foldedPaths).not.toContain("a.child");
@@ -208,11 +185,7 @@ describe("FilterResolver.resolve", () => {
         manuallyUnfolded: ["a"],
       });
       const positions = makePositions(["a", "b"]);
-      const result = FilterResolver.resolve(
-        filterState,
-        positions,
-        makeModel([]),
-      );
+      const result = FilterResolver.resolve(filterState, positions, makeModel([]));
       expect(result.foldedPaths).not.toContain("a");
       expect(result.foldedPaths).toContain("b");
     });
@@ -220,33 +193,21 @@ describe("FilterResolver.resolve", () => {
     it("does not fold when foldActive is false", () => {
       const filterState = makeFilterState({ foldActive: false, foldLevel: 1 });
       const positions = makePositions(["a", "b"]);
-      const result = FilterResolver.resolve(
-        filterState,
-        positions,
-        makeModel([]),
-      );
+      const result = FilterResolver.resolve(filterState, positions, makeModel([]));
       expect(result.foldedPaths).toHaveLength(0);
     });
 
     it("adds manually folded paths", () => {
       const filterState = makeFilterState({ manuallyFolded: ["a"] });
       const positions = makePositions(["a", "b"]);
-      const result = FilterResolver.resolve(
-        filterState,
-        positions,
-        makeModel([]),
-      );
+      const result = FilterResolver.resolve(filterState, positions, makeModel([]));
       expect(result.foldedPaths).toContain("a");
     });
 
     it("skips manually folded paths not in positions (stale)", () => {
       const filterState = makeFilterState({ manuallyFolded: ["stale"] });
       const positions = makePositions(["a"]);
-      const result = FilterResolver.resolve(
-        filterState,
-        positions,
-        makeModel([]),
-      );
+      const result = FilterResolver.resolve(filterState, positions, makeModel([]));
       expect(result.foldedPaths).not.toContain("stale");
     });
 
@@ -256,11 +217,7 @@ describe("FilterResolver.resolve", () => {
         manuallyUnfolded: ["a"],
       });
       const positions = makePositions(["a"]);
-      const result = FilterResolver.resolve(
-        filterState,
-        positions,
-        makeModel([]),
-      );
+      const result = FilterResolver.resolve(filterState, positions, makeModel([]));
       expect(result.foldedPaths).not.toContain("a");
     });
   });
@@ -268,18 +225,8 @@ describe("FilterResolver.resolve", () => {
 
 describe("FilterResolver.equal", () => {
   it("returns true for equal filter lists", () => {
-    const a = {
-      hiddenPaths: ["x", "y"],
-      dimmedPaths: ["z"],
-      foldedPaths: [],
-      coloredPaths: {},
-    };
-    const b = {
-      hiddenPaths: ["y", "x"],
-      dimmedPaths: ["z"],
-      foldedPaths: [],
-      coloredPaths: {},
-    };
+    const a = { hiddenPaths: ["x", "y"], dimmedPaths: ["z"], foldedPaths: [], coloredPaths: {} };
+    const b = { hiddenPaths: ["y", "x"], dimmedPaths: ["z"], foldedPaths: [], coloredPaths: {} };
     expect(FilterResolver.equal(a, b)).toBe(true);
   });
 
@@ -326,65 +273,46 @@ describe("FilterResolver.equal", () => {
 });
 
 describe("FilterResolver.resolve — edge cases", () => {
-  it("active hide selector with empty formula treats all paths as unmatched (hidden)", () => {
-    const filterState: FilterState = {
-      selectors: [
-        { id: "empty", label: "empty", mode: "hide", color: "#f00", expression: "" },
-      ],
-      foldLevel: 1,
-      foldActive: false,
-      manuallyFolded: [],
-      manuallyUnfolded: [],
-      _rev: 0,
-    };
+  it("hide selector with empty formula treats all paths as unmatched (hidden)", () => {
+    const filterState = makeFilterState({
+      selectors: [{ id: "empty", label: "empty", color: "#f00", expression: "" }],
+    });
     const positions = makePositions(["a"]);
-    const model = makeModel(["a"]);
-    const result = FilterResolver.resolve(filterState, positions, model);
+    const baseModel = makeModel(["a"]);
+    const { model, sessionId } = withSession(baseModel, { empty: "hide" });
+    const result = FilterResolver.resolve(filterState, positions, model, sessionId);
     expect(result.hiddenPaths).toContain("a");
   });
 
-  it("dim selector with a non-matching rule dims unmatched paths", () => {
-    const filterState: FilterState = {
-      selectors: [
-        { id: "p1", label: "p1", mode: "dim", color: "#f00", expression: "" },
-      ],
-      foldLevel: 1,
-      foldActive: false,
-      manuallyFolded: [],
-      manuallyUnfolded: [],
-      _rev: 0,
-    };
+  it("dim selector with empty formula dims all paths", () => {
+    const filterState = makeFilterState({
+      selectors: [{ id: "p1", label: "p1", color: "#f00", expression: "" }],
+    });
     const positions = makePositions(["x"]);
-    const model = makeModel(["x"]);
-    const result = FilterResolver.resolve(filterState, positions, model);
+    const baseModel = makeModel(["x"]);
+    const { model, sessionId } = withSession(baseModel, { p1: "dim" });
+    const result = FilterResolver.resolve(filterState, positions, model, sessionId);
     expect(result.dimmedPaths).toContain("x");
   });
 
   it("matchesSelector handles element not in model (type defaults to empty string)", () => {
-    const filterState: FilterState = {
-      selectors: [
-        { id: "p1", label: "p1", mode: "color", color: "#aabbcc", expression: "" },
-      ],
-      foldLevel: 1,
-      foldActive: false,
-      manuallyFolded: [],
-      manuallyUnfolded: [],
-      _rev: 0,
-    };
+    const filterState = makeFilterState({
+      selectors: [{ id: "p1", label: "p1", color: "#aabbcc", expression: "" }],
+    });
     const positions = makePositions(["ghost"]);
-    const model = makeModel([]);
-    const result = FilterResolver.resolve(filterState, positions, model);
+    const baseModel = makeModel([]);
+    const { model, sessionId } = withSession(baseModel, { p1: "color" });
+    const result = FilterResolver.resolve(filterState, positions, model, sessionId);
     expect(result).toBeDefined();
   });
 
   describe("selectionPattern matching", () => {
-    it("colors paths matching the selectionPattern regex", () => {
+    it("colors paths matching the selectionPattern regex (selection always color mode)", () => {
       const filterState = makeFilterState({
         selectors: [
           {
-            id: "_selection",
+            id: SELECTION_SELECTOR_ID,
             label: "Selection",
-            mode: "color",
             color: "#00aaff",
             expression: "",
             selectionPattern: "(^|\\.)myNode$",
@@ -393,7 +321,7 @@ describe("FilterResolver.resolve — edge cases", () => {
       });
       const positions = makePositions(["myNode", "other.myNode", "other"]);
       const model = makeModel(["myNode", "myNode", "other"]);
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const result = FilterResolver.resolve(filterState, positions, model, null);
       expect(result.coloredPaths["myNode"]).toBe("#00aaff");
       expect(result.coloredPaths["other.myNode"]).toBe("#00aaff");
       expect(result.coloredPaths["other"]).toBeUndefined();
@@ -403,9 +331,8 @@ describe("FilterResolver.resolve — edge cases", () => {
       const filterState = makeFilterState({
         selectors: [
           {
-            id: "_selection",
+            id: SELECTION_SELECTOR_ID,
             label: "Selection",
-            mode: "color",
             color: "#00aaff",
             expression: "",
             selectionPattern: "[invalid",
@@ -414,7 +341,7 @@ describe("FilterResolver.resolve — edge cases", () => {
       });
       const positions = makePositions(["a"]);
       const model = makeModel(["a"]);
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const result = FilterResolver.resolve(filterState, positions, model, null);
       expect(result.coloredPaths["a"]).toBeUndefined();
     });
 
@@ -423,9 +350,8 @@ describe("FilterResolver.resolve — edge cases", () => {
       const filterState = makeFilterState({
         selectors: [
           {
-            id: "sel",
+            id: SELECTION_SELECTOR_ID,
             label: "sel",
-            mode: "color",
             color: "#ff0000",
             expression: "r1",
             selectionPattern: "^exact$",
@@ -434,7 +360,7 @@ describe("FilterResolver.resolve — edge cases", () => {
       });
       const positions = makePositions(["exact", "other"]);
       const model = makeModel(["exact", "other"], [rule]);
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const result = FilterResolver.resolve(filterState, positions, model, null);
       expect(result.coloredPaths["exact"]).toBe("#ff0000");
       expect(result.coloredPaths["other"]).toBeUndefined();
     });
@@ -443,55 +369,51 @@ describe("FilterResolver.resolve — edge cases", () => {
   describe("element flags matching", () => {
     it("colors a path when element has a flag matching the selector id", () => {
       const positions = makePositions(["flagged", "plain"]);
-      const model = makeModel(["flagged", "plain"]);
-      model.elements["flagged"].flags = ["mysel"];
+      const baseModel = makeModel(["flagged", "plain"]);
+      baseModel.elements["flagged"].flags = ["mysel"];
       const filterState = makeFilterState({
-        selectors: [
-          { id: "mysel", label: "mysel", mode: "color", color: "#abcdef", expression: "" },
-        ],
+        selectors: [{ id: "mysel", label: "mysel", color: "#abcdef", expression: "" }],
       });
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const { model, sessionId } = withSession(baseModel, { mysel: "color" });
+      const result = FilterResolver.resolve(filterState, positions, model, sessionId);
       expect(result.coloredPaths["flagged"]).toBe("#abcdef");
       expect(result.coloredPaths["plain"]).toBeUndefined();
     });
 
     it("matches a quoted flag with spaces against the slugified selector id", () => {
       const positions = makePositions(["flagged", "plain"]);
-      const model = makeModel(["flagged", "plain"]);
-      model.elements["flagged"].flags = ["My Selector"];
+      const baseModel = makeModel(["flagged", "plain"]);
+      baseModel.elements["flagged"].flags = ["My Selector"];
       const filterState = makeFilterState({
-        selectors: [
-          { id: "my_selector", label: "My Selector", mode: "color", color: "#abcdef", expression: "" },
-        ],
+        selectors: [{ id: "my_selector", label: "My Selector", color: "#abcdef", expression: "" }],
       });
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const { model, sessionId } = withSession(baseModel, { my_selector: "color" });
+      const result = FilterResolver.resolve(filterState, positions, model, sessionId);
       expect(result.coloredPaths["flagged"]).toBe("#abcdef");
       expect(result.coloredPaths["plain"]).toBeUndefined();
     });
 
     it("flags matching takes precedence over a non-matching expression", () => {
       const positions = makePositions(["flagged"]);
-      const model = makeModel(["flagged"]);
-      model.elements["flagged"].flags = ["sel"];
+      const baseModel = makeModel(["flagged"]);
+      baseModel.elements["flagged"].flags = ["sel"];
       const filterState = makeFilterState({
-        selectors: [
-          { id: "sel", label: "sel", mode: "color", color: "#123456", expression: "nonexistent_rule" },
-        ],
+        selectors: [{ id: "sel", label: "sel", color: "#123456", expression: "nonexistent_rule" }],
       });
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const { model, sessionId } = withSession(baseModel, { sel: "color" });
+      const result = FilterResolver.resolve(filterState, positions, model, sessionId);
       expect(result.coloredPaths["flagged"]).toBe("#123456");
     });
 
     it("does not match when element flags do not include the selector id", () => {
       const positions = makePositions(["a"]);
-      const model = makeModel(["a"]);
-      model.elements["a"].flags = ["other_sel"];
+      const baseModel = makeModel(["a"]);
+      baseModel.elements["a"].flags = ["other_sel"];
       const filterState = makeFilterState({
-        selectors: [
-          { id: "sel", label: "sel", mode: "color", color: "#ff0000", expression: "" },
-        ],
+        selectors: [{ id: "sel", label: "sel", color: "#ff0000", expression: "" }],
       });
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const { model, sessionId } = withSession(baseModel, { sel: "color" });
+      const result = FilterResolver.resolve(filterState, positions, model, sessionId);
       expect(result.coloredPaths["a"]).toBeUndefined();
     });
   });

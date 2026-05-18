@@ -1,5 +1,5 @@
-import type { Selector, Rule } from "../../domain/models/Selector";
-import { toSelectorId } from "../../domain/models/Selector";
+import type { Selector, Rule, SelectorMode } from "../../domain/models/Selector";
+import { SELECTION_SELECTOR_ID, toSelectorId } from "../../domain/models/Selector";
 import type { PositionedElement } from "../../domain/models/ViewState";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { FilterState } from "../../application/store/filterSlice";
@@ -49,6 +49,7 @@ export class FilterResolver {
     filterState: FilterState,
     positions: Record<string, PositionedElement>,
     model: DiagramModel,
+    activeSessionId: string | null = null,
   ): FilterLists {
     const allPaths = Object.keys(positions);
     const hiddenSet = new Set<string>();
@@ -57,10 +58,21 @@ export class FilterResolver {
     const coloredMap = new Map<string, string>();
     const rules = model.rules ?? [];
 
-    for (const selector of filterState.selectors) {
-      if (selector.mode === "off") continue;
+    const activeSession = (model.sessions ?? []).find(
+      (s) => s.id === activeSessionId,
+    );
 
-      if (selector.mode === "color") {
+    for (const selector of filterState.selectors) {
+      let mode: SelectorMode;
+      if (selector.id === SELECTION_SELECTOR_ID) {
+        mode = "color";
+      } else {
+        mode = activeSession?.selectorModes[selector.id] ?? "off";
+      }
+
+      if (mode === "off") continue;
+
+      if (mode === "color") {
         for (const path of allPaths) {
           if (matchesSelector(path, selector, model, rules)) {
             coloredMap.set(path, selector.color);
@@ -74,9 +86,9 @@ export class FilterResolver {
         if (!matchesSelector(path, selector, model, rules)) unmatched.push(path);
       }
 
-      if (selector.mode === "hide") {
+      if (mode === "hide") {
         unmatched.forEach((p) => hiddenSet.add(p));
-      } else if (selector.mode === "dim") {
+      } else if (mode === "dim") {
         unmatched.forEach((p) => dimmedSet.add(p));
       }
     }

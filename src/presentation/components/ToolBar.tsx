@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import {
   Sun,
   Moon,
@@ -38,7 +38,6 @@ import {
   Minimize2,
   SlidersHorizontal,
   ListFilter,
-  Eraser,
   Atom,
   Move,
 } from "lucide-react";
@@ -74,6 +73,7 @@ import {
   setRenderStyle,
   setRelLineStyle,
   toggleClassDiagramMode,
+  setActiveSession,
   type RenderStyle,
   type RelLineStyle,
 } from "../../application/store/uiSlice";
@@ -83,7 +83,11 @@ import {
   setCode,
   setViewMode,
 } from "../../application/store/diagramSlice";
-import { toSelectorId } from "../../domain/models/Selector";
+import {
+  toSelectorId,
+  FOLD_SELECTOR_ID,
+  SELECTION_SELECTOR_ID,
+} from "../../domain/models/Selector";
 import {
   startExecution,
   pauseExecution,
@@ -203,6 +207,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
     renderStyle,
     relLineStyle,
     classDiagramMode,
+    activeSessionId,
   } = useAppSelector((s) => s.ui);
   const { selectors, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
     useAppSelector((s) => s.filter);
@@ -225,9 +230,20 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
       ? "circular"
       : viewMode;
 
-  const activePresetCount = selectors.filter(
-    (s) => s.mode !== "off" && s.id !== "__fold__" && s.id !== "__selection__",
-  ).length;
+  const sessions = model.sessions ?? [];
+  const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
+
+  useEffect(() => {
+    if (sessions.length === 0) return;
+    if (activeSession) return;
+    dispatch(setActiveSession(sessions[0].id));
+  }, [sessions, activeSession]);
+
+  const activePresetCount = selectors.filter((s) => {
+    if (s.id === FOLD_SELECTOR_ID || s.id === SELECTION_SELECTOR_ID)
+      return false;
+    return (activeSession?.selectorModes[s.id] ?? "off") !== "off";
+  }).length;
 
   const foldMode = !foldActive
     ? "expanded"
@@ -243,30 +259,6 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
     ) : (
       <AlignJustify size={15} />
     );
-
-  const handleClearOrphanedFlags = () => {
-    const { model: currentModel } = store.getState().diagram;
-    const { selectors: currentSelectors } = store.getState().filter;
-    const selectorIds = new Set(currentSelectors.map((s) => s.id));
-
-    let changed = false;
-    const updatedElements = { ...currentModel.elements };
-    for (const [id, el] of Object.entries(currentModel.elements)) {
-      if (!el.flags || el.flags.length === 0) continue;
-      const cleanedFlags = el.flags.filter((f) => selectorIds.has(toSelectorId(f)));
-      if (cleanedFlags.length !== el.flags.length) {
-        changed = true;
-        updatedElements[id] = {
-          ...el,
-          flags: cleanedFlags.length > 0 ? cleanedFlags : undefined,
-        };
-      }
-    }
-
-    if (!changed) return;
-    const newCode = new CodeGenerator({ ...currentModel, elements: updatedElements }).generate();
-    syncManager.syncFromCode(newCode, true);
-  };
 
   const toggleTheme = () => {
     if (isDark) {
@@ -833,6 +825,14 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
           {foldIcon}
         </Button>
 
+        {sessions.length > 0 && (
+          <Select
+            value={activeSession?.id ?? sessions[0]?.id ?? ""}
+            onValueChange={(v: string) => dispatch(setActiveSession(v))}
+            options={sessions.map((s) => ({ value: s.id, label: s.label }))}
+          />
+        )}
+
         <div className="relative">
           <Button
             title="Selectors"
@@ -849,13 +849,6 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
             </span>
           )}
         </div>
-        <Btn
-          title="Clear orphaned flags (flags whose selector no longer exists)"
-          onClick={handleClearOrphanedFlags}
-        >
-          <Eraser size={15} />
-        </Btn>
-
         {layout !== "compact" && <Divider />}
 
         <Btn

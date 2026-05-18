@@ -27,6 +27,7 @@ export interface UIState {
   relLineStyle: RelLineStyle;
   classDiagramMode: boolean;
   navigationParentId: string | null;
+  activeSessionId: string | null;
 }
 
 const { ui } = AppConfig;
@@ -43,6 +44,7 @@ const initialState: UIState = {
   relLineStyle: "straight",
   classDiagramMode: true,
   navigationParentId: null,
+  activeSessionId: null,
 };
 
 const uiSlice = createSlice({
@@ -107,6 +109,9 @@ const uiSlice = createSlice({
     toggleClassDiagramMode(state) {
       state.classDiagramMode = !state.classDiagramMode;
     },
+    setActiveSession(state, action: PayloadAction<string | null>) {
+      state.activeSessionId = action.payload;
+    },
   },
 });
 
@@ -125,6 +130,7 @@ export const {
   setRelLineStyle,
   setNavigationParentId,
   toggleClassDiagramMode,
+  setActiveSession,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

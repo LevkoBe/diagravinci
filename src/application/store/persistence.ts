@@ -9,6 +9,24 @@ const DB_NAME = "diagravinci_db";
 const DB_VERSION = 1;
 const STORE_NAME = "kv";
 const STATE_KEY = "diagravinci_state";
+const ACTIVE_SESSION_KEY = "diagravinci_activeSession";
+
+export function loadActiveSessionId(): string | null {
+  try {
+    return sessionStorage.getItem(ACTIVE_SESSION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function saveActiveSessionId(id: string | null): void {
+  try {
+    if (id === null) sessionStorage.removeItem(ACTIVE_SESSION_KEY);
+    else sessionStorage.setItem(ACTIVE_SESSION_KEY, id);
+  } catch {
+    // quota exceeded or private mode
+  }
+}
 
 type PersistedFilter = Pick<
   FilterState,
@@ -130,6 +148,7 @@ function hydratePersistedState(parsed: PersistedState): HydratedState {
       zoomCommand: null,
       groupMoveSelectorId: null,
       navigationParentId: null,
+      activeSessionId: loadActiveSessionId(),
     },
   };
 }

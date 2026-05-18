@@ -67,7 +67,6 @@ export function VisualCanvas() {
   const justDraggedPathsRef = useRef<Set<string>>(new Set());
   const geometryCacheRef = useRef<GeometryCache>(new Map());
   const [zoom, setZoom] = useState(1);
-  const [stagePan, setStagePan] = useState(0);
   const dragSelectRef = useRef<{
     startScreen: { x: number; y: number };
     stageX: number;
@@ -119,6 +118,7 @@ export function VisualCanvas() {
     renderStyle,
     relLineStyle,
     classDiagramMode,
+    activeSessionId,
   } = useAppSelector((s) => s.ui);
 
   const modeRef = useRef(interactionMode);
@@ -274,7 +274,6 @@ export function VisualCanvas() {
       easing: Konva.Easings.EaseInOut,
       onFinish: () => {
         setZoom(newScale);
-        setStagePan((n) => n + 1);
       },
     }).play();
   }, [selectedElementIds, interactionMode]);
@@ -284,6 +283,7 @@ export function VisualCanvas() {
       filterState,
       viewState.positions,
       model,
+      activeSessionId,
     );
     const unchanged = FilterResolver.equal(newLists, {
       hiddenPaths: viewState.hiddenPaths,
@@ -295,7 +295,7 @@ export function VisualCanvas() {
       dispatch(setViewState({ ...viewState, ...newLists }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterState, viewState.positions, model]);
+  }, [filterState, viewState.positions, model, activeSessionId]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -326,7 +326,6 @@ export function VisualCanvas() {
     stage.on("dragend", () => {
       stage.container().style.cursor =
         modeRef.current === "select" ? "default" : "crosshair";
-      setStagePan((n) => n + 1);
     });
 
     stage.on("wheel", (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -362,7 +361,6 @@ export function VisualCanvas() {
           y: stage.y() - e.evt.deltaY,
         });
         stage.batchDraw();
-        setStagePan((n) => n + 1);
       }
     });
 
@@ -561,7 +559,6 @@ export function VisualCanvas() {
           easing: Konva.Easings.EaseInOut,
           onFinish: () => {
             setZoom(1);
-            setStagePan((n) => n + 1);
           },
         }).play();
         return;
@@ -605,7 +602,6 @@ export function VisualCanvas() {
         easing: Konva.Easings.EaseInOut,
         onFinish: () => {
           setZoom(newScale);
-          setStagePan((n) => n + 1);
         },
       }).play();
 
@@ -1004,7 +1000,6 @@ export function VisualCanvas() {
     connectingFromId,
     canvasColors,
     zoom,
-    stagePan,
     renderStyle,
     relLineStyle,
     classDiagramMode,

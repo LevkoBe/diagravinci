@@ -9,7 +9,6 @@ import { matchesSelector } from "../../domain/sync/FilterResolver";
 import { ElementEventHandler } from "./rendering/elements/ElementEventHandler";
 import {
   RelationshipRenderer,
-  type ViewportRect,
   type GeometryCache,
 } from "./rendering/relationships/RelationshipRenderer";
 import { SvgPathElementRenderer } from "./rendering/elements/SvgPathElementRenderer";
@@ -105,7 +104,6 @@ export class DiagramLayerRenderer {
   private readonly zoom: number;
   private readonly maxScreenPx: number;
   private readonly renderStyle: RenderStyle;
-  private readonly viewportRect: ViewportRect;
 
   private readonly isReadonly: boolean;
   private readonly isPresentation: boolean;
@@ -167,20 +165,13 @@ export class DiagramLayerRenderer {
     this.filterHiddenSet = new Set(this.hiddenSet);
     this.dimmedSet = new Set([...viewState.dimmedPaths, ...zoomDimmed]);
 
-    const stagePos = stage.position();
-    this.viewportRect = {
-      x: -stagePos.x / zoom,
-      y: -stagePos.y / zoom,
-      w: stage.width() / zoom,
-      h: stage.height() / zoom,
-    };
 
     this.relationshipRenderer = new RelationshipRenderer(
       viewState,
       colors,
       this.hiddenSet,
       this.dimmedSet,
-      this.viewportRect,
+      undefined,
       geometryCache,
       zoom,
       relLineStyle,
@@ -218,19 +209,7 @@ export class DiagramLayerRenderer {
     elementLayer.batchDraw();
   }
 
-  private isOffScreen(path: string): boolean {
-    const pos = this.viewState.positions[path];
-    if (!pos) return false;
-    const { x, y } = pos.position;
-    const half = pos.size / 2;
-    const vp = this.viewportRect;
-    return (
-      x + half < vp.x ||
-      x - half > vp.x + vp.w ||
-      y + half < vp.y ||
-      y - half > vp.y + vp.h
-    );
-  }
+
 
   private renderRecursive(
     element: Element,
@@ -240,24 +219,21 @@ export class DiagramLayerRenderer {
   ): void {
     if (this.hiddenSet.has(path)) return;
 
-    const skipRender = this.isOffScreen(path);
     const isDimmed = this.dimmedSet.has(path);
 
-    if (!skipRender) {
-      const colorOverride =
-        this.executionColorMap[element.id] ??
-        this.viewState.coloredPaths?.[path] ??
-        null;
+    const colorOverride =
+      this.executionColorMap[element.id] ??
+      this.viewState.coloredPaths?.[path] ??
+      null;
 
-      const elementGroup = this.renderElement(
-        element,
-        path,
-        isDimmed,
-        colorOverride,
-      );
-      if (elementGroup) {
-        elementLayer.add(elementGroup);
-      }
+    const elementGroup = this.renderElement(
+      element,
+      path,
+      isDimmed,
+      colorOverride,
+    );
+    if (elementGroup) {
+      elementLayer.add(elementGroup);
     }
 
     if (
