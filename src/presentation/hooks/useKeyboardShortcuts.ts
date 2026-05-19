@@ -163,6 +163,7 @@ export function useKeyboardShortcuts({
             currentIds,
             state.diagram.model,
             effectiveDir,
+            state.diagram.viewState.coloredPaths,
           );
           if (newIds.length > 0) {
             if (effectiveDir === "child" || effectiveDir === "child-all") {

@@ -1,15 +1,5 @@
 import { useState } from "react";
-import {
-  Trash2,
-  ChevronRight,
-  ChevronLeft,
-  ChevronUp,
-  ChevronDown,
-  ChevronsLeft,
-  ChevronsRight,
-  Check,
-  X,
-} from "lucide-react";
+import { Trash2, ChevronRight, Check, X } from "lucide-react";
 import { DangerIconBtn } from "./DangerIconBtn";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { syncManager } from "../../application/store/store";
@@ -18,13 +8,6 @@ import {
   setSelectedElements,
 } from "../../application/store/uiSlice";
 import { setViewState } from "../../application/store/diagramSlice";
-import {
-  navigateSelection,
-  navigateAlternative,
-  findParentId,
-  type NavDirection,
-} from "../../application/navigate";
-import { setNavigationParentId } from "../../application/store/uiSlice";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { ViewState } from "../../domain/models/ViewState";
 
@@ -33,9 +16,11 @@ export function PropertiesPanel() {
   const model = useAppSelector((s) => s.diagram.model);
   const viewState = useAppSelector((s) => s.diagram.viewState);
   const selectedIds = useAppSelector((s) => s.ui.selectedElementIds);
-  const navigationParentId = useAppSelector((s) => s.ui.navigationParentId);
+  const [inspectIndex, setInspectIndex] = useState(0);
 
-  const selectedId = selectedIds.at(-1) ?? null;
+  const clampedIndex =
+    selectedIds.length > 0 ? Math.min(inspectIndex, selectedIds.length - 1) : 0;
+  const selectedId = selectedIds[clampedIndex] ?? null;
 
   if (!selectedId) {
     return (
@@ -58,7 +43,8 @@ export function PropertiesPanel() {
       key={selectedId}
       selectedId={selectedId}
       selectedIds={selectedIds}
-      navigationParentId={navigationParentId}
+      inspectIndex={clampedIndex}
+      onSelectIndex={setInspectIndex}
       model={model}
       viewState={viewState}
       dispatch={dispatch}
@@ -69,14 +55,16 @@ export function PropertiesPanel() {
 function PropertiesPanelContent({
   selectedId,
   selectedIds,
-  navigationParentId,
+  inspectIndex,
+  onSelectIndex,
   model,
   viewState,
   dispatch,
 }: {
   selectedId: string;
   selectedIds: string[];
-  navigationParentId: string | null;
+  inspectIndex: number;
+  onSelectIndex: (i: number) => void;
   model: DiagramModel;
   viewState: ViewState;
   dispatch: ReturnType<
@@ -87,63 +75,49 @@ function PropertiesPanelContent({
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(selectedId);
 
+  const hiddenSet = new Set(viewState.hiddenPaths);
+  const dimmedSet = new Set(viewState.dimmedPaths);
+
+  const getPathsForId = (id: string) =>
+    Object.keys(viewState.positions).filter(
+      (p) => p === id || p.endsWith(`.${id}`),
+    );
+
+  const isElementHidden = (id: string): boolean => {
+    const paths = getPathsForId(id);
+    return paths.length > 0 && paths.every((p) => hiddenSet.has(p));
+  };
+
+  const isElementDimmed = (id: string): boolean => {
+    const paths = getPathsForId(id);
+    return paths.length > 0 && paths.every((p) => dimmedSet.has(p));
+  };
+
+  const getElementColor = (id: string): string | null => {
+    const paths = getPathsForId(id);
+    for (const p of paths) {
+      if (viewState.coloredPaths[p]) return viewState.coloredPaths[p];
+    }
+    return viewState.coloredPaths[id] ?? null;
+  };
+
   const paths = Object.keys(viewState.positions).filter(
     (p) => p === selectedId || p.endsWith(`.${selectedId}`),
   );
   const primaryPos = viewState.positions[paths[0]];
   const pathSet = new Set(paths);
-  const outgoing = Object.values(model.relationships).filter(
-    (r) => r.source === selectedId || pathSet.has(r.source),
-  );
-  const incoming = Object.values(model.relationships).filter(
-    (r) => r.target === selectedId || pathSet.has(r.target),
-  );
 
-  const parentId = findParentId(selectedId, model);
-  const canForward = outgoing.length > 0;
-  const canBackward = incoming.length > 0;
-  const canParent = parentId !== null && parentId !== model.root.id;
-  const canChild = element.childIds.length > 0;
+  const currentColor = getElementColor(selectedId);
 
-  const altParentId = (() => {
-    if (navigationParentId !== null) {
-      const hint =
-        navigationParentId === model.root.id
-          ? model.root
-          : model.elements[navigationParentId];
-      if (hint?.childIds.includes(selectedId)) return navigationParentId;
-    }
-    return parentId;
-  })();
-  const altParent =
-    altParentId === null
-      ? null
-      : altParentId === model.root.id
-        ? model.root
-        : model.elements[altParentId];
-  const canAlt = (altParent?.childIds.length ?? 0) > 1;
+  const sortByColorMatch = (peerId: string) =>
+    currentColor !== null && getElementColor(peerId) === currentColor ? 0 : 1;
 
-  const navigate = (dir: NavDirection) => {
-    const newIds = navigateSelection(selectedIds, model, dir);
-    if (newIds.length > 0) {
-      if (dir === "child") {
-        dispatch(setNavigationParentId(selectedId));
-      } else {
-        dispatch(setNavigationParentId(null));
-      }
-      dispatch(setSelectedElements(newIds));
-    }
-  };
-
-  const navigateAlt = (dir: "next" | "prev") => {
-    const newIds = navigateAlternative(
-      selectedIds,
-      model,
-      dir,
-      navigationParentId,
-    );
-    if (newIds.length > 0) dispatch(setSelectedElements(newIds));
-  };
+  const outgoing = Object.values(model.relationships)
+    .filter((r) => r.source === selectedId || pathSet.has(r.source))
+    .sort((a, b) => sortByColorMatch(a.target.split(".").pop()!) - sortByColorMatch(b.target.split(".").pop()!));
+  const incoming = Object.values(model.relationships)
+    .filter((r) => r.target === selectedId || pathSet.has(r.target))
+    .sort((a, b) => sortByColorMatch(a.source.split(".").pop()!) - sortByColorMatch(b.source.split(".").pop()!));
 
   const handleDelete = () => {
     const newElements = { ...model.elements };
@@ -198,6 +172,25 @@ function PropertiesPanelContent({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {selectedIds.length > 1 && (
+        <div className="px-3 py-1.5 border-b border-border/40 flex gap-1 flex-wrap shrink-0 max-h-20 overflow-y-auto">
+          {selectedIds.map((id, i) => (
+            <button
+              key={id}
+              title={id}
+              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors whitespace-nowrap ${
+                i === inspectIndex
+                  ? "bg-accent/20 text-accent border-accent/40"
+                  : "border-border/30 text-fg-muted hover:border-accent/30 hover:text-fg-primary"
+              }`}
+              onClick={() => onSelectIndex(i)}
+            >
+              {id}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="px-4 py-3 border-b border-border/40 flex items-start justify-between gap-2 shrink-0">
         <div className="min-w-0 flex-1">
           {editingName ? (
@@ -249,57 +242,6 @@ function PropertiesPanelContent({
         >
           <Trash2 size={13} />
         </DangerIconBtn>
-      </div>
-
-      {selectedIds.length > 1 && (
-        <div className="px-4 py-1.5 bg-accent/10 border-b border-accent/20 text-[11px] text-accent">
-          {selectedIds.length} selected · showing last
-        </div>
-      )}
-
-      <div className="px-3 py-2 border-b border-border/40 flex items-center justify-between gap-1 shrink-0">
-        <NavBtn
-          title="Previous alternative / sibling (Alt+←)"
-          disabled={!canAlt}
-          onClick={() => navigateAlt("prev")}
-        >
-          <ChevronsLeft size={13} />
-        </NavBtn>
-        <NavBtn
-          title="Previous relationship (←)"
-          disabled={!canBackward}
-          onClick={() => navigate("backward")}
-        >
-          <ChevronLeft size={13} />
-        </NavBtn>
-        <NavBtn
-          title="Parent element (↑)"
-          disabled={!canParent}
-          onClick={() => navigate("parent")}
-        >
-          <ChevronUp size={13} />
-        </NavBtn>
-        <NavBtn
-          title="First child (↓) / All children (Shift+↓)"
-          disabled={!canChild}
-          onClick={() => navigate("child")}
-        >
-          <ChevronDown size={13} />
-        </NavBtn>
-        <NavBtn
-          title="Next relationship (→)"
-          disabled={!canForward}
-          onClick={() => navigate("forward")}
-        >
-          <ChevronRight size={13} />
-        </NavBtn>
-        <NavBtn
-          title="Next alternative / sibling (Alt+→)"
-          disabled={!canAlt}
-          onClick={() => navigateAlt("next")}
-        >
-          <ChevronsRight size={13} />
-        </NavBtn>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-4">
@@ -367,30 +309,38 @@ function PropertiesPanelContent({
 
         {(outgoing.length > 0 || incoming.length > 0) && (
           <PanelSection label="Relationships">
-            {outgoing.map((r) => (
-              <RelRow
-                key={r.id}
-                dir="out"
-                peerId={r.target.split(".").pop()!}
-                type={r.type}
-                label={r.label}
-                onNavigate={() => {
-                  dispatch(setSelectedElement(r.target.split(".").pop()!));
-                }}
-              />
-            ))}
-            {incoming.map((r) => (
-              <RelRow
-                key={r.id}
-                dir="in"
-                peerId={r.source.split(".").pop()!}
-                type={r.type}
-                label={r.label}
-                onNavigate={() => {
-                  dispatch(setSelectedElement(r.source.split(".").pop()!));
-                }}
-              />
-            ))}
+            {outgoing.map((r) => {
+              const peerId = r.target.split(".").pop()!;
+              return (
+                <RelRow
+                  key={r.id}
+                  dir="out"
+                  peerId={peerId}
+                  type={r.type}
+                  label={r.label}
+                  isHidden={isElementHidden(peerId)}
+                  isDimmed={isElementDimmed(peerId)}
+                  color={getElementColor(peerId)}
+                  onNavigate={() => dispatch(setSelectedElement(peerId))}
+                />
+              );
+            })}
+            {incoming.map((r) => {
+              const peerId = r.source.split(".").pop()!;
+              return (
+                <RelRow
+                  key={r.id}
+                  dir="in"
+                  peerId={peerId}
+                  type={r.type}
+                  label={r.label}
+                  isHidden={isElementHidden(peerId)}
+                  isDimmed={isElementDimmed(peerId)}
+                  color={getElementColor(peerId)}
+                  onNavigate={() => dispatch(setSelectedElement(peerId))}
+                />
+              );
+            })}
           </PanelSection>
         )}
       </div>
@@ -446,29 +396,6 @@ function renameElement(
   return { ...model, root, elements, relationships };
 }
 
-function NavBtn({
-  children,
-  disabled,
-  title,
-  onClick,
-}: {
-  children: React.ReactNode;
-  disabled: boolean;
-  title: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      title={title}
-      disabled={disabled}
-      onClick={onClick}
-      className="flex-1 flex items-center justify-center rounded py-1 text-fg-muted hover:bg-accent/10 hover:text-accent transition-colors disabled:opacity-25 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-fg-muted"
-    >
-      {children}
-    </button>
-  );
-}
-
 function PanelSection({
   label,
   children,
@@ -500,25 +427,37 @@ function RelRow({
   peerId,
   type,
   label,
+  isHidden,
+  isDimmed,
+  color,
   onNavigate,
 }: {
   dir: "in" | "out";
   peerId: string;
   type: string;
   label?: string;
+  isHidden?: boolean;
+  isDimmed?: boolean;
+  color?: string | null;
   onNavigate: () => void;
 }) {
   return (
     <button
-      className="w-full flex items-center gap-2 px-2 py-1.5 rounded bg-bg-overlay/40 hover:bg-accent/10 hover:text-accent text-left transition-colors"
-      onClick={onNavigate}
+      disabled={isHidden}
+      onClick={isHidden ? undefined : onNavigate}
+      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded bg-bg-overlay/40 text-left transition-colors ${
+        isHidden ? "cursor-not-allowed" : "hover:bg-accent/10 hover:text-accent"
+      }`}
+      style={{ opacity: isHidden ? 0.25 : isDimmed ? 0.45 : undefined }}
     >
       <span
         className={`text-[10px] font-mono shrink-0 ${dir === "out" ? "text-accent" : "text-fg-muted"}`}
       >
         {dir === "out" ? "→" : "←"}
       </span>
-      <span className="text-xs truncate">{peerId}</span>
+      <span className="text-xs truncate" style={{ color: color ?? undefined }}>
+        {peerId}
+      </span>
       <span className="text-[10px] text-fg-disabled shrink-0 ml-auto">
         {type}
         {label ? ` · ${label}` : ""}
