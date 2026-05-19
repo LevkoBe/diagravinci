@@ -17,10 +17,6 @@ export class ForceDirectedLayout extends BaseLayout {
     return layoutWeight(element, model);
   }
 
-  protected override recursiveElementSize(): number {
-    return calculateSize(1);
-  }
-
   protected computePositions(
     children: Element[],
     model: DiagramModel,
@@ -44,8 +40,12 @@ export class ForceDirectedLayout extends BaseLayout {
     const n = children.length;
     const radius = containerSize / (RADIO * CHILD_FILL);
     const maxSizeFromSpacing = 2 * radius * Math.sin(Math.PI / n) * CHILD_FILL;
+    const maxSizeFromBoundary = containerSize * (1 - 2 / RADIO) / CHILD_FILL;
     const sizeFloor = containerSize / n;
-    const sizeConstrained = Math.max(Math.min(size, maxSizeFromSpacing), sizeFloor);
+    const sizeConstrained = Math.min(
+      Math.max(Math.min(size, maxSizeFromSpacing), sizeFloor),
+      maxSizeFromBoundary,
+    );
     const angleStep = (2 * Math.PI) / n;
 
     return children.map((_, i) => ({
