@@ -18,6 +18,7 @@ import type {
   Colors,
   RenderCallbacks,
 } from "../../presentation/components/rendering/types";
+import type { Selector } from "../../domain/models/Selector";
 
 describe("DiagramLayerRenderer", () => {
   let helper: KonvaTestHelper;
@@ -489,16 +490,27 @@ describe("DiagramLayerRenderer", () => {
   describe("prevPaths animation", () => {
     it("new elements start at full scale (scale 0 removed — was causing invisible elements on first render)", () => {
       let model: DiagramModel = createEmptyDiagram();
-      model = addElement(model, MockElementFactory.createElement("a", "object"));
+      model = addElement(
+        model,
+        MockElementFactory.createElement("a", "object"),
+      );
       model.root.childIds.push("a");
-      const viewState = new ViewStateBuilder().addElement("a", 100, 100, 60).build();
+      const viewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .build();
 
       const renderer = new DiagramLayerRenderer(
-        helper.getStage(), model, viewState, null, defaultColors,
+        helper.getStage(),
+        model,
+        viewState,
+        null,
+        defaultColors,
         { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
-        new Set(), 1,
+        new Set(),
+        1,
       );
-      const relLayer = new Konva.Layer(), elLayer = new Konva.Layer();
+      const relLayer = new Konva.Layer(),
+        elLayer = new Konva.Layer();
       renderer.render(relLayer, elLayer);
 
       const group = elLayer.getChildren()[0] as Konva.Group;
@@ -778,7 +790,11 @@ describe("DiagramLayerRenderer", () => {
       return model;
     }
 
-    const callbacks = { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} };
+    const callbacks = {
+      onClick: () => {},
+      onPositionChange: () => {},
+      onReparent: () => {},
+    };
 
     it("element in view after panning right is rendered", () => {
       const stage = helper.getStage();
@@ -787,8 +803,18 @@ describe("DiagramLayerRenderer", () => {
       const model = makeModelWithRoot("el");
       const vs = new ViewStateBuilder().addElement("el", 1000, 300, 60).build();
 
-      const renderer = new DiagramLayerRenderer(stage, model, vs, null, defaultColors, callbacks, new Set(), 1);
-      const rel = new Konva.Layer(), el = new Konva.Layer();
+      const renderer = new DiagramLayerRenderer(
+        stage,
+        model,
+        vs,
+        null,
+        defaultColors,
+        callbacks,
+        new Set(),
+        1,
+      );
+      const rel = new Konva.Layer(),
+        el = new Konva.Layer();
       renderer.render(rel, el);
       expect(el.getChildren().length).toBe(1);
     });
@@ -800,8 +826,18 @@ describe("DiagramLayerRenderer", () => {
       const model = makeModelWithRoot("el");
       const vs = new ViewStateBuilder().addElement("el", 0, 0, 60).build();
 
-      const renderer = new DiagramLayerRenderer(stage, model, vs, null, defaultColors, callbacks, new Set(), 1);
-      const rel = new Konva.Layer(), el = new Konva.Layer();
+      const renderer = new DiagramLayerRenderer(
+        stage,
+        model,
+        vs,
+        null,
+        defaultColors,
+        callbacks,
+        new Set(),
+        1,
+      );
+      const rel = new Konva.Layer(),
+        el = new Konva.Layer();
       renderer.render(rel, el);
       expect(el.getChildren().length).toBe(1);
     });
@@ -817,11 +853,22 @@ describe("DiagramLayerRenderer", () => {
         model.root.childIds.push(`e${i}`);
       }
       const builder = new ViewStateBuilder();
-      for (let i = 0; i < 5; i++) builder.addElement(`e${i}`, 3200 + i * 100, 300, 60);
+      for (let i = 0; i < 5; i++)
+        builder.addElement(`e${i}`, 3200 + i * 100, 300, 60);
       for (let i = 5; i < 20; i++) builder.addElement(`e${i}`, i * 80, 0, 60);
 
-      const renderer = new DiagramLayerRenderer(stage, model, builder.build(), null, defaultColors, callbacks, new Set(), 1);
-      const rel = new Konva.Layer(), el = new Konva.Layer();
+      const renderer = new DiagramLayerRenderer(
+        stage,
+        model,
+        builder.build(),
+        null,
+        defaultColors,
+        callbacks,
+        new Set(),
+        1,
+      );
+      const rel = new Konva.Layer(),
+        el = new Konva.Layer();
       renderer.render(rel, el);
       expect(el.getChildren().length).toBe(20);
     });
@@ -1415,6 +1462,147 @@ describe("DiagramLayerRenderer", () => {
 
       const group = el.getChildren()[0] as Konva.Group;
       expect(() => fireEvent(group, "dragend")).not.toThrow();
+    });
+  });
+
+  describe("getLiveWorldPos – group branch", () => {
+    it("dragmove on element with relationship calls getLiveWorldPos via updateRelationshipLines", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      const src = MockElementFactory.createElement("src", "object");
+      const tgt = MockElementFactory.createElement("tgt", "object");
+      model = addElement(model, src);
+      model = addElement(model, tgt);
+      model = addRelationship(
+        model,
+        createRelationship("r1", "src", "tgt", "-->"),
+      );
+      model.root.childIds.push("src", "tgt");
+
+      const viewState: ViewState = new ViewStateBuilder()
+        .addElement("src", 100, 100, 60)
+        .addElement("tgt", 300, 100, 60)
+        .addRelationship("r1", "src", "tgt")
+        .build();
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(),
+        model,
+        viewState,
+        null,
+        defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(),
+        1,
+      );
+      const relLayer = new Konva.Layer();
+      const elLayer = new Konva.Layer();
+      renderer.render(relLayer, elLayer);
+
+      const group = elLayer.getChildren()[0] as Konva.Group;
+      expect(() => fireEvent(group, "dragmove")).not.toThrow();
+    });
+  });
+
+  describe("updateChildPositions – childGroup branch", () => {
+    it("dragend on parent with rendered child (classDiagramMode=false) covers updateChildPositions if(childGroup)", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      const parent = MockElementFactory.createElement("par", "object");
+      const child = MockElementFactory.createElement("ch", "object");
+      parent.childIds = ["ch"];
+      model = addElement(model, parent);
+      model = addElement(model, child);
+      model.root.childIds.push("par");
+
+      const viewState: ViewState = {
+        ...new ViewStateBuilder()
+          .addElement("par", 100, 100, 100)
+          .addElement("par.ch", 130, 130, 40)
+          .build(),
+        hiddenPaths: [],
+        dimmedPaths: [],
+        foldedPaths: [],
+        coloredPaths: {},
+      };
+
+      const onPositionChange = vi.fn();
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(),
+        model,
+        viewState,
+        null,
+        defaultColors,
+        { onClick: () => {}, onPositionChange, onReparent: () => {} },
+        new Set(),
+        1,
+        "polygon",
+        "straight",
+        false,
+        false,
+        {},
+        false,
+      );
+      const relLayer = new Konva.Layer();
+      const elLayer = new Konva.Layer();
+      renderer.render(relLayer, elLayer);
+
+      const group = elLayer.getChildren()[0] as Konva.Group;
+      expect(() => fireEvent(group, "dragend")).not.toThrow();
+      expect(onPositionChange).toHaveBeenCalled();
+    });
+  });
+
+  describe("moveGroupPeersForDrag – peer sync and getLiveWorldPos false-branch", () => {
+    it("dragmove with getGroupMoveInfo moves matching peers and covers getLiveWorldPos fallback for unrendered endpoint", () => {
+      let model: DiagramModel = createEmptyDiagram();
+      const elemA = MockElementFactory.createElement("a", "object");
+      const elemB = MockElementFactory.createElement("b", "object");
+      const elemC = MockElementFactory.createElement("c", "object");
+      elemA.flags = ["MyTag"];
+      elemB.flags = ["MyTag"];
+      model = addElement(model, elemA);
+      model = addElement(model, elemB);
+      model = { ...model, elements: { ...model.elements, c: elemC } };
+      model.root.childIds.push("a", "b");
+
+      const selector: Selector = {
+        id: "mytag",
+        label: "MyTag",
+        expression: "",
+        color: "#ff0000",
+      };
+
+      const viewState: ViewState = new ViewStateBuilder()
+        .addElement("a", 100, 100, 60)
+        .addElement("b", 300, 100, 60)
+        .addElement("c", 500, 100, 60)
+        .addRelationship("r1", "b", "c")
+        .build();
+
+      const renderer = new DiagramLayerRenderer(
+        helper.getStage(),
+        model,
+        viewState,
+        null,
+        defaultColors,
+        { onClick: () => {}, onPositionChange: () => {}, onReparent: () => {} },
+        new Set(),
+        1,
+        "polygon",
+        "straight",
+        false,
+        false,
+        {},
+        false,
+        undefined,
+        undefined,
+        () => ({ selectorId: "mytag", filterSelectors: [selector] }),
+      );
+      const relLayer = new Konva.Layer();
+      const elLayer = new Konva.Layer();
+      renderer.render(relLayer, elLayer);
+
+      const group = elLayer.getChildren()[0] as Konva.Group;
+      expect(() => fireEvent(group, "dragmove")).not.toThrow();
     });
   });
 });

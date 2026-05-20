@@ -54,6 +54,72 @@ describe("applyReparent – a{a}: move inner a to root", () => {
   });
 });
 
+describe("applyReparent – move element from root to a non-root parent", () => {
+  it("removes element from root.childIds", () => {
+    const model = createEmptyDiagram();
+    const elemA = createElement("a", "object");
+    const elemB = createElement("b", "object");
+    model.elements["a"] = elemA;
+    model.elements["b"] = elemB;
+    model.root = { ...model.root, childIds: ["a", "b"] };
+
+    const updated = applyReparent(model, "b", model.root.id, "a");
+    expect(updated.root.childIds).not.toContain("b");
+  });
+
+  it("adds element to new non-root parent's childIds", () => {
+    const model = createEmptyDiagram();
+    const elemA = createElement("a", "object");
+    const elemB = createElement("b", "object");
+    model.elements["a"] = elemA;
+    model.elements["b"] = elemB;
+    model.root = { ...model.root, childIds: ["a", "b"] };
+
+    const updated = applyReparent(model, "b", model.root.id, "a");
+    expect(updated.elements["a"].childIds).toContain("b");
+  });
+
+  it("does not duplicate when element is already in new parent's childIds", () => {
+    const model = createEmptyDiagram();
+    const elemA = createElement("a", "object");
+    const elemB = createElement("b", "object");
+    elemA.childIds = ["b"];
+    model.elements["a"] = elemA;
+    model.elements["b"] = elemB;
+    model.root = { ...model.root, childIds: ["a", "b"] };
+
+    const updated = applyReparent(model, "b", model.root.id, "a");
+    const count = updated.elements["a"].childIds.filter((id) => id === "b").length;
+    expect(count).toBe(1);
+  });
+});
+
+describe("applyReparent – move element between non-root parents", () => {
+  it("removes from old parent and adds to new parent", () => {
+    const model = createEmptyDiagram();
+    const elemA = createElement("a", "object");
+    const elemB = createElement("b", "object");
+    const elemC = createElement("c", "object");
+    elemA.childIds = ["c"];
+    model.elements["a"] = elemA;
+    model.elements["b"] = elemB;
+    model.elements["c"] = elemC;
+    model.root = { ...model.root, childIds: ["a", "b"] };
+
+    const updated = applyReparent(model, "c", "a", "b");
+    expect(updated.elements["a"].childIds).not.toContain("c");
+    expect(updated.elements["b"].childIds).toContain("c");
+  });
+});
+
+describe("applyReparent – unknown element", () => {
+  it("returns the original model unchanged", () => {
+    const model = createEmptyDiagram();
+    const updated = applyReparent(model, "nonexistent", model.root.id, "somewhere");
+    expect(updated).toBe(model);
+  });
+});
+
 describe("SyncManager.syncFromVis – path remapping removes stale old key", () => {
   it('removes "a.a" from positions after remapping it to "a"', () => {
     const model = buildSelfRefModel();
