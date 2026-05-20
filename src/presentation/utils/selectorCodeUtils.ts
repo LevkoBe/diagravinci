@@ -83,7 +83,14 @@ export function upsertSessionModeInCode(
 ): string {
   const re = sessionLineRe(sessionId);
   const match = code.match(re);
-  if (!match) return code;
+  if (!match) {
+    if (mode === "off") return code;
+    const label = sessionId.charAt(0).toUpperCase() + sessionId.slice(1);
+    const quotedLabel = /[^\w-]/.test(label) ? `"${label.replace(/"/g, "'")}"` : label;
+    const newLine = `!session  id=${sessionId}  label=${quotedLabel}  selectors=${selectorId}:${mode}`;
+    const sep = code.length > 0 && !code.endsWith("\n") ? "\n" : "";
+    return code + sep + newLine + "\n";
+  }
 
   const line = match[1];
   const selectorsMatch = line.match(/selectors=(\S+)/);

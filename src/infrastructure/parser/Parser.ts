@@ -478,7 +478,10 @@ export class Parser {
     }
 
     const session: Session = { id, label, selectorModes };
-    if (!(this.model.sessions ?? []).some((s) => s.id === id)) {
+    const existingIdx = (this.model.sessions ?? []).findIndex((s) => s.id === id);
+    if (existingIdx >= 0) {
+      this.model.sessions![existingIdx] = session;
+    } else {
       (this.model.sessions ??= []).push(session);
     }
   }

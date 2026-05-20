@@ -18,7 +18,6 @@ export interface Selector {
   label: string;
   expression: string;
   color: string;
-  selectionPattern?: string;
 }
 
 export interface Session {
@@ -28,7 +27,6 @@ export interface Session {
 }
 
 export const FOLD_SELECTOR_ID = "__fold__";
-export const SELECTION_SELECTOR_ID = "_selection";
 
 export function toSelectorId(label: string): string {
   const slug = label.trim().toLowerCase()

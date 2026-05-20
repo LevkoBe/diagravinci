@@ -19,6 +19,9 @@ export interface DiagramModel {
   validationErrors?: string[];
 }
 
+export const DEFAULT_SESSION_ID = "default";
+export const DEFAULT_SESSION_LABEL = "Default";
+
 export function createEmptyDiagram(): DiagramModel {
   const now = new Date().toISOString();
   return {
@@ -27,7 +30,7 @@ export function createEmptyDiagram(): DiagramModel {
     relationships: {},
     rules: [],
     selectors: [],
-    sessions: [],
+    sessions: [{ id: DEFAULT_SESSION_ID, label: DEFAULT_SESSION_LABEL, selectorModes: {} }],
     metadata: {
       version: "1.0.0",
       created: now,

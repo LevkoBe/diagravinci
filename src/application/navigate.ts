@@ -2,6 +2,19 @@ import type { DiagramModel } from "../domain/models/DiagramModel";
 
 export type NavDirection = "forward" | "forward-all" | "backward" | "backward-all" | "parent" | "child" | "child-all";
 
+function getColorForId(id: string, coloredPaths: Record<string, string>): string | null {
+  if (coloredPaths[id]) return coloredPaths[id];
+  for (const [path, color] of Object.entries(coloredPaths)) {
+    if (path.split(".").at(-1) === id) return color;
+  }
+  return null;
+}
+
+function colorMatchRank(peerId: string, currentColor: string | null, coloredPaths: Record<string, string>): number {
+  if (!currentColor) return 1;
+  return getColorForId(peerId, coloredPaths) === currentColor ? 0 : 1;
+}
+
 export function findParentId(
   childId: string,
   model: DiagramModel,
@@ -17,6 +30,7 @@ export function navigateSelection(
   selectedIds: string[],
   model: DiagramModel,
   direction: NavDirection,
+  coloredPaths?: Record<string, string>,
 ): string[] {
   if (selectedIds.length === 0) return selectedIds;
 
@@ -24,34 +38,36 @@ export function navigateSelection(
   const result = new Set<string>();
 
   for (const id of selectedIds) {
+    const currentColor = coloredPaths ? getColorForId(id, coloredPaths) : null;
+
     switch (direction) {
       case "forward": {
-        const outgoing = rels.filter(
-          (r) => r.source === id || r.source.split(".").at(-1) === id,
-        );
+        const outgoing = rels
+          .filter((r) => r.source === id || r.source.split(".").at(-1) === id)
+          .sort((a, b) => colorMatchRank(a.target.split(".").at(-1)!, currentColor, coloredPaths ?? {}) - colorMatchRank(b.target.split(".").at(-1)!, currentColor, coloredPaths ?? {}));
         if (outgoing.length > 0)
           result.add(outgoing[0].target.split(".").at(-1)!);
         break;
       }
       case "forward-all": {
-        const outgoing = rels.filter(
-          (r) => r.source === id || r.source.split(".").at(-1) === id,
-        );
+        const outgoing = rels
+          .filter((r) => r.source === id || r.source.split(".").at(-1) === id)
+          .sort((a, b) => colorMatchRank(a.target.split(".").at(-1)!, currentColor, coloredPaths ?? {}) - colorMatchRank(b.target.split(".").at(-1)!, currentColor, coloredPaths ?? {}));
         outgoing.forEach((r) => result.add(r.target.split(".").at(-1)!));
         break;
       }
       case "backward": {
-        const incoming = rels.filter(
-          (r) => r.target === id || r.target.split(".").at(-1) === id,
-        );
+        const incoming = rels
+          .filter((r) => r.target === id || r.target.split(".").at(-1) === id)
+          .sort((a, b) => colorMatchRank(a.source.split(".").at(-1)!, currentColor, coloredPaths ?? {}) - colorMatchRank(b.source.split(".").at(-1)!, currentColor, coloredPaths ?? {}));
         if (incoming.length > 0)
-          result.add(incoming[incoming.length - 1].source.split(".").at(-1)!);
+          result.add(incoming[0].source.split(".").at(-1)!);
         break;
       }
       case "backward-all": {
-        const incoming = rels.filter(
-          (r) => r.target === id || r.target.split(".").at(-1) === id,
-        );
+        const incoming = rels
+          .filter((r) => r.target === id || r.target.split(".").at(-1) === id)
+          .sort((a, b) => colorMatchRank(a.source.split(".").at(-1)!, currentColor, coloredPaths ?? {}) - colorMatchRank(b.source.split(".").at(-1)!, currentColor, coloredPaths ?? {}));
         incoming.forEach((r) => result.add(r.source.split(".").at(-1)!));
         break;
       }

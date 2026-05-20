@@ -692,6 +692,63 @@ describe("Parser", () => {
   });
 });
 
+describe("Parser sessions", () => {
+  const parse = (input: string) => {
+    const tokens = new Lexer(input).tokenize();
+    return new Parser(tokens).parse();
+  };
+
+  it("always pre-seeds a default session even without a !session directive", () => {
+    const model = parse("a{}");
+    const sessions = model.sessions ?? [];
+    const def = sessions.find((s) => s.id === "default");
+    expect(def).toBeDefined();
+  });
+
+  it("updates the pre-seeded default session from a !session id=default directive", () => {
+    const model = parse('!session  id=default  label="My Default"  selectors=foo:color');
+    const sessions = model.sessions ?? [];
+    const def = sessions.find((s) => s.id === "default");
+    expect(def).toBeDefined();
+    expect(def!.label).toBe("My Default");
+    expect(def!.selectorModes["foo"]).toBe("color");
+  });
+
+  it("does not create duplicate default sessions when !session id=default is explicit", () => {
+    const model = parse("!session  id=default  label=Default  selectors=foo:color");
+    const defaults = (model.sessions ?? []).filter((s) => s.id === "default");
+    expect(defaults.length).toBe(1);
+  });
+
+  it("parses multiple sessions including a non-default one", () => {
+    const code =
+      "!session  id=default  label=Default  selectors=s1:color\n" +
+      "!session  id=remote  label=Remote  selectors=s1:dim,s2:color";
+    const model = parse(code);
+    const sessions = model.sessions ?? [];
+    const ids = sessions.map((s) => s.id);
+    expect(ids).toContain("default");
+    expect(ids).toContain("remote");
+  });
+
+  it("parses all valid SelectorModes in a single session directive", () => {
+    const model = parse("!session  id=s1  label=S1  selectors=a:color,b:dim,c:hide,d:off");
+    const s1 = (model.sessions ?? []).find((s) => s.id === "s1");
+    expect(s1).toBeDefined();
+    expect(s1!.selectorModes["a"]).toBe("color");
+    expect(s1!.selectorModes["b"]).toBe("dim");
+    expect(s1!.selectorModes["c"]).toBe("hide");
+    expect(s1!.selectorModes["d"]).toBe("off");
+  });
+
+  it("ignores !session without an id field", () => {
+    const model = parse("!session  label=NoId");
+    const sessions = model.sessions ?? [];
+    expect(sessions.length).toBe(1);
+    expect(sessions[0].id).toBe("default");
+  });
+});
+
 describe("Parser edge cases", () => {
   const parse = (input: string) => {
     const tokens = new Lexer(input).tokenize();

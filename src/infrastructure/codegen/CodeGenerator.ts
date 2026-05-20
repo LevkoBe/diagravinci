@@ -1,4 +1,5 @@
 import type { DiagramModel } from "../../domain/models/DiagramModel";
+import { DEFAULT_SESSION_ID } from "../../domain/models/DiagramModel";
 import type { Rule, Selector, Session } from "../../domain/models/Selector";
 import {
   createElement,
@@ -36,13 +37,16 @@ export class CodeGenerator {
     for (const selector of this.model.selectors ?? [])
       lines.push(this.generateSelector(selector));
 
-    for (const session of this.model.sessions ?? [])
+    const sessionsToEmit = (this.model.sessions ?? []).filter(
+      (s) => s.id !== DEFAULT_SESSION_ID || Object.keys(s.selectorModes).length > 0,
+    );
+    for (const session of sessionsToEmit)
       lines.push(this.generateSession(session));
 
     if (
       (this.model.rules ?? []).length > 0 ||
       (this.model.selectors ?? []).length > 0 ||
-      (this.model.sessions ?? []).length > 0
+      sessionsToEmit.length > 0
     )
       lines.push("");
 

@@ -1,25 +1,5 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { Selector } from "../../domain/models/Selector";
-import { SELECTION_SELECTOR_ID } from "../../domain/models/Selector";
-
-function escapeForRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function buildSelectionSelector(ids: string[], color: string): Selector {
-  const escaped = ids.map(escapeForRegex);
-  const pattern =
-    ids.length === 1
-      ? `(^|\\.)${escaped[0]}$`
-      : `(^|\\.)(${escaped.join("|")})$`;
-  return {
-    id: SELECTION_SELECTOR_ID,
-    label: "Selection",
-    expression: "",
-    selectionPattern: pattern,
-    color,
-  };
-}
 
 interface FilterState {
   selectors: Selector[];
@@ -129,21 +109,6 @@ const filterSlice = createSlice({
       state._rev++;
     },
 
-    setSelectionSelector(
-      state,
-      {
-        payload: { ids, color },
-      }: PayloadAction<{ ids: string[]; color: string }>,
-    ) {
-      state.selectors = state.selectors.filter(
-        (s) => s.id !== SELECTION_SELECTOR_ID,
-      );
-      if (ids.length > 0) {
-        state.selectors.push(buildSelectionSelector(ids, color));
-      }
-      state._rev++;
-    },
-
     restoreFilterState(
       state,
       {
@@ -211,7 +176,6 @@ export const {
   moveSelectorDown,
   syncSelectorsFromTab,
   restoreFilterState,
-  setSelectionSelector,
   syncSelectorsFromCode,
 } = filterSlice.actions;
 

@@ -1,5 +1,5 @@
 import type { Selector, Rule, SelectorMode } from "../../domain/models/Selector";
-import { SELECTION_SELECTOR_ID, toSelectorId } from "../../domain/models/Selector";
+import { toSelectorId } from "../../domain/models/Selector";
 import type { PositionedElement } from "../../domain/models/ViewState";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { FilterState } from "../../application/store/filterSlice";
@@ -24,14 +24,6 @@ export function matchesSelector(
 ): boolean {
   const elementId = path.split(".").at(-1)!;
   const element = model.elements[elementId];
-
-  if (selector.selectionPattern) {
-    try {
-      return new RegExp(selector.selectionPattern).test(path);
-    } catch {
-      return false;
-    }
-  }
 
   if (element?.flags?.some((f) => toSelectorId(f) === selector.id)) return true;
 
@@ -63,12 +55,7 @@ export class FilterResolver {
     );
 
     for (const selector of filterState.selectors) {
-      let mode: SelectorMode;
-      if (selector.id === SELECTION_SELECTOR_ID) {
-        mode = "color";
-      } else {
-        mode = activeSession?.selectorModes[selector.id] ?? "off";
-      }
+      const mode: SelectorMode = activeSession?.selectorModes[selector.id] ?? "off";
 
       if (mode === "off") continue;
 

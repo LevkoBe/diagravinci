@@ -12,11 +12,9 @@ import reducer, {
   moveSelectorUp,
   moveSelectorDown,
   syncSelectorsFromTab,
-  setSelectionSelector,
   restoreFilterState,
   syncSelectorsFromCode,
 } from "../../../application/store/filterSlice";
-import { SELECTION_SELECTOR_ID } from "../../../domain/models/Selector";
 import type { Selector } from "../../../domain/models/Selector";
 
 function makeSelector(id: string): Selector {
@@ -182,52 +180,6 @@ describe("filterSlice", () => {
       expect(s2.selectors).toHaveLength(2);
       expect(s2.selectors[0].id).toBe("new1");
       expect(s2.selectors[1].id).toBe("new2");
-    });
-  });
-
-  describe("setSelectionSelector", () => {
-    it("adds a selection selector for given ids", () => {
-      const s1 = reducer(
-        undefined,
-        setSelectionSelector({ ids: ["a", "b"], color: "#ff0000" }),
-      );
-      const sel = s1.selectors.find((s) => s.id === SELECTION_SELECTOR_ID);
-      expect(sel).toBeDefined();
-      expect(sel?.color).toBe("#ff0000");
-    });
-
-    it("removes selection selector when ids is empty", () => {
-      const s1 = reducer(
-        undefined,
-        setSelectionSelector({ ids: ["a"], color: "#ff0000" }),
-      );
-      const s2 = reducer(s1, setSelectionSelector({ ids: [], color: "#ff0000" }));
-      expect(
-        s2.selectors.find((s) => s.id === SELECTION_SELECTOR_ID),
-      ).toBeUndefined();
-    });
-
-    it("replaces existing selection selector", () => {
-      const s1 = reducer(
-        undefined,
-        setSelectionSelector({ ids: ["a"], color: "#ff0000" }),
-      );
-      const s2 = reducer(
-        s1,
-        setSelectionSelector({ ids: ["b"], color: "#0000ff" }),
-      );
-      const sels = s2.selectors.filter((s) => s.id === SELECTION_SELECTOR_ID);
-      expect(sels).toHaveLength(1);
-      expect(sels[0].color).toBe("#0000ff");
-    });
-
-    it("handles single id without alternation pattern", () => {
-      const s1 = reducer(
-        undefined,
-        setSelectionSelector({ ids: ["myNode"], color: "#aaa" }),
-      );
-      const sel = s1.selectors.find((s) => s.id === SELECTION_SELECTOR_ID);
-      expect(sel?.selectionPattern).toMatch(/myNode/);
     });
   });
 

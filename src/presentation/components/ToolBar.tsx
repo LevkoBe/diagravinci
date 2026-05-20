@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import {
   Sun,
   Moon,
@@ -86,7 +86,6 @@ import {
 import {
   toSelectorId,
   FOLD_SELECTOR_ID,
-  SELECTION_SELECTOR_ID,
 } from "../../domain/models/Selector";
 import {
   startExecution,
@@ -230,17 +229,17 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
       ? "circular"
       : viewMode;
 
-  const sessions = model.sessions ?? [];
+  const sessions = useMemo(() => model.sessions ?? [], [model.sessions]);
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
 
   useEffect(() => {
     if (sessions.length === 0) return;
     if (activeSession) return;
     dispatch(setActiveSession(sessions[0].id));
-  }, [sessions, activeSession]);
+  }, [sessions, activeSession, dispatch]);
 
   const activePresetCount = selectors.filter((s) => {
-    if (s.id === FOLD_SELECTOR_ID || s.id === SELECTION_SELECTOR_ID)
+    if (s.id === FOLD_SELECTOR_ID)
       return false;
     return (activeSession?.selectorModes[s.id] ?? "off") !== "off";
   }).length;
@@ -825,13 +824,11 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
           {foldIcon}
         </Button>
 
-        {sessions.length > 0 && (
-          <Select
-            value={activeSession?.id ?? sessions[0]?.id ?? ""}
-            onValueChange={(v: string) => dispatch(setActiveSession(v))}
-            options={sessions.map((s) => ({ value: s.id, label: s.label }))}
-          />
-        )}
+        <Select
+          value={activeSession?.id ?? sessions[0]?.id ?? ""}
+          onValueChange={(v: string) => dispatch(setActiveSession(v))}
+          options={sessions.map((s) => ({ value: s.id, label: s.label }))}
+        />
 
         <div className="relative">
           <Button

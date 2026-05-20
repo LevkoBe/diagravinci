@@ -10,7 +10,6 @@ import {
 } from "../../application/store/filterSlice";
 import {
   FOLD_SELECTOR_ID,
-  SELECTION_SELECTOR_ID,
   toSelectorId,
   type SelectorMode,
   type Selector,
@@ -409,7 +408,7 @@ export function SelectorsPanel() {
   const expressionRef = useRef<HTMLInputElement>(null);
 
   const visibleSelectors = selectors.filter(
-    (s) => s.id !== FOLD_SELECTOR_ID && s.id !== SELECTION_SELECTOR_ID,
+    (s) => s.id !== FOLD_SELECTOR_ID,
   );
 
   const [activeId, setActiveId] = useState<string | null>(

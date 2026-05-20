@@ -16,9 +16,8 @@ import {
 import { toggleElementFold } from "../../application/store/filterSlice";
 import { syncManager, store } from "../../application/store/store";
 import { getCSSVariable } from "../../shared/utils";
-import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 import { toSelectorId } from "../../domain/models/Selector";
-import { TAB_SESSION_ID } from "../../shared/tabSessionId";
+import type { SelectorMode } from "../../domain/models/Selector";
 import { useExecution } from "../hooks/useExecution";
 import { getExecutionColorMap } from "../../application/ExecutionEngine";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
@@ -152,71 +151,72 @@ export function VisualCanvas() {
     groupMoveSelIdRef.current = groupMoveSelectorId;
   }, [groupMoveSelectorId]);
 
-  const SELECTION_LABEL = `Selected_${TAB_SESSION_ID}`;
-  const SELECTION_SEL_ID = toSelectorId(SELECTION_LABEL);
-  const prevSelectedRef = useRef<string[]>([]);
-
   useEffect(() => {
-    const prev = new Set(prevSelectedRef.current);
-    const curr = new Set(selectedElementIds);
-    const same =
-      prev.size === curr.size && selectedElementIds.every((id) => prev.has(id));
-    if (same) return;
-    prevSelectedRef.current = selectedElementIds;
-
+    if (!activeSessionId) return;
     const { model: currentModel } = store.getState().diagram;
+    const selLabel = `Selection_${activeSessionId}`;
+    const selId = toSelectorId(selLabel);
+    const selColor = getCSSVariable("--color-state-selected");
     const selectedSet = new Set(selectedElementIds);
 
-    let flagsChanged = false;
+    let needsUpdate = false;
     const updatedElements = { ...currentModel.elements };
     for (const [id, el] of Object.entries(currentModel.elements)) {
-      const wasSelected = (el.flags ?? []).some(
-        (f) => toSelectorId(f) === SELECTION_SEL_ID,
-      );
-      const isSelected = selectedSet.has(id);
-      if (wasSelected === isSelected) continue;
-      flagsChanged = true;
-      const filteredFlags = (el.flags ?? []).filter(
-        (f) => toSelectorId(f) !== SELECTION_SEL_ID,
-      );
-      if (isSelected) filteredFlags.push(SELECTION_LABEL);
+      const hasFlag = (el.flags ?? []).includes(selLabel);
+      const shouldHaveFlag = selectedSet.has(id);
+      if (hasFlag === shouldHaveFlag) continue;
+      needsUpdate = true;
+      const newFlags = (el.flags ?? []).filter((f) => f !== selLabel);
+      if (shouldHaveFlag) newFlags.push(selLabel);
       updatedElements[id] = {
         ...el,
-        flags: filteredFlags.length > 0 ? filteredFlags : undefined,
+        flags: newFlags.length > 0 ? newFlags : undefined,
       };
     }
 
     const existingSelectors = currentModel.selectors ?? [];
-    const existingSel = existingSelectors.find(
-      (s) => s.id === SELECTION_SEL_ID,
-    );
-    const needsSelector = !existingSel && selectedElementIds.length > 0;
-
-    if (!flagsChanged && !needsSelector) return;
-
     let updatedSelectors = existingSelectors;
-    if (needsSelector) {
-      const selColor = getCSSVariable("--color-state-selected");
-      updatedSelectors = [
-        {
-          id: SELECTION_SEL_ID,
-          label: SELECTION_LABEL,
-          expression: "",
-          mode: "color" as const,
-          color: selColor,
-        },
-        ...existingSelectors,
-      ];
+    let sessionsChanged = false;
+    let updatedSessions = currentModel.sessions ?? [];
+
+    if (selectedSet.size > 0) {
+      const selectorIsNew = !existingSelectors.some((s) => s.id === selId);
+      if (selectorIsNew) {
+        updatedSelectors = [
+          ...existingSelectors,
+          { id: selId, label: selLabel, expression: "", color: selColor },
+        ];
+        needsUpdate = true;
+        const mapped = (currentModel.sessions ?? []).map((session) => {
+          if (
+            session.id !== activeSessionId ||
+            session.selectorModes[selId] === "color"
+          )
+            return session;
+          sessionsChanged = true;
+          return {
+            ...session,
+            selectorModes: {
+              ...session.selectorModes,
+              [selId]: "color" as SelectorMode,
+            },
+          };
+        });
+        if (sessionsChanged) updatedSessions = mapped;
+      }
     }
 
-    const updatedModel = {
-      ...currentModel,
-      elements: updatedElements,
-      selectors: updatedSelectors,
-    };
-    const newCode = new CodeGenerator(updatedModel).generate();
-    syncManager.syncFromCode(newCode, true);
-  }, [selectedElementIds]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!needsUpdate && !sessionsChanged) return;
+    syncManager.syncFromVis(
+      {
+        ...currentModel,
+        elements: updatedElements,
+        selectors: updatedSelectors,
+        sessions: updatedSessions,
+      },
+      true,
+    );
+  }, [selectedElementIds, activeSessionId]);
 
   useEffect(() => {
     if (interactionMode !== "presentation") return;

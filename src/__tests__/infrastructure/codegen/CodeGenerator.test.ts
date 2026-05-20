@@ -176,10 +176,47 @@ describe("CodeGenerator", () => {
   });
 
   describe("empty model", () => {
-    it("generates only a newline for empty model", () => {
+    it("generates no directives for an empty model with empty default session", () => {
       const model = parse("");
       const code = generate(model);
-      expect(code.trim()).toBe("");
+      expect(code).not.toContain("!session");
+      expect(code).not.toContain("!rule");
+      expect(code).not.toContain("!selector");
+    });
+
+    it("emits the default session when it has selector modes", () => {
+      const model = parse("!session  id=default  label=Default  selectors=foo:color");
+      const code = generate(model);
+      expect(code).toContain("!session");
+      expect(code).toContain("id=default");
+      expect(code).toContain("selectors=foo:color");
+    });
+  });
+
+  describe("session emission", () => {
+    it("suppresses the default session when its selectorModes is empty", () => {
+      const model = createEmptyDiagram();
+      const code = generate(model);
+      expect(code).not.toContain("!session");
+    });
+
+    it("emits the default session when it has selector modes", () => {
+      const model = createEmptyDiagram();
+      model.sessions = [{ id: "default", label: "Default", selectorModes: { s1: "color" } }];
+      const code = generate(model);
+      expect(code).toContain("!session  id=default");
+      expect(code).toContain("selectors=s1:color");
+    });
+
+    it("always emits non-default sessions even when selectorModes is empty", () => {
+      const model = createEmptyDiagram();
+      model.sessions = [
+        { id: "default", label: "Default", selectorModes: {} },
+        { id: "remote", label: "Remote", selectorModes: {} },
+      ];
+      const code = generate(model);
+      expect(code).toContain("!session  id=remote");
+      expect(code).not.toContain("!session  id=default");
     });
   });
 
@@ -286,20 +323,18 @@ describe("CodeGenerator", () => {
         id: "ok",
         label: "ok",
         color: "#123456",
-        mode: "color",
         expression: "fn",
         ...overrides,
       };
     }
 
-    it("generates !selector line with name, color, mode, expression", () => {
+    it("generates !selector line with name, color, and expression", () => {
       const model = createEmptyDiagram();
       model.selectors = [makeSelector()];
       const code = generate(model);
       expect(code).toContain("!selector");
       expect(code).toContain("name=ok");
       expect(code).toContain("color=#123456");
-      expect(code).toContain("mode=color");
       expect(code).toContain("expression=fn");
     });
 
@@ -316,26 +351,13 @@ describe("CodeGenerator", () => {
       const code = generate(model);
       expect(code).toContain('expression="a b"');
     });
-
-    it("generates hide, dim, and off modes correctly", () => {
-      const model = createEmptyDiagram();
-      model.selectors = [
-        makeSelector({ id: "h", mode: "hide" }),
-        makeSelector({ id: "d", mode: "dim" }),
-        makeSelector({ id: "o", mode: "off" }),
-      ];
-      const code = generate(model);
-      expect(code).toContain("mode=hide");
-      expect(code).toContain("mode=dim");
-      expect(code).toContain("mode=off");
-    });
   });
 
   describe("rules/selectors blank-line separator", () => {
     it("inserts a blank line between directives and elements", () => {
       const model = createEmptyDiagram();
       model.selectors = [
-        { id: "p", label: "p", color: "#fff", mode: "color", expression: "" },
+        { id: "p", label: "p", color: "#fff", expression: "" },
       ];
       model.elements["a"] = createElement("a", "object");
       model.root.childIds.push("a");
