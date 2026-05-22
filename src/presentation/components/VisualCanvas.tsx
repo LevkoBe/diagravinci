@@ -65,6 +65,7 @@ export function VisualCanvas() {
   >({});
   const justDraggedPathsRef = useRef<Set<string>>(new Set());
   const geometryCacheRef = useRef<GeometryCache>(new Map());
+  const currentAnimRef = useRef<Konva.Animation | null>(null);
   const [zoom, setZoom] = useState(1);
   const dragSelectRef = useRef<{
     startScreen: { x: number; y: number };
@@ -641,6 +642,8 @@ export function VisualCanvas() {
       !stageRef.current
     )
       return;
+    currentAnimRef.current?.stop();
+    currentAnimRef.current = null;
     const renderer = new DiagramLayerRenderer(
       stageRef.current,
       model,
@@ -832,7 +835,7 @@ export function VisualCanvas() {
       relLineStyle,
       interactionMode === "readonly",
       interactionMode === "presentation",
-      getExecutionColorMap(execInstances, execColor),
+      getExecutionColorMap(execInstances, model, execColor),
       classDiagramMode,
       elementSizes,
       geometryCacheRef.current,
@@ -842,7 +845,16 @@ export function VisualCanvas() {
       }),
     );
 
-    const cloneIds = new Set(execInstances.flatMap((i) => i.clonedElementIds));
+    const cloneIds = new Set<string>();
+    for (const inst of execInstances) {
+      const bfsQ = [...inst.clonedElementIds];
+      let bfsQi = 0;
+      while (bfsQi < bfsQ.length) {
+        const id = bfsQ[bfsQi++];
+        cloneIds.add(id);
+        model.elements[id]?.childIds.forEach((c) => bfsQ.push(c));
+      }
+    }
     const cloneRelIds = new Set(
       execInstances.flatMap((i) => i.clonedRelationshipIds),
     );
@@ -975,8 +987,12 @@ export function VisualCanvas() {
             );
           }
 
-          if (t >= 1) anim.stop();
+          if (t >= 1) {
+            anim.stop();
+            currentAnimRef.current = null;
+          }
         }, layers);
+        currentAnimRef.current = anim;
         anim.start();
       }
     }

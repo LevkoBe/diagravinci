@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { unstable_batchedUpdates } from "react-dom";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import { tickAdvance } from "../../application/store/executionSlice";
 import { computeExecutionStep, applyDeltaToModel } from "../../application/ExecutionEngine";
@@ -28,7 +29,7 @@ export function useExecution(): React.MutableRefObject<Map<string, { x: number; 
 
     const intervalId = setInterval(() => {
       const state = store.getState();
-      const { instances, tickCount, nextInstanceId, executionColor } =
+      const { instances, tickCount, nextInstanceId, executionColor, settledCloneIds, removedTemplates } =
         state.execution;
       const { model, viewState } = state.diagram;
 
@@ -39,6 +40,8 @@ export function useExecution(): React.MutableRefObject<Map<string, { x: number; 
         tickCount,
         nextInstanceId,
         executionColor,
+        settledCloneIds,
+        removedTemplates,
       );
 
       spawnOriginsRef.current.clear();
@@ -48,14 +51,19 @@ export function useExecution(): React.MutableRefObject<Map<string, { x: number; 
       }
 
       const newModel = applyDeltaToModel(model, result.delta);
-      syncManager.syncFromVis(newModel);
 
-      dispatch(
-        tickAdvance({
-          nextInstances: result.nextInstances,
-          nextInstanceId: result.nextInstanceId,
-        }),
-      );
+      unstable_batchedUpdates(() => {
+        syncManager.syncFromVis(newModel);
+        dispatch(
+          tickAdvance({
+            nextInstances: result.nextInstances,
+            nextInstanceId: result.nextInstanceId,
+            addSettledIds: result.addSettledIds,
+            removeSettledIds: result.removeSettledIds,
+            addRemovedTemplates: result.addRemovedTemplates,
+          }),
+        );
+      });
     }, tickIntervalMs);
 
     return () => clearInterval(intervalId);

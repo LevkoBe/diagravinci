@@ -1,5 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { AppConfig } from "../../config/appConfig";
+import type { RemovedTemplate } from "../ExecutionEngine";
 
 export interface TokenInstance {
   id: string;
@@ -19,6 +20,8 @@ interface ExecutionState {
   tickIntervalMs: number;
   materialize: boolean;
   executionColor: string;
+  settledCloneIds: string[];
+  removedTemplates: RemovedTemplate[];
 }
 
 const initialState: ExecutionState = {
@@ -29,6 +32,8 @@ const initialState: ExecutionState = {
   tickIntervalMs: AppConfig.execution.DEFAULT_TICK_INTERVAL_MS,
   materialize: false,
   executionColor: AppConfig.execution.TOKEN_COLOR,
+  settledCloneIds: [],
+  removedTemplates: [],
 };
 
 const executionSlice = createSlice({
@@ -46,17 +51,32 @@ const executionSlice = createSlice({
       state.tickCount = 0;
       state.instances = [];
       state.nextInstanceId = 0;
+      state.settledCloneIds = [];
+      state.removedTemplates = [];
     },
     tickAdvance(
       state,
       action: PayloadAction<{
         nextInstances: TokenInstance[];
         nextInstanceId: number;
+        addSettledIds?: string[];
+        removeSettledIds?: string[];
+        addRemovedTemplates?: RemovedTemplate[];
       }>,
     ) {
       state.instances = action.payload.nextInstances;
       state.nextInstanceId = action.payload.nextInstanceId;
       state.tickCount += 1;
+      if (action.payload.addSettledIds?.length) {
+        state.settledCloneIds.push(...action.payload.addSettledIds);
+      }
+      if (action.payload.removeSettledIds?.length) {
+        const removeSet = new Set(action.payload.removeSettledIds);
+        state.settledCloneIds = state.settledCloneIds.filter((id) => !removeSet.has(id));
+      }
+      if (action.payload.addRemovedTemplates?.length) {
+        state.removedTemplates.push(...action.payload.addRemovedTemplates);
+      }
     },
     setTickIntervalMs(state, action: PayloadAction<number>) {
       state.tickIntervalMs = action.payload;

@@ -272,7 +272,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
   const cleanupAndReset = () => {
     if (!execState.materialize && execState.instances.length > 0) {
       const { model: currentModel } = store.getState().diagram;
-      const cleanedModel = buildCleanedModel(currentModel, execState.instances);
+      const cleanedModel = buildCleanedModel(currentModel, execState.instances, execState.removedTemplates);
       syncManager.syncFromVis(cleanedModel);
     }
     dispatch(resetExecution());

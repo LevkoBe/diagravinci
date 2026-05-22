@@ -6,6 +6,11 @@ import type { TokenInstance } from "./store/executionSlice";
 
 export type { TokenInstance };
 
+export interface RemovedTemplate {
+  rootId: string;
+  parentId: string;
+}
+
 export interface ExecutionStepDelta {
   addElements: Array<{
     element: Element;
@@ -29,12 +34,19 @@ export interface ExecutionStepDelta {
     toPath: string;
     newPosition: { x: number; y: number };
   }>;
+  hideFromParent: Array<{
+    elementId: string;
+    parentElementId: string;
+  }>;
 }
 
 export interface StepResult {
   delta: ExecutionStepDelta;
   nextInstances: TokenInstance[];
   nextInstanceId: number;
+  addSettledIds: string[];
+  removeSettledIds: string[];
+  addRemovedTemplates: RemovedTemplate[];
 }
 
 function isFlowRelationship(type: string): boolean {
@@ -248,8 +260,14 @@ export function computeExecutionStep(
   tickCount: number,
   nextInstanceId: number,
   executionColor: string,
+  settledCloneIds: string[] = [],
+  removedTemplates: RemovedTemplate[] = [],
 ): StepResult {
   void executionColor;
+
+  const addSettledIds: string[] = [];
+  const removeSettledIds: string[] = [];
+  const addRemovedTemplates: RemovedTemplate[] = [];
 
   const delta: ExecutionStepDelta = {
     addElements: [],
@@ -257,6 +275,7 @@ export function computeExecutionStep(
     removeElements: [],
     removeRelationshipIds: [],
     moveElements: [],
+    hideFromParent: [],
   };
   const nextInstances: TokenInstance[] = [];
   let idCounter = nextInstanceId;
@@ -269,15 +288,13 @@ export function computeExecutionStep(
   }
 
   const allCloneIds = new Set<string>();
-  for (const inst of instances) {
-    for (const topId of inst.clonedElementIds) {
-      const bfsQ = [topId];
-      let bfsQi = 0;
-      while (bfsQi < bfsQ.length) {
-        const id = bfsQ[bfsQi++];
-        allCloneIds.add(id);
-        model.elements[id]?.childIds.forEach((c) => bfsQ.push(c));
-      }
+  for (const topId of [...settledCloneIds, ...instances.flatMap((i) => i.clonedElementIds)]) {
+    const bfsQ = [topId];
+    let bfsQi = 0;
+    while (bfsQi < bfsQ.length) {
+      const id = bfsQ[bfsQi++];
+      allCloneIds.add(id);
+      model.elements[id]?.childIds.forEach((c) => bfsQ.push(c));
     }
   }
 
@@ -364,18 +381,41 @@ export function computeExecutionStep(
     if (currentEl?.type === "object") {
       for (const incomingId of instance.clonedElementIds) {
         const inBase = baseName(incomingId);
+        const hasSlot =
+          currentEl.childIds.some(
+            (cid) => !allCloneIds.has(cid) && baseName(cid) === inBase,
+          ) ||
+          removedTemplates.some(
+            (rt) => rt.parentId === currentEl.id && baseName(rt.rootId) === inBase,
+          );
+        if (!hasSlot) {
+          delta.removeElements.push(
+            ...collectSubtreeRemoves(
+              model,
+              incomingId,
+              currentEl.id,
+              `${instance.currentPath}.${incomingId}`,
+            ),
+          );
+          continue;
+        }
         for (const childId of [...currentEl.childIds]) {
-          if (childId !== incomingId && baseName(childId) === inBase) {
-            delta.removeElements.push(
-              ...collectSubtreeRemoves(
-                model,
-                childId,
-                currentEl.id,
-                `${instance.currentPath}.${childId}`,
-              ),
+          if (childId === incomingId || baseName(childId) !== inBase) continue;
+          if (allCloneIds.has(childId)) {
+            const removes = collectSubtreeRemoves(
+              model,
+              childId,
+              currentEl.id,
+              `${instance.currentPath}.${childId}`,
             );
+            delta.removeElements.push(...removes);
+            for (const { elementId } of removes) removeSettledIds.push(elementId);
+          } else {
+            delta.hideFromParent.push({ elementId: childId, parentElementId: currentEl.id });
+            addRemovedTemplates.push({ rootId: childId, parentId: currentEl.id });
           }
         }
+        addSettledIds.push(incomingId);
       }
       for (const relId of instance.clonedRelationshipIds) {
         delta.removeRelationshipIds.push(relId);
@@ -662,17 +702,22 @@ export function computeExecutionStep(
     }
   }
 
-  return { delta, nextInstances, nextInstanceId: idCounter };
+  return { delta, nextInstances, nextInstanceId: idCounter, addSettledIds, removeSettledIds, addRemovedTemplates };
 }
 
 export function getExecutionColorMap(
   instances: TokenInstance[],
+  model: DiagramModel,
   color: string,
 ): Record<string, string> {
   const map: Record<string, string> = {};
   for (const inst of instances) {
-    for (const id of inst.clonedElementIds) {
+    const bfsQ = [...inst.clonedElementIds];
+    let bfsQi = 0;
+    while (bfsQi < bfsQ.length) {
+      const id = bfsQ[bfsQi++];
       map[id] = color;
+      model.elements[id]?.childIds.forEach((c) => bfsQ.push(c));
     }
   }
   return map;
@@ -724,12 +769,20 @@ export function applyDeltaToModel(
     }
   }
 
+  for (const { elementId, parentElementId } of delta.hideFromParent) {
+    const parent = elements[parentElementId];
+    if (parent) {
+      parent.childIds = parent.childIds.filter((c) => c !== elementId);
+    }
+  }
+
   return { ...model, root, elements, relationships };
 }
 
 export function buildCleanedModel(
   model: DiagramModel,
   instances: TokenInstance[],
+  removedTemplates: RemovedTemplate[] = [],
 ): DiagramModel {
   const elements: Record<string, Element> = {};
   for (const [id, el] of Object.entries(model.elements)) {
@@ -738,12 +791,25 @@ export function buildCleanedModel(
   const relationships = { ...model.relationships };
   const root = { ...model.root, childIds: [...model.root.childIds] };
 
+  for (const { rootId, parentId } of removedTemplates) {
+    const parent = elements[parentId];
+    if (parent && !parent.childIds.includes(rootId)) {
+      parent.childIds = [...parent.childIds, rootId];
+    }
+  }
+
   for (const instance of instances) {
     for (const cloneId of instance.clonedElementIds) {
-      delete elements[cloneId];
-      const parent = elements[instance.currentElementId];
-      if (parent) {
-        parent.childIds = parent.childIds.filter((c) => c !== cloneId);
+      const removes = collectSubtreeRemoves(
+        { ...model, elements } as DiagramModel,
+        cloneId,
+        instance.currentElementId,
+        cloneId,
+      );
+      for (const { elementId, parentElementId } of removes) {
+        delete elements[elementId];
+        const parent = elements[parentElementId];
+        if (parent) parent.childIds = parent.childIds.filter((c) => c !== elementId);
       }
     }
     for (const relId of instance.clonedRelationshipIds) {
