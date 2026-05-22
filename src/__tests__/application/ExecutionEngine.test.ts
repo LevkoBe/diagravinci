@@ -1042,7 +1042,7 @@ describe("computeExecutionStep — choice routing", () => {
 
 describe("getExecutionColorMap", () => {
   it("returns empty map for no instances", () => {
-    expect(getExecutionColorMap([], "#f00")).toEqual({});
+    expect(getExecutionColorMap([], makeModel([]), "#f00")).toEqual({});
   });
 
   it("maps each cloned element id to the color", () => {
@@ -1055,7 +1055,7 @@ describe("getExecutionColorMap", () => {
         clonedRelationshipIds: [],
       },
     ];
-    const map = getExecutionColorMap(instances, "#f97316");
+    const map = getExecutionColorMap(instances, makeModel([]), "#f97316");
     expect(map["c1"]).toBe("#f97316");
     expect(map["c2"]).toBe("#f97316");
   });
@@ -1077,7 +1077,7 @@ describe("getExecutionColorMap", () => {
         clonedRelationshipIds: [],
       },
     ];
-    const map = getExecutionColorMap(instances, "#abc");
+    const map = getExecutionColorMap(instances, makeModel([]), "#abc");
     expect(Object.keys(map)).toHaveLength(3);
     expect(map["c1"]).toBe("#abc");
     expect(map["c3"]).toBe("#abc");
@@ -1093,7 +1093,7 @@ describe("getExecutionColorMap", () => {
         clonedRelationshipIds: [],
       },
     ];
-    expect(getExecutionColorMap(instances, "#f00")).toEqual({});
+    expect(getExecutionColorMap(instances, makeModel([]), "#f00")).toEqual({});
   });
 });
 
@@ -1117,6 +1117,7 @@ describe("applyDeltaToModel", () => {
     removeElements: [],
     removeRelationshipIds: [],
     moveElements: [],
+    hideFromParent: [],
   });
 
   it("returns unchanged model when delta is empty", () => {

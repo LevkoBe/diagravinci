@@ -19,6 +19,8 @@ const initialState = {
   tickIntervalMs: AppConfig.execution.DEFAULT_TICK_INTERVAL_MS,
   materialize: false,
   executionColor: AppConfig.execution.TOKEN_COLOR,
+  settledCloneIds: [],
+  removedTemplates: [],
 };
 
 function makeToken(id: string): TokenInstance {

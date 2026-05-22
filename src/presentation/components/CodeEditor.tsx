@@ -61,6 +61,7 @@ export function CodeEditor() {
     <div
       className="h-full"
       onKeyDown={(e) => {
+        if (e.key === "Escape") (document.activeElement as HTMLElement)?.blur();
         if (!e.ctrlKey && !e.metaKey && !e.altKey) e.stopPropagation();
       }}
     >
