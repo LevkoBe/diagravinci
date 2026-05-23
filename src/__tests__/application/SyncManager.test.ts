@@ -18,7 +18,9 @@ import {
   createEmptyViewState,
   type ViewState,
 } from "../../domain/models/ViewState";
+import { createElement } from "../../domain/models/Element";
 import diagramReducer, {
+  setModel,
   setViewState,
 } from "../../application/store/diagramSlice";
 import filterReducer from "../../application/store/filterSlice";
@@ -44,7 +46,11 @@ function makeStore(
   const codeGenerator = {
     generate: (m: DiagramModel) => new CodeGenerator(m).generate(),
   };
-  const sm = new SyncManager(store as unknown as AppStore, parser, codeGenerator);
+  const sm = new SyncManager(
+    store as unknown as AppStore,
+    parser,
+    codeGenerator,
+  );
   return { store, sm };
 }
 
@@ -274,5 +280,127 @@ describe("SyncManager.restartForceIfNeeded", () => {
     );
     sm.reLayout();
     expect(store.getState().diagram.viewState.viewMode).toBe("force");
+  });
+});
+
+describe("SyncManager.syncFromVis — clone position deduplication", () => {
+  function pe(
+    id: string,
+    x: number,
+    y: number,
+    size = 60,
+  ): import("../../domain/models/ViewState").PositionedElement {
+    return { id, position: { x, y }, size, value: 1 };
+  }
+
+  it("keeps deepest path for a clone that appears at both root and nested scope", () => {
+    const { store, sm } = makeStore();
+
+    const a = createElement("a", "function");
+    const b = createElement("b", "function");
+    const c = createElement("c", "function");
+    const x0 = createElement("x_0", "object");
+    a.childIds = ["x_0"];
+    b.childIds = ["c"];
+    const rootEl = createElement("root", "object");
+    rootEl.childIds = ["a", "b", "c", "x_0"];
+    const initialModel: DiagramModel = {
+      root: rootEl,
+      elements: { a, b, c, x_0: x0 },
+      relationships: {},
+      metadata: { version: "1.0.0", created: "", modified: "" },
+    };
+    store.dispatch(setModel(initialModel));
+    store.dispatch(
+      setViewState({
+        ...createEmptyViewState(),
+        positions: {
+          a: pe("a", 100, 0),
+          b: pe("b", 200, 0, 100),
+          "b.c": pe("c", 250, -50),
+          c: pe("c", 400, -50),
+
+          "b.c.x_0": pe("x_0", 250, -50, 30),
+          "c.x_0": pe("x_0", 400, -50, 30),
+        },
+      }),
+    );
+
+    const a2 = createElement("a", "function");
+    const b2 = createElement("b", "function");
+    const c2 = createElement("c", "function");
+    const x0_2 = createElement("x_0", "object");
+    a2.childIds = [];
+    b2.childIds = ["c"];
+    c2.childIds = ["x_0"];
+    const rootEl2 = createElement("root", "object");
+    rootEl2.childIds = ["a", "b", "c", "x_0"];
+    const updatedModel: DiagramModel = {
+      root: rootEl2,
+      elements: { a: a2, b: b2, c: c2, x_0: x0_2 },
+      relationships: {},
+      metadata: { version: "1.0.0", created: "", modified: "" },
+    };
+
+    sm.syncFromVis(updatedModel, false, undefined, new Set(["x_0"]));
+
+    const { viewState } = store.getState().diagram;
+    expect(viewState.positions["b.c.x_0"]).toBeDefined();
+    expect(viewState.positions["c.x_0"]).toBeUndefined();
+  });
+
+  it("does not remove any position when clone appears at only one path", () => {
+    const { store, sm } = makeStore();
+
+    const a = createElement("a", "function");
+    const b = createElement("b", "function");
+    const x0 = createElement("x_0", "object");
+    a.childIds = ["x_0"];
+    const rootEl = createElement("root", "object");
+    rootEl.childIds = ["a", "b", "x_0"];
+    const initialModel: DiagramModel = {
+      root: rootEl,
+      elements: { a, b, x_0: x0 },
+      relationships: {},
+      metadata: { version: "1.0.0", created: "", modified: "" },
+    };
+    store.dispatch(setModel(initialModel));
+    store.dispatch(
+      setViewState({
+        ...createEmptyViewState(),
+        positions: {
+          a: pe("a", 100, 0),
+          b: pe("b", 200, 0),
+          "a.x_0": pe("x_0", 100, 0, 30),
+        },
+      }),
+    );
+
+    const b2 = createElement("b", "function");
+    const x0_2 = createElement("x_0", "object");
+    const a2 = createElement("a", "function");
+    a2.childIds = [];
+    b2.childIds = ["x_0"];
+    const rootEl2 = createElement("root", "object");
+    rootEl2.childIds = ["a", "b", "x_0"];
+    const updatedModel: DiagramModel = {
+      root: rootEl2,
+      elements: { a: a2, b: b2, x_0: x0_2 },
+      relationships: {},
+      metadata: { version: "1.0.0", created: "", modified: "" },
+    };
+
+    sm.syncFromVis(updatedModel, false, undefined, new Set(["x_0"]));
+
+    const { viewState } = store.getState().diagram;
+
+    const x0Paths = Object.keys(viewState.positions).filter(
+      (p) => p === "x_0" || p.endsWith(".x_0"),
+    );
+    expect(x0Paths.length).toBeGreaterThanOrEqual(1);
+
+    for (const p of x0Paths) {
+      expect(viewState.positions[p]).toBeDefined();
+    }
   });
 });

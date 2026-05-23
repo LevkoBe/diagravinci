@@ -51,9 +51,10 @@ export function useExecution(): React.MutableRefObject<Map<string, { x: number; 
       }
 
       const newModel = applyDeltaToModel(model, result.delta);
+      const allCloneIds = new Set(result.nextInstances.flatMap((i) => i.clonedElementIds));
 
       unstable_batchedUpdates(() => {
-        syncManager.syncFromVis(newModel);
+        syncManager.syncFromVis(newModel, false, undefined, allCloneIds);
         dispatch(
           tickAdvance({
             nextInstances: result.nextInstances,

@@ -206,7 +206,8 @@ export class Parser {
         }
         case "-":
         case ">": {
-          lastRel = this.parseRelationship(lastPath ?? parent.id, lastRel);
+          const scope = wrapper === "(" ? parent.id : undefined;
+          lastRel = this.parseRelationship(lastPath ?? parent.id, lastRel, scope);
           lastEl = null;
           lastPath = null;
           lastElWasWrapped = false;
@@ -346,6 +347,7 @@ export class Parser {
   private parseRelationship = (
     sourcePath: string,
     lastRel: Relationship | null,
+    parentScope?: string,
   ): Relationship => {
     let label: string | undefined = undefined;
     let relType: TokenType | undefined = undefined;
@@ -372,6 +374,7 @@ export class Parser {
       defaultRelationshipType(relType),
       sourcePath,
       label,
+      parentScope,
     );
   };
 
@@ -523,6 +526,7 @@ export class Parser {
     type: RelationshipType = "-->",
     target: string = "",
     label: string = "",
+    parentScope?: string,
   ): Relationship {
     const rel = createRelationship(
       this.genId("rel"),
@@ -530,6 +534,7 @@ export class Parser {
       target,
       type,
       label,
+      parentScope,
     );
     this.model.relationships[rel.id] = rel;
     return rel;

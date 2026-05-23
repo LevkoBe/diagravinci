@@ -8,6 +8,7 @@ export interface TokenInstance {
   currentPath: string;
   clonedElementIds: string[];
   clonedRelationshipIds: string[];
+  pendingExits?: Array<{ enteredAt: string; exitTargets: string[] }>;
 }
 
 export type ExecutionStatus = "stopped" | "running" | "paused";

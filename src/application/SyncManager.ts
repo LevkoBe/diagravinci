@@ -150,6 +150,7 @@ export class SyncManager {
     updatedModel: DiagramModel,
     preservePositions = false,
     pathRemapping?: { oldPrefix: string; newPrefix: string },
+    cloneIds?: Set<string>,
   ): void {
     const {
       model: currentModel,
@@ -179,12 +180,28 @@ export class SyncManager {
       mergeViewState = { ...currentViewState, positions: remappedPositions };
     }
 
-    const newViewState = ViewStateMerger.merge(
+    let newViewState = ViewStateMerger.merge(
       mergeViewState,
       updatedModel,
       canvasSize,
       preservePositions,
     );
+
+    if (cloneIds && cloneIds.size > 0) {
+      const positions = { ...newViewState.positions };
+      for (const cloneId of cloneIds) {
+        const matching = Object.keys(positions).filter(
+          (p) => p === cloneId || p.endsWith(`.${cloneId}`),
+        );
+        if (matching.length <= 1) continue;
+        const maxDepth = Math.max(...matching.map((p) => p.split(".").length));
+        for (const p of matching) {
+          if (p.split(".").length < maxDepth) delete positions[p];
+        }
+      }
+      newViewState = { ...newViewState, positions };
+    }
+
     this.store.dispatch(setViewState(newViewState));
     this.restartForceIfNeeded(newViewState);
 
