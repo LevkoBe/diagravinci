@@ -432,7 +432,7 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      if (interactionModeRef.current === "presentation") {
+      {
         let dir: NavDirection | null = null;
         if (e.key === "ArrowRight") dir = "forward";
         else if (e.key === "ArrowLeft") dir = "backward";
