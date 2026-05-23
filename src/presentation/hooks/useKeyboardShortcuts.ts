@@ -151,16 +151,16 @@ function deleteElements(
 }
 
 const MODE_KEYS: Record<string, InteractionMode> = {
-  "1": "select",
-  "2": "create",
-  "3": "connect",
-  "4": "delete",
-  "5": "disconnect",
-  "6": "readonly",
-  "7": "presentation",
+  Digit1: "select",
+  Digit2: "create",
+  Digit3: "connect",
+  Digit4: "delete",
+  Digit5: "disconnect",
+  Digit6: "readonly",
+  Digit7: "presentation",
 };
 
-const QWERTY = ["q", "w", "e", "r", "t", "y"] as const;
+const QWERTY_CODES = ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY"] as const;
 
 const ELEMENT_TYPES: ElementType[] = [
   "object",
@@ -225,19 +225,19 @@ export function useKeyboardShortcuts({
 
       const ctrl = e.ctrlKey || e.metaKey;
 
-      if (ctrl && !e.shiftKey && e.key === "s") {
+      if (ctrl && !e.shiftKey && e.code === "KeyS") {
         e.preventDefault();
         onSaveRef.current?.();
         return;
       }
 
-      if (ctrl && e.key === "o") {
+      if (ctrl && e.code === "KeyO") {
         e.preventDefault();
         onOpenRef.current?.();
         return;
       }
 
-      if (ctrl && e.key.toLowerCase() === "a") {
+      if (ctrl && e.code === "KeyA") {
         e.preventDefault();
         const allIds = Object.keys(store.getState().diagram.model.elements);
         dispatch(setSelectedElements(allIds));
@@ -265,7 +265,7 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      if (ctrl && e.key.toLowerCase() === "c") {
+      if (ctrl && e.code === "KeyC") {
         e.preventDefault();
         const state = store.getState();
         const selectedIds = state.ui.selectedElementIds;
@@ -274,7 +274,7 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      if (ctrl && e.key.toLowerCase() === "x") {
+      if (ctrl && e.code === "KeyX") {
         e.preventDefault();
         const state = store.getState();
         const selectedIds = state.ui.selectedElementIds;
@@ -286,7 +286,7 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      if (ctrl && e.key.toLowerCase() === "v") {
+      if (ctrl && e.code === "KeyV") {
         e.preventDefault();
         if (!clipboard) return;
         const state = store.getState();
@@ -338,7 +338,7 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      if (ctrl && e.key.toLowerCase() === "d") {
+      if (ctrl && e.code === "KeyD") {
         e.preventDefault();
         const state = store.getState();
         const selectedIds = state.ui.selectedElementIds;
@@ -406,7 +406,7 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      if (e.key === "F5") {
+      if (e.code === "F5") {
         e.preventDefault();
         if (isExecuteMode) {
           dispatch(setViewMode(prevViewModeRef.current));
@@ -418,7 +418,7 @@ export function useKeyboardShortcuts({
 
       if (
         isExecuteMode &&
-        e.key === " " &&
+        e.code === "Space" &&
         !ctrl &&
         !e.shiftKey &&
         !e.altKey
@@ -483,15 +483,15 @@ export function useKeyboardShortcuts({
 
       if (ctrl || e.metaKey || e.altKey) return;
 
-      const mode = MODE_KEYS[e.key];
+      const mode = MODE_KEYS[e.code];
       if (mode) {
         e.preventDefault();
         dispatch(setInteractionMode(mode));
         return;
       }
 
-      const qwertyIndex = QWERTY.indexOf(
-        e.key.toLowerCase() as (typeof QWERTY)[number],
+      const qwertyIndex = QWERTY_CODES.indexOf(
+        e.code as (typeof QWERTY_CODES)[number],
       );
       if (qwertyIndex !== -1) {
         const currentMode = interactionModeRef.current;
