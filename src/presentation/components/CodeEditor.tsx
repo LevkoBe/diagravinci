@@ -26,8 +26,14 @@ export function CodeEditor() {
     undefined,
   );
 
-  const handleMount: OnMount = (editor) => {
+  const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
+    monaco.languages.setLanguageConfiguration("plaintext", {
+      comments: { lineComment: "#" },
+    });
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyD, () => {
+      editor.trigger("keyboard", "editor.action.copyLinesDownAction", null);
+    });
   };
 
   useEffect(() => {
