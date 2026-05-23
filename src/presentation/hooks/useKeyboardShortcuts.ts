@@ -220,6 +220,8 @@ export function useKeyboardShortcuts({
       const tag = target?.tagName;
       if (tag === "TEXTAREA" || tag === "INPUT" || target?.isContentEditable)
         return;
+      if (document.querySelector("[data-code-editor]")?.contains(target))
+        return;
 
       const ctrl = e.ctrlKey || e.metaKey;
 

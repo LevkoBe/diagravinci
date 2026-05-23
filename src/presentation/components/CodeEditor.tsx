@@ -59,6 +59,7 @@ export function CodeEditor() {
 
   return (
     <div
+      data-code-editor
       className="h-full"
       onKeyDown={(e) => {
         if (e.key === "Escape") (document.activeElement as HTMLElement)?.blur();
