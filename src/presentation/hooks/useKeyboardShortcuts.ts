@@ -29,9 +29,9 @@ import type { RelationshipType } from "../../infrastructure/parser/Token";
 import type { ViewState } from "../../domain/models/ViewState";
 
 interface ClipboardData {
+  topLevelIds: string[];
   elements: Record<string, Element>;
   relationships: Record<string, Relationship>;
-  topLevelIds: string[];
 }
 
 let clipboard: ClipboardData | null = null;
@@ -47,80 +47,13 @@ function collectSubtree(
   for (const childId of el.childIds) collectSubtree(childId, elements, out);
 }
 
-function freshId(
-  type: ElementType,
-  existing: Record<string, Element>,
-  reserved: Set<string>,
-): string {
-  const prefix = `${type}_`;
-  let max = 0;
-  for (const id of [...Object.keys(existing), ...Array.from(reserved)]) {
-    if (id.startsWith(prefix)) {
-      const n = parseInt(id.slice(prefix.length), 10);
-      if (!isNaN(n) && n > max) max = n;
-    }
-  }
-  return `${prefix}${max + 1}`;
-}
-
-function buildIdMap(
-  subtree: Record<string, Element>,
-  existing: Record<string, Element>,
-): Record<string, string> {
-  const map: Record<string, string> = {};
-  const reserved = new Set<string>();
-  for (const [, el] of Object.entries(subtree)) {
-    const newId = freshId(el.type, existing, reserved);
-    map[el.id] = newId;
-    reserved.add(newId);
-  }
-  return map;
-}
-
-function cloneWithMap(
-  subtree: Record<string, Element>,
-  idMap: Record<string, string>,
-): Record<string, Element> {
-  const result: Record<string, Element> = {};
-  for (const [, el] of Object.entries(subtree)) {
-    const newId = idMap[el.id];
-    result[newId] = {
-      ...el,
-      id: newId,
-      childIds: el.childIds.map((c) => idMap[c] ?? c),
-    };
-  }
-  return result;
-}
-
-function cloneRels(
-  rels: Record<string, Relationship>,
-  idMap: Record<string, string>,
-): Relationship[] {
-  return Object.values(rels).map((r) => ({
-    ...r,
-    id: `rel_${idMap[r.source] ?? r.source}_${idMap[r.target] ?? r.target}_${Date.now().toString(36)}`,
-    source: idMap[r.source] ?? r.source,
-    target: idMap[r.target] ?? r.target,
-  }));
-}
-
-function copySelection(
-  selectedIds: string[],
-  m: DiagramModel,
-): ClipboardData {
-  const collected: Record<string, Element> = {};
-  for (const id of selectedIds) collectSubtree(id, m.elements, collected);
-  const internalRels: Record<string, Relationship> = {};
-  for (const [relId, rel] of Object.entries(m.relationships)) {
-    if (collected[rel.source] && collected[rel.target])
-      internalRels[relId] = rel;
-  }
-  return {
-    elements: collected,
-    relationships: internalRels,
-    topLevelIds: selectedIds.filter((id) => collected[id]),
-  };
+function freshId(originalId: string, taken: Set<string>): string {
+  if (!taken.has(originalId)) return originalId;
+  const match = originalId.match(/^(.+)_(\d+)$/);
+  const base = match ? match[1] : originalId;
+  let n = match ? parseInt(match[2], 10) + 1 : 2;
+  while (taken.has(`${base}_${n}`)) n++;
+  return `${base}_${n}`;
 }
 
 function deleteElements(
@@ -270,7 +203,8 @@ export function useKeyboardShortcuts({
         const state = store.getState();
         const selectedIds = state.ui.selectedElementIds;
         if (selectedIds.length === 0) return;
-        clipboard = copySelection(selectedIds, state.diagram.model);
+        const m = state.diagram.model;
+        clipboard = { topLevelIds: selectedIds, elements: m.elements, relationships: m.relationships };
         return;
       }
 
@@ -280,7 +214,7 @@ export function useKeyboardShortcuts({
         const selectedIds = state.ui.selectedElementIds;
         if (selectedIds.length === 0) return;
         const m = state.diagram.model;
-        clipboard = copySelection(selectedIds, m);
+        clipboard = { topLevelIds: selectedIds, elements: m.elements, relationships: m.relationships };
         syncManager.syncFromVis(deleteElements(selectedIds, m));
         dispatch(setSelectedElements([]));
         return;
@@ -295,45 +229,39 @@ export function useKeyboardShortcuts({
 
         const newElements = { ...m.elements };
         let newRoot = { ...m.root };
-        const newRelationships = { ...m.relationships };
         const newSelectedIds: string[] = [];
 
         const targetList: (string | null)[] =
           pasteTargets.length > 0 ? pasteTargets : [null];
         for (const targetId of targetList) {
-          const idMap = buildIdMap(clipboard.elements, newElements);
-          const cloned = cloneWithMap(clipboard.elements, idMap);
-          Object.assign(newElements, cloned);
+          const siblings =
+            targetId === null
+              ? newRoot.childIds
+              : (newElements[targetId]?.childIds ?? []);
+          const taken = new Set(siblings);
+          const toAdd: string[] = [];
 
-          const newTopIds = clipboard.topLevelIds.map((id) => idMap[id]);
-          newSelectedIds.push(...newTopIds);
-
-          if (targetId === null) {
-            newRoot = {
-              ...newRoot,
-              childIds: [...newRoot.childIds, ...newTopIds],
-            };
-          } else {
-            const target = newElements[targetId];
-            if (target) {
-              newElements[targetId] = {
-                ...target,
-                childIds: [...target.childIds, ...newTopIds],
-              };
+          for (const srcId of clipboard.topLevelIds) {
+            if (!newElements[srcId]) {
+              const subtree: Record<string, Element> = {};
+              collectSubtree(srcId, clipboard.elements, subtree);
+              Object.assign(newElements, subtree);
             }
+            const id = freshId(srcId, taken);
+            if (id !== srcId) newElements[id] = { ...newElements[srcId] ?? clipboard.elements[srcId], id };
+            taken.add(id);
+            toAdd.push(id);
           }
 
-          for (const rel of cloneRels(clipboard.relationships, idMap)) {
-            newRelationships[rel.id] = rel;
+          newSelectedIds.push(...toAdd);
+          if (targetId === null) {
+            newRoot = { ...newRoot, childIds: [...siblings, ...toAdd] };
+          } else if (newElements[targetId]) {
+            newElements[targetId] = { ...newElements[targetId], childIds: [...siblings, ...toAdd] };
           }
         }
 
-        syncManager.syncFromVis({
-          ...m,
-          root: newRoot,
-          elements: newElements,
-          relationships: newRelationships,
-        });
+        syncManager.syncFromVis({ ...m, root: newRoot, elements: newElements });
         dispatch(setSelectedElements(newSelectedIds));
         return;
       }
@@ -347,61 +275,33 @@ export function useKeyboardShortcuts({
 
         const newElements = { ...m.elements };
         let newRoot = { ...m.root };
-        const newRelationships = { ...m.relationships };
         const newSelectedIds: string[] = [];
 
         for (const selId of selectedIds) {
-          const subtree: Record<string, Element> = {};
-          collectSubtree(selId, m.elements, subtree);
-
-          const internalRels: Record<string, Relationship> = {};
-          for (const [relId, rel] of Object.entries(m.relationships)) {
-            if (subtree[rel.source] && subtree[rel.target])
-              internalRels[relId] = rel;
+          let parentId: string | null = null;
+          if (!m.root.childIds.includes(selId)) {
+            for (const [pid, pel] of Object.entries(m.elements)) {
+              if (pel.childIds.includes(selId)) { parentId = pid; break; }
+            }
           }
 
-          const idMap = buildIdMap(subtree, newElements);
-          const cloned = cloneWithMap(subtree, idMap);
-          Object.assign(newElements, cloned);
-
-          const newId = idMap[selId];
+          const siblings =
+            parentId === null
+              ? newRoot.childIds
+              : (newElements[parentId]?.childIds ?? []);
+          const newId = freshId(selId, new Set(siblings));
+          const src = newElements[selId];
+          if (src) newElements[newId] = { ...src, id: newId };
           newSelectedIds.push(newId);
 
-          let parentId: string | null = null;
-          if (m.root.childIds.includes(selId)) {
-            parentId = null;
-          } else {
-            for (const [pid, pel] of Object.entries(newElements)) {
-              if (pel.childIds.includes(selId) && !subtree[pid]) {
-                parentId = pid;
-                break;
-              }
-            }
-          }
-
           if (parentId === null) {
-            newRoot = { ...newRoot, childIds: [...newRoot.childIds, newId] };
-          } else {
-            const parent = newElements[parentId];
-            if (parent) {
-              newElements[parentId] = {
-                ...parent,
-                childIds: [...parent.childIds, newId],
-              };
-            }
-          }
-
-          for (const rel of cloneRels(internalRels, idMap)) {
-            newRelationships[rel.id] = rel;
+            newRoot = { ...newRoot, childIds: [...siblings, newId] };
+          } else if (newElements[parentId]) {
+            newElements[parentId] = { ...newElements[parentId], childIds: [...siblings, newId] };
           }
         }
 
-        syncManager.syncFromVis({
-          ...m,
-          root: newRoot,
-          elements: newElements,
-          relationships: newRelationships,
-        });
+        syncManager.syncFromVis({ ...m, root: newRoot, elements: newElements });
         dispatch(setSelectedElements(newSelectedIds));
         return;
       }
