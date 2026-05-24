@@ -1891,6 +1891,72 @@ CommandHandler --> EventStore
 EventStore --> Projection
 Projection --> ReadModel`,
   },
+  {
+    id: "arch-mvc",
+    name: "MVC",
+    description:
+      "Model-View-Controller: Controller handles input, updates Model, and selects the View to render",
+    tags: ["architecture", "ui", "mvc", "pattern"],
+    preferredView: "hierarchical",
+    code: `Model{
+  Data
+  BusinessRules
+  State
+  notify()
+}
+View{
+  UserInterface
+  render()
+  getUserInput()
+}
+Controller{
+  handleInput()
+  updateModel()
+  selectView()
+}
+
+Controller --> Model
+Controller --> View
+Model --> View`,
+  },
+  {
+    id: "arch-layered",
+    name: "Layered Architecture",
+    description:
+      "N-tier layering: each layer depends only on the layer directly below it; strict top-down coupling",
+    tags: ["architecture", "layered", "n-tier", "pattern"],
+    preferredView: "hierarchical",
+    code: `!selector  name=presentation  color=#2196f3  mode=color
+!selector  name=application   color=#ff9800  mode=color
+!selector  name=domain        color=#4caf50  mode=color
+!selector  name=infra         color=#607d8b  mode=color
+
+PresentationLayer:presentation{
+  UI
+  Controllers
+  ViewModels
+}
+ApplicationLayer:application{
+  Services
+  UseCases
+  DTOs
+}
+DomainLayer:domain{
+  Entities
+  BusinessRules
+  DomainServices
+}
+InfrastructureLayer:infra{
+  Database{ _database_ }
+  ExternalAPIs
+  Repositories
+  Messaging{ _event_ }
+}
+
+PresentationLayer --> ApplicationLayer
+ApplicationLayer --> DomainLayer
+DomainLayer --> InfrastructureLayer`,
+  },
 ];
 
 export const SYSTEM_ARCH_TEMPLATES: DiagramTemplate[] = [
