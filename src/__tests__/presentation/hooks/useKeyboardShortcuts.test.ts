@@ -341,7 +341,9 @@ describe("clipboard shortcuts", () => {
     expect(mockSyncFromVis).toHaveBeenCalledOnce();
     const newModel = mockSyncFromVis.mock.calls[0][0] as DiagramModel;
 
-    expect(Object.keys(newModel.elements)).toHaveLength(5);
+    expect(Object.keys(newModel.elements)).toHaveLength(3);
+    expect(newModel.elements["p1"].childIds).toContain("a");
+    expect(newModel.elements["p2"].childIds).toContain("a");
   });
 
   it("Ctrl+D duplicates the selected element as a sibling", () => {

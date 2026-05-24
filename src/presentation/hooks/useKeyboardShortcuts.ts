@@ -238,7 +238,7 @@ export function useKeyboardShortcuts({
             targetId === null
               ? newRoot.childIds
               : (newElements[targetId]?.childIds ?? []);
-          const taken = new Set(Object.keys(newElements));
+          const siblingSet = new Set(siblings);
           const toAdd: string[] = [];
 
           for (const srcId of clipboard.topLevelIds) {
@@ -247,10 +247,15 @@ export function useKeyboardShortcuts({
               collectSubtree(srcId, clipboard.elements, subtree);
               Object.assign(newElements, subtree);
             }
-            const id = freshId(srcId, taken);
-            newElements[id] = { ...(newElements[srcId] ?? clipboard.elements[srcId]), id };
-            taken.add(id);
-            toAdd.push(id);
+            if (!siblingSet.has(srcId)) {
+              siblingSet.add(srcId);
+              toAdd.push(srcId);
+            } else {
+              const id = freshId(srcId, new Set(Object.keys(newElements)));
+              newElements[id] = { ...(newElements[srcId] ?? clipboard.elements[srcId]), id };
+              siblingSet.add(id);
+              toAdd.push(id);
+            }
           }
 
           newSelectedIds.push(...toAdd);
