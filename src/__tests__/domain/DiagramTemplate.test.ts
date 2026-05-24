@@ -34,7 +34,7 @@ describe("TYPE_SHOWCASE_TEMPLATES", () => {
 
   it("all-element-types — one of each element type", () => {
     const { code } = ALL_ELEMENT_TYPES_TEMPLATE;
-    expect(relCount(code)).toBe(6);
+    expect(relCount(code)).toBe(7);
     const model = parse(code);
     const types = Object.values(model.elements).map((e) => e.type);
     expect(types).toContain("object");

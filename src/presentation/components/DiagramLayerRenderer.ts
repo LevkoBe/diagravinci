@@ -201,8 +201,9 @@ export class DiagramLayerRenderer {
     }
   }
 
-  render(diagramLayer: Konva.Layer): void {
-    diagramLayer.destroyChildren();
+  render(relationshipLayer: Konva.Layer, elementLayer: Konva.Layer): void {
+    elementLayer.destroyChildren();
+    if (relationshipLayer !== elementLayer) relationshipLayer.destroyChildren();
 
     this.groupMap.clear();
     this.hoverIn.clear();
@@ -231,11 +232,13 @@ export class DiagramLayerRenderer {
     const maxDepth = allDepths.size > 0 ? Math.max(...allDepths) : 0;
     for (let depth = 1; depth <= maxDepth; depth++) {
       for (const group of elementsByDepth.get(depth) ?? [])
-        diagramLayer.add(group);
-      for (const group of relsByDepth.get(depth) ?? []) diagramLayer.add(group);
+        elementLayer.add(group);
+      for (const group of relsByDepth.get(depth) ?? [])
+        relationshipLayer.add(group);
     }
 
-    diagramLayer.batchDraw();
+    elementLayer.batchDraw();
+    if (relationshipLayer !== elementLayer) relationshipLayer.batchDraw();
   }
 
   private collectElementsByDepth(

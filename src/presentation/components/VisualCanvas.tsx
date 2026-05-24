@@ -856,7 +856,7 @@ export function VisualCanvas() {
     const cloneRelIds = new Set(
       execInstances.flatMap((i) => i.clonedRelationshipIds),
     );
-    renderer.render(diagramLayerRef.current);
+    renderer.render(diagramLayerRef.current, diagramLayerRef.current);
     const groupMap = renderer.getGroupMap();
     const relRenderer = renderer.getRelationshipRenderer();
 
@@ -1075,7 +1075,7 @@ export function VisualCanvas() {
         undefined,
         opaqueElementBg,
       );
-      renderer.render(diagramLayer);
+      renderer.render(diagramLayer, diagramLayer);
       const exportCanvas = await exportStage.toCanvas({ pixelRatio: 2 });
       const bgColor = isDark ? "#0b0d10" : "#f5e8c0";
       const out = document.createElement("canvas");

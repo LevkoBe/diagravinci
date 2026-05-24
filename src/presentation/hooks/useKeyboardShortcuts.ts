@@ -238,7 +238,7 @@ export function useKeyboardShortcuts({
             targetId === null
               ? newRoot.childIds
               : (newElements[targetId]?.childIds ?? []);
-          const taken = new Set(siblings);
+          const taken = new Set(Object.keys(newElements));
           const toAdd: string[] = [];
 
           for (const srcId of clipboard.topLevelIds) {
@@ -248,7 +248,7 @@ export function useKeyboardShortcuts({
               Object.assign(newElements, subtree);
             }
             const id = freshId(srcId, taken);
-            if (id !== srcId) newElements[id] = { ...newElements[srcId] ?? clipboard.elements[srcId], id };
+            newElements[id] = { ...(newElements[srcId] ?? clipboard.elements[srcId]), id };
             taken.add(id);
             toAdd.push(id);
           }
@@ -289,9 +289,19 @@ export function useKeyboardShortcuts({
             parentId === null
               ? newRoot.childIds
               : (newElements[parentId]?.childIds ?? []);
-          const newId = freshId(selId, new Set(siblings));
-          const src = newElements[selId];
-          if (src) newElements[newId] = { ...src, id: newId };
+          const newId = freshId(selId, new Set(Object.keys(newElements)));
+
+          const deepCopy = (srcId: string, destId: string): void => {
+            const src = newElements[srcId];
+            if (!src) return;
+            const newChildIds = src.childIds.map((childId) => {
+              const childNewId = freshId(childId, new Set(Object.keys(newElements)));
+              deepCopy(childId, childNewId);
+              return childNewId;
+            });
+            newElements[destId] = { ...src, id: destId, childIds: newChildIds };
+          };
+          deepCopy(selId, newId);
           newSelectedIds.push(newId);
 
           if (parentId === null) {

@@ -278,7 +278,7 @@ export class Parser {
             const isRelTarget = !!lastRel;
             const inRelContext = isRelSource || isRelTarget;
 
-            const localPath = parentPath
+            const localPath: string = parentPath
               ? `${parentPath}.${lastEl.id}`
               : lastEl.id;
             lastPath = inRelContext && !existedBefore ? localPath : lastEl.id;
