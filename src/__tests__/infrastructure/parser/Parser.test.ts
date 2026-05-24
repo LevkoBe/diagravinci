@@ -473,6 +473,32 @@ describe("Parser", () => {
     expect(rels[0].target).toBe("named_out");
   });
 
+  it("named flow with anonymous source: from{} >x> to produces 4 elements and 2 ..> relationships", () => {
+    const model = parse("from{} >x> to");
+    expect(Object.values(model.elements).length).toBe(4);
+    const rels = Object.values(model.relationships);
+    expect(rels).toHaveLength(2);
+    expect(rels.every((r) => r.type === "..>")).toBe(true);
+  });
+
+  it("named flow with bare source: from named>x> to produces 4 elements and 2 ..> relationships", () => {
+    const model = parse("from named>x> to");
+    expect(Object.values(model.elements).length).toBe(4);
+    const rels = Object.values(model.relationships);
+    expect(rels).toHaveLength(2);
+    expect(rels.every((r) => r.type === "..>")).toBe(true);
+    const from = model.elements["from"];
+    const named = model.elements["named"];
+    const to = model.elements["to"];
+    expect(from?.type).toBe("object");
+    expect(named?.type).toBe("flow");
+    expect(to?.type).toBe("object");
+    expect(rels[0].source).toBe("from");
+    expect(rels[0].target).toBe("named");
+    expect(rels[1].source).toBe("named");
+    expect(rels[1].target).toBe("to");
+  });
+
   it("subsequent wrappers do not override the first type", () => {
     const model = parse("a[](){}");
     expect(model.elements["a"].type).toBe("collection");

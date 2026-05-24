@@ -159,7 +159,7 @@ export class Parser {
               ">",
             );
             lastPath = lastEl.id;
-            lastRel = this.createRelationship(lastEl.id);
+            lastRel = this.createRelationship(lastEl.id, "..>");
             lastElWasWrapped = true;
           } else if (lastRel === null && lastPath === null) {
             lastEl = this.parseOpeningWrapper(
@@ -171,10 +171,10 @@ export class Parser {
               ">",
             );
             lastPath = lastEl.id;
-            lastRel = this.createRelationship(lastEl.id);
+            lastRel = this.createRelationship(lastEl.id, "..>");
             lastElWasWrapped = true;
           } else {
-            lastRel = lastRel ?? this.createRelationship(lastPath ?? parent.id);
+            lastRel = lastRel ?? this.createRelationship(lastPath ?? parent.id, "..>");
             lastEl = this.parseOpeningWrapper(
               parent,
               parentPath,
@@ -184,7 +184,7 @@ export class Parser {
               ">",
             );
             lastPath = lastEl.id;
-            lastRel = this.createRelationship(lastEl.id);
+            lastRel = this.createRelationship(lastEl.id, "..>");
             lastElWasWrapped = true;
           }
           break;
@@ -265,11 +265,11 @@ export class Parser {
             lastEl = this.parseElement(WRAPPERS[wrapper].defaultChildType);
             if (
               !lastRel &&
-              lastElWasWrapped &&
               lastPath !== null &&
+              lastPath !== lastEl.id &&
               this.peek()?.type === ">"
             ) {
-              const implRel = this.createRelationship(lastPath);
+              const implRel = this.createRelationship(lastPath, "..>");
               this.updateRelationship(implRel.id, lastEl.id);
             }
             const isRelSource =
