@@ -41,6 +41,7 @@ function createElementRenderer(
   zoom: number,
   colorOverride: string | null,
   maxScreenPx: number,
+  opaqueElementBg: boolean,
 ): IElementRenderer {
   const args = [
     element,
@@ -54,6 +55,7 @@ function createElementRenderer(
     zoom,
     colorOverride,
     maxScreenPx,
+    opaqueElementBg,
   ] as const;
   switch (renderStyle) {
     case "rect":
@@ -109,6 +111,7 @@ export class DiagramLayerRenderer {
   private readonly isPresentation: boolean;
   private readonly executionColorMap: Record<string, string>;
   private readonly classDiagramMode: boolean;
+  private readonly opaqueElementBg: boolean;
   private readonly getGroupMoveInfo?: () => { selectorId: string | null; filterSelectors: Selector[] };
 
   constructor(
@@ -129,6 +132,7 @@ export class DiagramLayerRenderer {
     elementSizes?: ElementSizes,
     geometryCache?: GeometryCache,
     getGroupMoveInfo?: () => { selectorId: string | null; filterSelectors: Selector[] },
+    opaqueElementBg = true,
   ) {
     this.stage = stage;
     this.model = model;
@@ -145,6 +149,7 @@ export class DiagramLayerRenderer {
     this.isPresentation = isPresentation;
     this.executionColorMap = executionColorMap;
     this.classDiagramMode = classDiagramMode;
+    this.opaqueElementBg = opaqueElementBg;
     this.getGroupMoveInfo = getGroupMoveInfo;
 
     const { pixelSizes, zoomHidden, zoomDimmed } =
@@ -287,6 +292,7 @@ export class DiagramLayerRenderer {
       this.zoom,
       colorOverride,
       this.maxScreenPx,
+      this.opaqueElementBg,
     );
 
     if (

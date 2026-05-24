@@ -5,37 +5,33 @@ import { VConfig } from "../../visualConfig";
 const { DIM_OPACITY } = VConfig.elements;
 
 export class PolygonElementRenderer extends BaseElementRenderer {
-  protected override addBackground(group: Konva.Group): void {
+  private makeBackgroundShape(fill: string, opacity?: number): Konva.Shape {
     const { size } = this;
     const r = size / 2;
-    const fill = this.resolveStroke();
-    const opacity = 0.15;
-    let shape: Konva.Shape;
-
+    const base = { fill, listening: false as const, ...(opacity !== undefined ? { opacity } : {}) };
     switch (this.element.type) {
       case "collection":
-        shape = new Konva.Rect({ width: size, height: size, x: -r, y: -r, fill, opacity, listening: false });
-        break;
+        return new Konva.Rect({ width: size, height: size, x: -r, y: -r, ...base });
       case "function":
-        shape = new Konva.Circle({ radius: r, fill, opacity, listening: false });
-        break;
+        return new Konva.Circle({ radius: r, ...base });
       case "object":
-        shape = new Konva.RegularPolygon({ sides: 6, radius: r, fill, opacity, listening: false, rotation: 90 });
-        break;
+        return new Konva.RegularPolygon({ sides: 6, radius: r, rotation: 90, ...base });
       case "state":
-        shape = new Konva.RegularPolygon({ sides: 8, radius: r, fill, opacity, listening: false, rotation: 22.5 });
-        break;
+        return new Konva.RegularPolygon({ sides: 8, radius: r, rotation: 22.5, ...base });
       case "flow":
-        shape = new Konva.RegularPolygon({ sides: 3, radius: r, fill, opacity, listening: false, rotation: 90 });
-        break;
+        return new Konva.RegularPolygon({ sides: 3, radius: r, rotation: 90, ...base });
       case "choice":
-        shape = new Konva.Line({ points: [0, -r, r, 0, 0, r, -r, 0], closed: true, fill, opacity, listening: false });
-        break;
+        return new Konva.Line({ points: [0, -r, r, 0, 0, r, -r, 0], closed: true, ...base });
       default:
-        shape = new Konva.RegularPolygon({ sides: 5, radius: r, fill, opacity, listening: false, rotation: 180 });
+        return new Konva.RegularPolygon({ sides: 5, radius: r, rotation: 180, ...base });
     }
+  }
 
-    group.add(shape);
+  protected override addBackground(group: Konva.Group): void {
+    if (this.opaqueElementBg) {
+      group.add(this.makeBackgroundShape(this.colors.bgSecondary));
+    }
+    group.add(this.makeBackgroundShape(this.resolveStroke(), 0.15));
   }
 
   protected addElementShape(group: Konva.Group): Konva.Shape {

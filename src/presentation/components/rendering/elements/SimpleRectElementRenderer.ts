@@ -8,6 +8,19 @@ const es = VConfig.elementShapes;
 export class SimpleRectElementRenderer extends BaseElementRenderer {
   protected override addBackground(group: Konva.Group): void {
     const { size } = this;
+    if (this.opaqueElementBg) {
+      group.add(
+        new Konva.Rect({
+          width: size,
+          height: size,
+          x: -size / 2,
+          y: -size / 2,
+          fill: this.colors.bgSecondary,
+          cornerRadius: es.CORNER_RADIUS,
+          listening: false,
+        }),
+      );
+    }
     group.add(
       new Konva.Rect({
         width: size,

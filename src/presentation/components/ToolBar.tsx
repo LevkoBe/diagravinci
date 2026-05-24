@@ -40,6 +40,7 @@ import {
   ListFilter,
   Atom,
   Move,
+  Layers,
 } from "lucide-react";
 import { AppConfig } from "../../config/appConfig";
 import { stageRegistry } from "../../shared/stageRegistry";
@@ -73,6 +74,7 @@ import {
   setRenderStyle,
   setRelLineStyle,
   toggleClassDiagramMode,
+  toggleOpaqueElementBg,
   setActiveSession,
   type RenderStyle,
   type RelLineStyle,
@@ -206,6 +208,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
     renderStyle,
     relLineStyle,
     classDiagramMode,
+    opaqueElementBg,
     activeSessionId,
   } = useAppSelector((s) => s.ui);
   const { selectors, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
@@ -797,6 +800,16 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
           onClick={() => dispatch(toggleClassDiagramMode())}
         >
           <Table2 size={15} />
+        </Button>
+
+        <Button
+          title="Opaque element background"
+          variant={opaqueElementBg ? "secondary" : "ghost"}
+          size="sm"
+          className="w-9 h-9 p-0 rounded-full shrink-0"
+          onClick={() => dispatch(toggleOpaqueElementBg())}
+        >
+          <Layers size={15} />
         </Button>
 
         <input

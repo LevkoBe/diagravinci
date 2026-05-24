@@ -26,6 +26,7 @@ export interface UIState {
   renderStyle: RenderStyle;
   relLineStyle: RelLineStyle;
   classDiagramMode: boolean;
+  opaqueElementBg: boolean;
   navigationParentId: string | null;
   activeSessionId: string | null;
 }
@@ -43,6 +44,7 @@ const initialState: UIState = {
   renderStyle: ui.DEFAULT_RENDER_STYLE,
   relLineStyle: "straight",
   classDiagramMode: true,
+  opaqueElementBg: true,
   navigationParentId: null,
   activeSessionId: null,
 };
@@ -109,6 +111,9 @@ const uiSlice = createSlice({
     toggleClassDiagramMode(state) {
       state.classDiagramMode = !state.classDiagramMode;
     },
+    toggleOpaqueElementBg(state) {
+      state.opaqueElementBg = !state.opaqueElementBg;
+    },
     setActiveSession(state, action: PayloadAction<string | null>) {
       state.activeSessionId = action.payload;
     },
@@ -130,6 +135,7 @@ export const {
   setRelLineStyle,
   setNavigationParentId,
   toggleClassDiagramMode,
+  toggleOpaqueElementBg,
   setActiveSession,
 } = uiSlice.actions;
 

@@ -42,6 +42,7 @@ type PersistedState = {
     | "activeElementType"
     | "activeRelationshipType"
     | "classDiagramMode"
+    | "opaqueElementBg"
   >;
   filter: PersistedFilter;
   diagram: { code: string; model: DiagramModel; viewState: ViewState };
@@ -143,6 +144,7 @@ function hydratePersistedState(parsed: PersistedState): HydratedState {
       ...parsed.ui,
       classDiagramMode: parsed.ui.classDiagramMode ?? true,
       relLineStyle: parsed.ui.relLineStyle ?? "straight",
+      opaqueElementBg: parsed.ui.opaqueElementBg ?? true,
       connectingFromId: null,
       selectedElementIds: [],
       zoomCommand: null,
@@ -183,6 +185,7 @@ export function saveState(state: AppState): void {
       activeElementType: state.ui.activeElementType,
       activeRelationshipType: state.ui.activeRelationshipType,
       classDiagramMode: state.ui.classDiagramMode,
+      opaqueElementBg: state.ui.opaqueElementBg,
     },
     filter: {
       selectors: state.filter.selectors,

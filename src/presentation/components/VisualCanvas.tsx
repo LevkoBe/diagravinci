@@ -118,6 +118,7 @@ export function VisualCanvas() {
     renderStyle,
     relLineStyle,
     classDiagramMode,
+    opaqueElementBg,
     activeSessionId,
   } = useAppSelector((s) => s.ui);
 
@@ -844,6 +845,7 @@ export function VisualCanvas() {
         selectorId: groupMoveSelIdRef.current,
         filterSelectors: store.getState().filter.selectors,
       }),
+      opaqueElementBg,
     );
 
     const cloneIds = new Set<string>();
@@ -1020,6 +1022,7 @@ export function VisualCanvas() {
     renderStyle,
     relLineStyle,
     classDiagramMode,
+    opaqueElementBg,
     interactionMode,
     dispatch,
     execInstances,
@@ -1078,6 +1081,8 @@ export function VisualCanvas() {
         classDiagramMode,
         elementSizes,
         geometryCacheRef.current,
+        undefined,
+        opaqueElementBg,
       );
       renderer.render(relLayer, elemLayer);
       const exportCanvas = await exportStage.toCanvas({ pixelRatio: 2 });
@@ -1101,6 +1106,7 @@ export function VisualCanvas() {
     renderStyle,
     relLineStyle,
     classDiagramMode,
+    opaqueElementBg,
     elementSizes,
     isDark,
   ]);
