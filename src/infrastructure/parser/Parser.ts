@@ -149,7 +149,7 @@ export class Parser {
             lastElWasWrapped = false;
             break;
           }
-          if (lastEl !== null && lastRel === null && !lastElWasWrapped) {
+          if (lastEl !== null && lastRel === null && !lastElWasWrapped && lastEl.type === "object") {
             lastEl = this.parseOpeningWrapper(
               parent,
               parentPath,

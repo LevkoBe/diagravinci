@@ -506,5 +506,91 @@ describe("CodeGenerator", () => {
         }
       }
     });
+
+    it("snapshot-v1-core.dg: round-trip preserves all named element structure", () => {
+      const SNAPSHOT = `PresentationLayer{
+  CodeEditor{
+    Store
+    SyncManager
+  }
+  VisualCanvas{
+    Store
+    SyncManager
+    ExecutionEngine
+  }
+}
+ApplicationLayer{
+  Store{
+    uiSlice
+    diagramSlice
+  }
+  SyncManager{
+    Parser
+    Lexer
+    CodeGenerator
+    Store
+    syncFromCode()
+    syncFromVis()
+  }
+  ExecutionEngine
+}
+
+DomainLayer{
+  DiagramModel{
+    elements
+    relationships
+    metadata
+  }
+  ViewState{
+    positionedElements
+    positionedRelationships
+  }
+}
+
+InfrastructureLayer{
+  Lexer{
+    tokenize(code)>token[]>
+  }
+  Parser{
+    parse(code)>DiagramModel>
+  }
+  CodeGenerator{
+    generate(model)>code>
+  }
+}
+
+Store.diagramSlice --> DiagramModel
+Store.diagramSlice --> ViewState
+SyncManager --> DiagramModel
+SyncManager --> ViewState
+`;
+
+      const isAnon = (id: string) => /^anon_\d+$/.test(id);
+      const namedIds = (model: ReturnType<typeof parse>) =>
+        Object.keys(model.elements).filter((id) => !isAnon(id)).sort();
+      const namedChildIds = (model: ReturnType<typeof parse>, id: string) =>
+        (model.elements[id]?.childIds ?? []).filter((c) => !isAnon(c));
+      const namedRels = (model: ReturnType<typeof parse>) =>
+        Object.values(model.relationships)
+          .filter((r) => !isAnon(r.source) && !isAnon(r.target))
+          .map((r) => `${r.source}${r.type}${r.target}`)
+          .sort();
+
+      const m1 = parse(SNAPSHOT);
+      const m2 = parse(generate(m1));
+
+      expect(namedIds(m2), "element set").toEqual(namedIds(m1));
+      expect(m2.root.childIds, "root.childIds order").toEqual(m1.root.childIds);
+
+      for (const id of namedIds(m1)) {
+        expect(
+          namedChildIds(m2, id),
+          `${id}.childIds`,
+        ).toEqual(namedChildIds(m1, id));
+        expect(m2.elements[id]?.type, `${id}.type`).toBe(m1.elements[id]?.type);
+      }
+
+      expect(namedRels(m2), "relationships").toEqual(namedRels(m1));
+    });
   });
 });

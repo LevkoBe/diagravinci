@@ -50,15 +50,19 @@ export class CodeGenerator {
     )
       lines.push("");
 
-    const rootIdSet = new Set(this.model.root.childIds);
-    const rootElements = Object.values(this.model.elements).filter((e) =>
-      rootIdSet.has(e.id),
-    );
+    const rootElements = this.model.root.childIds
+      .map((id) => this.model.elements[id])
+      .filter(Boolean);
 
     for (const element of rootElements)
       lines.push(this.generateElement(element, 0, new AncestryTracker()));
     lines.push("");
     for (const relationship of Object.values(this.model.relationships)) {
+      if (
+        CodeGenerator.isAnonymousId(relationship.source) ||
+        CodeGenerator.isAnonymousId(relationship.target)
+      )
+        continue;
       lines.push(this.generateRelationship(relationship));
     }
 
