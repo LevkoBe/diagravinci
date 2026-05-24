@@ -111,6 +111,10 @@ export class CodeGenerator {
     return element ?? createElement("[NON-EXISTING ELEMENT]", "object");
   }
 
+  private static isAnonymousId(id: string): boolean {
+    return /^anon_\d+$/.test(id);
+  }
+
   private generateElement(
     element: Element,
     indent: number,
@@ -120,7 +124,8 @@ export class CodeGenerator {
     const wrapper = this.getWrapperFromType(element.type);
     const opening = wrapper[0];
     const closing = wrapper[1];
-    const nameOut = CodeGenerator.quoteId(element.id);
+    const isAnonFlow = element.type === "flow" && CodeGenerator.isAnonymousId(element.id);
+    const nameOut = isAnonFlow ? "" : CodeGenerator.quoteId(element.id);
     const flagSuffix = element.flags
       ? element.flags.map((f) => /\s/.test(f) ? `:"${f}"` : `:${f}`).join("")
       : "";
@@ -167,7 +172,7 @@ export class CodeGenerator {
       case "function":
         return ["(", ")"];
       case "flow":
-        return ["", ">>"];
+        return [">", ">"];
       case "choice":
         return ["<", ">"];
       default:

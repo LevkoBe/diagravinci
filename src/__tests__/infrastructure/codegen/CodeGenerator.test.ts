@@ -70,9 +70,15 @@ describe("CodeGenerator", () => {
       expect(code).toContain("x()");
     });
 
-    it("uses >> for flow type (anonymous — id dropped for round-trip correctness)", () => {
-      const code = generate(modelWithElement("x", "flow"));
+    it("named leaf flow emits name>>", () => {
+      const code = generate(modelWithElement("pipe", "flow"));
+      expect(code).toContain("pipe>>");
+    });
+
+    it("anonymous leaf flow (anon_N id) emits >> without name", () => {
+      const code = generate(modelWithElement("anon_1", "flow"));
       expect(code).toContain(">>");
+      expect(code).not.toContain("anon_1");
     });
 
     it("uses <> for choice type", () => {
@@ -438,6 +444,20 @@ describe("CodeGenerator", () => {
           `${id}: relationship count`,
         ).toBe(Object.keys(first.relationships).length);
       }
+    });
+
+    it("named flow with children round-trips correctly", () => {
+      const { first, regenerated } = roundTrip("player >emeralds> shop");
+      expect(Object.keys(regenerated.elements).length).toBe(Object.keys(first.elements).length);
+      expect(Object.keys(regenerated.relationships).length).toBe(Object.keys(first.relationships).length);
+      expect(regenerated.elements["player"]?.type).toBe("flow");
+      expect(regenerated.elements["player"]?.childIds).toContain("emeralds");
+    });
+
+    it("named flow with children preserves type through round-trip", () => {
+      const { regenerated } = roundTrip("queue>Token> handler()");
+      expect(regenerated.elements["queue"]?.type).toBe("flow");
+      expect(regenerated.elements["queue"]?.childIds).toContain("Token");
     });
 
     it("round-trips all EXECUTION_TEMPLATES without losing elements or relationships", () => {
