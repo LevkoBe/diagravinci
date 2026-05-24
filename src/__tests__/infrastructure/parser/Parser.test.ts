@@ -441,7 +441,9 @@ describe("Parser", () => {
     const f2 = model.elements["f2"];
     expect(f1).toBeDefined();
     expect(f2).toBeDefined();
-    expect(rels.every((r) => !(r.source === f1.id && r.target === f2.id))).toBe(true);
+    expect(rels.every((r) => !(r.source === f1.id && r.target === f2.id))).toBe(
+      true,
+    );
     expect(rels.every((r) => r.target !== f2.id)).toBe(true);
   });
 
@@ -452,7 +454,6 @@ describe("Parser", () => {
     expect(func?.type).toBe("function");
     expect(output?.type).toBe("object");
     const rels = Object.values(model.relationships);
-    // flow's outgoing rel is cancelled; output is a child of the flow, not a rel target
     expect(rels.every((r) => r.target !== output.id)).toBe(true);
   });
 
@@ -706,7 +707,9 @@ describe("Parser sessions", () => {
   });
 
   it("updates the pre-seeded default session from a !session id=default directive", () => {
-    const model = parse('!session  id=default  label="My Default"  selectors=foo:color');
+    const model = parse(
+      '!session  id=default  label="My Default"  selectors=foo:color',
+    );
     const sessions = model.sessions ?? [];
     const def = sessions.find((s) => s.id === "default");
     expect(def).toBeDefined();
@@ -715,7 +718,9 @@ describe("Parser sessions", () => {
   });
 
   it("does not create duplicate default sessions when !session id=default is explicit", () => {
-    const model = parse("!session  id=default  label=Default  selectors=foo:color");
+    const model = parse(
+      "!session  id=default  label=Default  selectors=foo:color",
+    );
     const defaults = (model.sessions ?? []).filter((s) => s.id === "default");
     expect(defaults.length).toBe(1);
   });
@@ -732,7 +737,9 @@ describe("Parser sessions", () => {
   });
 
   it("parses all valid SelectorModes in a single session directive", () => {
-    const model = parse("!session  id=s1  label=S1  selectors=a:color,b:dim,c:hide,d:off");
+    const model = parse(
+      "!session  id=s1  label=S1  selectors=a:color,b:dim,c:hide,d:off",
+    );
     const s1 = (model.sessions ?? []).find((s) => s.id === "s1");
     expect(s1).toBeDefined();
     expect(s1!.selectorModes["a"]).toBe("color");
@@ -940,6 +947,32 @@ describe("Parser edge cases", () => {
 
     it("skips relationship and emits validation error when .a not in container", () => {
       const model = parse("a() c()\ng{.a-->c}");
+      expect(Object.values(model.relationships)).toHaveLength(0);
+      expect(model.validationErrors?.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("function container with pre-existing shared elements — c(a b)", () => {
+    it("adds pre-existing root elements as children of the function container", () => {
+      const model = parse("a b c(a b)");
+      expect(model.elements["c"].childIds).toContain("a");
+      expect(model.elements["c"].childIds).toContain("b");
+      expect(model.root.childIds).toContain("a");
+      expect(model.root.childIds).toContain("b");
+      expect(model.root.childIds).toContain("c");
+    });
+
+    it("absolute path c.a-->c.b from root scope produces a valid relationship", () => {
+      const model = parse("a b c(a b)\nc.a --> c.b");
+      const rels = Object.values(model.relationships);
+      expect(rels).toHaveLength(1);
+      expect(rels[0].source).toBe("c.a");
+      expect(rels[0].target).toBe("c.b");
+      expect(model.validationErrors).toBeUndefined();
+    });
+
+    it("absolute path c.a-->c.b is removed when c has no children", () => {
+      const model = parse("a b c()\nc.a --> c.b");
       expect(Object.values(model.relationships)).toHaveLength(0);
       expect(model.validationErrors?.length).toBeGreaterThan(0);
     });

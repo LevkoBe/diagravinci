@@ -367,7 +367,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       );
     }
 
-    if (this.connectingFromId === this.element.id) {
+    if (this.connectingFromId === this.path) {
       group.add(
         new Konva.Circle({
           radius:

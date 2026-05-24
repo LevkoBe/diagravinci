@@ -344,7 +344,7 @@ export class DiagramLayerRenderer {
       });
       group.on("click tap", (e: Konva.KonvaEventObject<MouseEvent>) => {
         this.callbacks.onClick?.(
-          element.id,
+          path,
           e.evt.shiftKey,
           e.evt.ctrlKey || e.evt.metaKey,
         );

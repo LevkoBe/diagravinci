@@ -24,7 +24,7 @@ export class ElementEventHandler {
       onClick: (e: Konva.KonvaEventObject<MouseEvent>) => {
         e.cancelBubble = true;
         this.callbacks.onClick(
-          this.element.id,
+          this.path,
           e.evt.shiftKey,
           e.evt.ctrlKey || e.evt.metaKey,
         );

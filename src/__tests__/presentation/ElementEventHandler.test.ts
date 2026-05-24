@@ -97,6 +97,31 @@ describe("ElementEventHandler", () => {
       handlers.onClick(clickEvent);
       expect(onClick).toHaveBeenCalledWith("a", false, false);
     });
+
+    it("should pass full path (not leaf id) to onClick for a nested element", () => {
+      const onClick = vi.fn();
+      const callbacks: Partial<ElementEventCallbacks> = { onClick };
+
+      const handler = new ElementEventHandler(
+        { id: "a", path: "c.a" },
+        "c.a",
+        helper.getStage(),
+        callbacks as ElementEventCallbacks,
+      );
+      const handlers = handler.createHandlers();
+
+      const clickEvent: Konva.KonvaEventObject<MouseEvent> = {
+        type: "click",
+        evt: new MouseEvent("click"),
+        target: null as unknown as Shape | Stage,
+        currentTarget: null as unknown as Node,
+        cancelBubble: false,
+        pointerId: 0,
+      };
+
+      handlers.onClick(clickEvent);
+      expect(onClick).toHaveBeenCalledWith("c.a", false, false);
+    });
   });
 
   describe("Hover Handling", () => {

@@ -713,35 +713,36 @@ export function VisualCanvas() {
           );
           syncManager.syncFromVis(updatedModel, true, { oldPrefix, newPrefix });
         },
-        onClick: (elementId, shiftKey, ctrlKey) => {
+        onClick: (elementPath, shiftKey, ctrlKey) => {
+          const leafId = elementPath.split(".").at(-1)!;
           const mode = modeRef.current;
           if (mode === "create") {
             createNewElement(
               modelRef.current,
               elementTypeRef.current,
-              elementId,
+              leafId,
               null,
               dispatch,
             );
           } else if (mode === "delete") {
             const m = modelRef.current;
             const newElements = { ...m.elements };
-            delete newElements[elementId];
+            delete newElements[leafId];
             const newRoot = {
               ...m.root,
-              childIds: m.root.childIds.filter((id) => id !== elementId),
+              childIds: m.root.childIds.filter((id) => id !== leafId),
             };
             Object.values(newElements).forEach((el) => {
-              if (el.childIds.includes(elementId)) {
+              if (el.childIds.includes(leafId)) {
                 newElements[el.id] = {
                   ...el,
-                  childIds: el.childIds.filter((id) => id !== elementId),
+                  childIds: el.childIds.filter((id) => id !== leafId),
                 };
               }
             });
             const newRelationships = Object.fromEntries(
               Object.entries(m.relationships).filter(
-                ([, r]) => r.source !== elementId && r.target !== elementId,
+                ([, r]) => r.source !== leafId && r.target !== leafId,
               ),
             );
             syncManager.syncFromVis({
@@ -750,18 +751,18 @@ export function VisualCanvas() {
               elements: newElements,
               relationships: newRelationships,
             });
-            if (connectingFromRef.current === elementId)
+            if (connectingFromRef.current === elementPath)
               dispatch(setConnectingFromId(null));
             dispatch(setSelectedElements([]));
           } else if (mode === "connect") {
             const sourceId = connectingFromRef.current;
             if (!sourceId) {
-              dispatch(setConnectingFromId(elementId));
-            } else if (sourceId !== elementId) {
+              dispatch(setConnectingFromId(elementPath));
+            } else if (sourceId !== elementPath) {
               const rel: Relationship = {
-                id: `rel_${sourceId}_${elementId}_${Date.now()}`,
+                id: `rel_${sourceId}_${elementPath}_${Date.now()}`,
                 source: sourceId,
-                target: elementId,
+                target: elementPath,
                 type: relTypeRef.current as Relationship["type"],
               };
               syncManager.syncFromVis({
@@ -776,15 +777,15 @@ export function VisualCanvas() {
           } else if (mode === "disconnect") {
             const sourceId = connectingFromRef.current;
             if (!sourceId) {
-              dispatch(setConnectingFromId(elementId));
-            } else if (sourceId !== elementId) {
+              dispatch(setConnectingFromId(elementPath));
+            } else if (sourceId !== elementPath) {
               const m = modelRef.current;
               const newRelationships = Object.fromEntries(
                 Object.entries(m.relationships).filter(
                   ([, r]) =>
                     !(
-                      (r.source === sourceId && r.target === elementId) ||
-                      (r.source === elementId && r.target === sourceId)
+                      (r.source === sourceId && r.target === elementPath) ||
+                      (r.source === elementPath && r.target === sourceId)
                     ),
                 ),
               );
@@ -797,7 +798,7 @@ export function VisualCanvas() {
           } else {
             if (shiftKey) {
               const subtreeIds = getSubtreeIds(
-                elementId,
+                leafId,
                 modelRef.current.elements,
               );
               const currentIds = store.getState().ui.selectedElementIds;
@@ -818,9 +819,9 @@ export function VisualCanvas() {
                 dispatch(setSelectedElements(combined));
               }
             } else if (ctrlKey) {
-              dispatch(toggleSelectedElement(elementId));
+              dispatch(toggleSelectedElement(leafId));
             } else {
-              dispatch(setSelectedElement(elementId));
+              dispatch(setSelectedElement(leafId));
             }
           }
         },

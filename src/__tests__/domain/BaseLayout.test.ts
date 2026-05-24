@@ -221,6 +221,45 @@ describe("resolveRelationships", () => {
     const model = makeModel([{ id: "a" }], ["a"]);
     expect(resolveRelationships(model, { a: pe("a") })).toEqual([]);
   });
+
+  describe("element shared between root and a container — a b c(a b)", () => {
+    function sharedModel() {
+      const model = makeModel(
+        [{ id: "a" }, { id: "b" }, { id: "c", children: ["a", "b"] }],
+        ["a", "b", "c"],
+      );
+      return model;
+    }
+
+    const sharedPositions = {
+      a: pe("a", 10, 10),
+      b: pe("b", 50, 10),
+      c: pe("c", 30, 50),
+      "c.a": pe("a", 28, 48),
+      "c.b": pe("b", 32, 48),
+    };
+
+    it("code-connect: resolves c.a and c.b paths to their nested positions", () => {
+      const model = sharedModel();
+      model.relationships["r1"] = createRelationship("r1", "c.a", "c.b", "-->");
+
+      const rels = resolveRelationships(model, sharedPositions);
+      expect(rels).toHaveLength(1);
+      expect(rels[0].sourcePath).toBe("c.a");
+      expect(rels[0].targetPath).toBe("c.b");
+    });
+
+    it("visual-connect bug: leaf-id relationship resolves to root level, not nested", () => {
+      const model = sharedModel();
+      model.relationships["r1"] = createRelationship("r1", "a", "b", "-->");
+
+      const rels = resolveRelationships(model, sharedPositions);
+      expect(rels).toHaveLength(1);
+
+      expect(rels[0].sourcePath).toBe("a");
+      expect(rels[0].targetPath).toBe("b");
+    });
+  });
 });
 
 describe("BaseLayout.apply (via CircularLayout)", () => {
