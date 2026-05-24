@@ -137,7 +137,7 @@ export class Parser {
               "|",
               lastElWasWrapped,
             );
-            lastPath = lastEl.id;
+            lastPath = parentPath ? `${parentPath}.${lastEl.id}` : lastEl.id;
             lastRel = null;
             lastElWasWrapped = true;
             break;
@@ -149,7 +149,7 @@ export class Parser {
             lastElWasWrapped = false;
             break;
           }
-          if (lastEl !== null && lastRel === null && !lastElWasWrapped && lastEl.type === "object") {
+          if (lastEl !== null && lastRel === null && !lastElWasWrapped && (lastEl.type === "object" || lastEl.type === "flow")) {
             lastEl = this.parseOpeningWrapper(
               parent,
               parentPath,
@@ -158,8 +158,8 @@ export class Parser {
               depth,
               ">",
             );
-            lastPath = lastEl.id;
-            lastRel = this.createRelationship(lastEl.id, "..>");
+            lastPath = parentPath ? `${parentPath}.${lastEl.id}` : lastEl.id;
+            lastRel = this.createRelationship(lastPath, "..>");
             lastElWasWrapped = true;
           } else if (lastRel === null && lastPath === null) {
             lastEl = this.parseOpeningWrapper(
@@ -170,8 +170,8 @@ export class Parser {
               depth,
               ">",
             );
-            lastPath = lastEl.id;
-            lastRel = this.createRelationship(lastEl.id, "..>");
+            lastPath = parentPath ? `${parentPath}.${lastEl.id}` : lastEl.id;
+            lastRel = this.createRelationship(lastPath, "..>");
             lastElWasWrapped = true;
           } else {
             lastRel = lastRel ?? this.createRelationship(lastPath ?? parent.id, "..>");
@@ -183,8 +183,8 @@ export class Parser {
               depth,
               ">",
             );
-            lastPath = lastEl.id;
-            lastRel = this.createRelationship(lastEl.id, "..>");
+            lastPath = parentPath ? `${parentPath}.${lastEl.id}` : lastEl.id;
+            lastRel = this.createRelationship(lastPath, "..>");
             lastElWasWrapped = true;
           }
           break;
@@ -199,7 +199,7 @@ export class Parser {
             undefined,
             lastElWasWrapped,
           );
-          lastPath = lastEl.id;
+          lastPath = parentPath ? `${parentPath}.${lastEl.id}` : lastEl.id;
           lastRel = null;
           lastElWasWrapped = true;
           break;
@@ -263,6 +263,9 @@ export class Parser {
           } else {
             const existedBefore = !!this.model.elements[tokenValue];
             lastEl = this.parseElement(WRAPPERS[wrapper].defaultChildType);
+            const localPath: string = parentPath
+              ? `${parentPath}.${lastEl.id}`
+              : lastEl.id;
             if (
               !lastRel &&
               lastPath !== null &&
@@ -270,7 +273,7 @@ export class Parser {
               this.peek()?.type === ">"
             ) {
               const implRel = this.createRelationship(lastPath, "..>");
-              this.updateRelationship(implRel.id, lastEl.id);
+              this.updateRelationship(implRel.id, localPath);
             }
             const isRelSource =
               !lastRel &&
@@ -278,9 +281,6 @@ export class Parser {
             const isRelTarget = !!lastRel;
             const inRelContext = isRelSource || isRelTarget;
 
-            const localPath: string = parentPath
-              ? `${parentPath}.${lastEl.id}`
-              : lastEl.id;
             lastPath = inRelContext && !existedBefore ? localPath : lastEl.id;
 
             if (isRelTarget) {
@@ -302,12 +302,7 @@ export class Parser {
       }
     }
     if (lastRel) {
-      const src = this.model.elements[lastRel.source];
-      if (src?.type === "flow") {
-        this.cancelRelationship(lastRel.id);
-      } else {
-        this.updateRelationship(lastRel.id, parent.id);
-      }
+      this.updateRelationship(lastRel.id, "_");
     }
     this.next();
   }
@@ -325,10 +320,10 @@ export class Parser {
     nextToken = nextToken ?? defaultOpeningWrapper(next?.type);
 
     if (!lastEl) lastEl = this.createElement(this.genId());
-    if (lastRel) this.updateRelationship(lastRel.id, lastEl.id);
     if (!preserveType) lastEl.type = WRAPPERS[nextToken].type;
-
     const childPath = parentPath ? `${parentPath}.${lastEl.id}` : lastEl.id;
+    if (lastRel) this.updateRelationship(lastRel.id, childPath);
+
     this.parseContents(lastEl, childPath, nextToken, depth + 1);
     if (!parent.childIds.includes(lastEl.id)) parent.childIds.push(lastEl.id);
     return lastEl;

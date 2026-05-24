@@ -75,10 +75,9 @@ describe("CodeGenerator", () => {
       expect(code).toContain("pipe>>");
     });
 
-    it("anonymous leaf flow (anon_N id) emits >> without name", () => {
+    it("anonymous leaf flow (anon_N id) emits its id as name so it can be re-identified on re-parse", () => {
       const code = generate(modelWithElement("anon_1", "flow"));
-      expect(code).toContain(">>");
-      expect(code).not.toContain("anon_1");
+      expect(code).toContain("anon_1>>");
     });
 
     it("uses <> for choice type", () => {
@@ -507,6 +506,40 @@ describe("CodeGenerator", () => {
       }
     });
 
+    it("flow chain inside container stores positional (qualified) relationship paths", () => {
+      const m = parse("c(a() >> x)");
+      const rels = Object.values(m.relationships);
+      expect(rels).toHaveLength(2);
+      const [r1, r2] = rels.sort((a, b) => a.source.localeCompare(b.source));
+      expect(r1.source).toMatch(/^c\./);
+      expect(r1.target).toMatch(/^c\./);
+      expect(r2.source).toMatch(/^c\./);
+      expect(r2.target).toMatch(/^c\./);
+      const code = generate(m);
+      const relLines = code.split("\n").filter(l => l.includes("..>"));
+      expect(relLines.every(l => l.startsWith("c."))).toBe(true);
+    });
+
+    it("shared element with anonymous flow does not accumulate extra flows across round-trips", () => {
+      const code = "c(a() >> x)\nd{c} e{c}";
+      const m1 = parse(code);
+      const m2 = parse(generate(m1));
+      const m3 = parse(generate(m2));
+
+      const flowCount = (model: ReturnType<typeof parse>) =>
+        Object.values(model.elements).filter((e) => e.type === "flow").length;
+
+      expect(flowCount(m2), "flow count after first re-parse").toBe(flowCount(m1));
+      expect(flowCount(m3), "flow count after second re-parse").toBe(flowCount(m1));
+
+      expect(m2.elements["c"]?.childIds, "c.childIds after first re-parse").toEqual(
+        m1.elements["c"]?.childIds,
+      );
+      expect(m3.elements["c"]?.childIds, "c.childIds after second re-parse").toEqual(
+        m1.elements["c"]?.childIds,
+      );
+    });
+
     it("snapshot-v1-core.dg: round-trip preserves all named element structure", () => {
       const SNAPSHOT = `PresentationLayer{
   CodeEditor{
@@ -565,7 +598,7 @@ SyncManager --> DiagramModel
 SyncManager --> ViewState
 `;
 
-      const isAnon = (id: string) => /^anon_\d+$/.test(id);
+      const isAnon = (id: string) => /(?:^|\.)anon_\d+$/.test(id);
       const namedIds = (model: ReturnType<typeof parse>) =>
         Object.keys(model.elements).filter((id) => !isAnon(id)).sort();
       const namedChildIds = (model: ReturnType<typeof parse>, id: string) =>

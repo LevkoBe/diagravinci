@@ -468,9 +468,11 @@ describe("Parser", () => {
     expect(named_out?.childIds).toContain("out");
     expect(out?.type).toBe("object");
     const rels = Object.values(model.relationships);
-    expect(rels).toHaveLength(1);
-    expect(rels[0].source).toBe("f");
-    expect(rels[0].target).toBe("named_out");
+    expect(rels).toHaveLength(2);
+    const fRel = rels.find(r => r.source === "f");
+    const outRel = rels.find(r => r.source === "named_out");
+    expect(fRel?.target).toBe("named_out");
+    expect(outRel?.target).toBe("_");
   });
 
   it("named flow with anonymous source: from{} >x> to produces 4 elements and 2 ..> relationships", () => {
@@ -689,7 +691,7 @@ describe("Parser", () => {
     expect(rel1.source).toBe(a.id);
     expect(rel1.target).toBe("a.b");
     expect(rel2.source).toBe("a.b");
-    expect(rel2.target).toBe(a.id);
+    expect(rel2.target).toBe("_");
   });
 
   it("should handle deep nesting duplicates", () => {
