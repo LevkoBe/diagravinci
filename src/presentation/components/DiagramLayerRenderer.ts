@@ -15,7 +15,10 @@ import { SvgPathElementRenderer } from "./rendering/elements/SvgPathElementRende
 import { SimpleRectElementRenderer } from "./rendering/elements/SimpleRectElementRenderer";
 import { PolygonElementRenderer } from "./rendering/elements/PolygonElementRenderer";
 import type { IElementRenderer } from "./rendering/elements/BaseElementRenderer";
-import type { RenderStyle, RelLineStyle } from "../../application/store/uiSlice";
+import type {
+  RenderStyle,
+  RelLineStyle,
+} from "../../application/store/uiSlice";
 
 import {
   computeElementSizes,
@@ -112,7 +115,10 @@ export class DiagramLayerRenderer {
   private readonly executionColorMap: Record<string, string>;
   private readonly classDiagramMode: boolean;
   private readonly opaqueElementBg: boolean;
-  private readonly getGroupMoveInfo?: () => { selectorId: string | null; filterSelectors: Selector[] };
+  private readonly getGroupMoveInfo?: () => {
+    selectorId: string | null;
+    filterSelectors: Selector[];
+  };
 
   constructor(
     stage: Konva.Stage,
@@ -131,7 +137,10 @@ export class DiagramLayerRenderer {
     classDiagramMode = true,
     elementSizes?: ElementSizes,
     geometryCache?: GeometryCache,
-    getGroupMoveInfo?: () => { selectorId: string | null; filterSelectors: Selector[] },
+    getGroupMoveInfo?: () => {
+      selectorId: string | null;
+      filterSelectors: Selector[];
+    },
     opaqueElementBg = true,
   ) {
     this.stage = stage;
@@ -170,7 +179,6 @@ export class DiagramLayerRenderer {
     this.filterHiddenSet = new Set(this.hiddenSet);
     this.dimmedSet = new Set([...viewState.dimmedPaths, ...zoomDimmed]);
 
-
     this.relationshipRenderer = new RelationshipRenderer(
       viewState,
       colors,
@@ -193,39 +201,53 @@ export class DiagramLayerRenderer {
     }
   }
 
-  render(relationshipLayer: Konva.Layer, elementLayer: Konva.Layer): void {
-    relationshipLayer.destroyChildren();
-    elementLayer.destroyChildren();
+  render(diagramLayer: Konva.Layer): void {
+    diagramLayer.destroyChildren();
 
     this.groupMap.clear();
     this.hoverIn.clear();
     this.hoverOut.clear();
     this.hoveredPath = null;
 
-    this.relationshipRenderer.render(relationshipLayer);
-
+    const elementsByDepth = new Map<number, Konva.Group[]>();
     const visited = new Set<string>();
     this.model.root.childIds.forEach((id) => {
       const element = this.model.elements[id];
-      if (element) this.renderRecursive(element, elementLayer, id, visited);
+      if (element)
+        this.collectElementsByDepth(element, id, visited, 1, elementsByDepth);
     });
 
-    relationshipLayer.batchDraw();
-    elementLayer.batchDraw();
+    const posDepthMap = new Map<string, number>();
+    for (const path of Object.keys(this.viewState.positions)) {
+      posDepthMap.set(path, path.split(".").length);
+    }
+    const relsByDepth =
+      this.relationshipRenderer.buildGroupsByDepth(posDepthMap);
+
+    const allDepths = new Set([
+      ...elementsByDepth.keys(),
+      ...relsByDepth.keys(),
+    ]);
+    const maxDepth = allDepths.size > 0 ? Math.max(...allDepths) : 0;
+    for (let depth = 1; depth <= maxDepth; depth++) {
+      for (const group of elementsByDepth.get(depth) ?? [])
+        diagramLayer.add(group);
+      for (const group of relsByDepth.get(depth) ?? []) diagramLayer.add(group);
+    }
+
+    diagramLayer.batchDraw();
   }
 
-
-
-  private renderRecursive(
+  private collectElementsByDepth(
     element: Element,
-    elementLayer: Konva.Layer,
     path: string,
     visited: Set<string>,
+    depth: number,
+    byDepth: Map<number, Konva.Group[]>,
   ): void {
     if (this.hiddenSet.has(path)) return;
 
     const isDimmed = this.dimmedSet.has(path);
-
     const colorOverride =
       this.executionColorMap[element.id] ??
       this.viewState.coloredPaths?.[path] ??
@@ -238,14 +260,23 @@ export class DiagramLayerRenderer {
       colorOverride,
     );
     if (elementGroup) {
-      elementLayer.add(elementGroup);
+      const arr = byDepth.get(depth) ?? [];
+      arr.push(elementGroup);
+      byDepth.set(depth, arr);
     }
 
     if (
       this.classDiagramMode &&
       !isDimmed &&
-      shouldUseClassDiagramMode(element, path, this.viewState, this.filterHiddenSet, this.model)
-    ) return;
+      shouldUseClassDiagramMode(
+        element,
+        path,
+        this.viewState,
+        this.filterHiddenSet,
+        this.model,
+      )
+    )
+      return;
 
     if (visited.has(element.id)) return;
     if (this.viewState.foldedPaths.includes(path)) return;
@@ -253,14 +284,14 @@ export class DiagramLayerRenderer {
     visited.add(element.id);
     element.childIds.forEach((childId) => {
       const child = this.model.elements[childId];
-      if (child) {
-        this.renderRecursive(
+      if (child)
+        this.collectElementsByDepth(
           child,
-          elementLayer,
           `${path}.${childId}`,
           visited,
+          depth + 1,
+          byDepth,
         );
-      }
     });
     visited.delete(element.id);
   }
@@ -298,10 +329,21 @@ export class DiagramLayerRenderer {
     if (
       this.classDiagramMode &&
       !isDimmed &&
-      shouldUseClassDiagramMode(element, path, this.viewState, this.filterHiddenSet, this.model)
+      shouldUseClassDiagramMode(
+        element,
+        path,
+        this.viewState,
+        this.filterHiddenSet,
+        this.model,
+      )
     ) {
       elementRenderer.setClassDiagramContent(
-        computeClassDiagramContent(element, path, this.model, this.filterHiddenSet),
+        computeClassDiagramContent(
+          element,
+          path,
+          this.model,
+          this.filterHiddenSet,
+        ),
       );
     }
 
@@ -366,7 +408,8 @@ export class DiagramLayerRenderer {
         onClick: this.callbacks.onClick,
         onPositionChange: this.callbacks.onPositionChange,
         onReparent: this.callbacks.onReparent,
-        moveGroupPeers: (path, worldPos) => this.moveGroupPeersForDrag(path, worldPos),
+        moveGroupPeers: (path, worldPos) =>
+          this.moveGroupPeersForDrag(path, worldPos),
         setHovered: (p) => this.setHovered(p),
         findHoveredPath: (id, pos) => this.findBestPath(id, pos, null),
         findNewParentPath: (p, pos) =>
@@ -381,7 +424,8 @@ export class DiagramLayerRenderer {
     );
 
     group.dragBoundFunc(() => {
-      const target = this.stage.getPointerPosition() ?? group.getAbsolutePosition();
+      const target =
+        this.stage.getPointerPosition() ?? group.getAbsolutePosition();
       const cur = group.getAbsolutePosition();
       return {
         x: cur.x + (target.x - cur.x) * 0.2,
@@ -477,7 +521,10 @@ export class DiagramLayerRenderer {
     });
   }
 
-  private moveGroupPeersForDrag(path: string, worldPos: { x: number; y: number }): void {
+  private moveGroupPeersForDrag(
+    path: string,
+    worldPos: { x: number; y: number },
+  ): void {
     if (!this.getGroupMoveInfo) return;
     const { selectorId, filterSelectors } = this.getGroupMoveInfo();
     if (!selectorId) return;

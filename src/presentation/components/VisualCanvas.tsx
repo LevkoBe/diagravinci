@@ -53,8 +53,7 @@ function hexToRgba(hex: string, alpha: number): string {
 export function VisualCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
-  const relationshipLayerRef = useRef<Konva.Layer | null>(null);
-  const elementLayerRef = useRef<Konva.Layer | null>(null);
+  const diagramLayerRef = useRef<Konva.Layer | null>(null);
   const selectionLayerRef = useRef<Konva.Layer | null>(null);
   const prevPathsRef = useRef<Set<string>>(new Set());
   const prevElementPositionsRef = useRef<
@@ -307,18 +306,15 @@ export function VisualCanvas() {
       height: containerRef.current.getBoundingClientRect().height,
       draggable: true,
     });
-    const relationshipLayer = new Konva.Layer();
-    const elementLayer = new Konva.Layer();
+    const diagramLayer = new Konva.Layer();
     const selectionLayer = new Konva.Layer();
 
-    stage.add(relationshipLayer);
-    stage.add(elementLayer);
+    stage.add(diagramLayer);
     stage.add(selectionLayer);
 
     stageRef.current = stage;
     stageRegistry.set(stage);
-    relationshipLayerRef.current = relationshipLayer;
-    elementLayerRef.current = elementLayer;
+    diagramLayerRef.current = diagramLayer;
     selectionLayerRef.current = selectionLayer;
 
     stage.on("dragstart", () => {
@@ -638,8 +634,7 @@ export function VisualCanvas() {
 
   useEffect(() => {
     if (
-      !relationshipLayerRef.current ||
-      !elementLayerRef.current ||
+      !diagramLayerRef.current ||
       !stageRef.current
     )
       return;
@@ -861,7 +856,7 @@ export function VisualCanvas() {
     const cloneRelIds = new Set(
       execInstances.flatMap((i) => i.clonedRelationshipIds),
     );
-    renderer.render(relationshipLayerRef.current, elementLayerRef.current);
+    renderer.render(diagramLayerRef.current);
     const groupMap = renderer.getGroupMap();
     const relRenderer = renderer.getRelationshipRenderer();
 
@@ -950,9 +945,7 @@ export function VisualCanvas() {
       }
 
       if (elemAnims.length > 0 || relAnims.length > 0) {
-        const layers = (
-          [elementLayerRef.current, relationshipLayerRef.current] as const
-        ).filter((l): l is Konva.Layer => l !== null);
+        const layers = [diagramLayerRef.current].filter((l): l is Konva.Layer => l !== null);
         const anim = new Konva.Animation((frame) => {
           const t = Math.min((frame?.time ?? 0) / animDurationMs, 1);
           const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
@@ -1059,10 +1052,8 @@ export function VisualCanvas() {
       });
       exportStage.position({ x: -minWX * zoom, y: -minWY * zoom });
       exportStage.scale({ x: zoom, y: zoom });
-      const relLayer = new Konva.Layer();
-      const elemLayer = new Konva.Layer();
-      exportStage.add(relLayer);
-      exportStage.add(elemLayer);
+      const diagramLayer = new Konva.Layer();
+      exportStage.add(diagramLayer);
       const { DiagramLayerRenderer } = await import("./DiagramLayerRenderer");
       const renderer = new DiagramLayerRenderer(
         exportStage,
@@ -1084,7 +1075,7 @@ export function VisualCanvas() {
         undefined,
         opaqueElementBg,
       );
-      renderer.render(relLayer, elemLayer);
+      renderer.render(diagramLayer);
       const exportCanvas = await exportStage.toCanvas({ pixelRatio: 2 });
       const bgColor = isDark ? "#0b0d10" : "#f5e8c0";
       const out = document.createElement("canvas");
