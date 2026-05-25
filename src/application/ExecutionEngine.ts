@@ -443,56 +443,72 @@ export function computeExecutionStep(
     };
 
     if (currentEl?.type === "object") {
-      for (const incomingId of instance.clonedElementIds) {
+      const anyHasSlot = instance.clonedElementIds.some((incomingId) => {
         const inBase = baseName(incomingId);
-        const hasSlot =
+        return (
           currentEl.childIds.some(
             (cid) => !allCloneIds.has(cid) && baseName(cid) === inBase,
           ) ||
           removedTemplates.some(
             (rt) =>
               rt.parentId === currentEl.id && baseName(rt.rootId) === inBase,
-          );
-        if (!hasSlot) {
-          delta.removeElements.push(
-            ...collectSubtreeRemoves(
-              model,
-              incomingId,
-              currentEl.id,
-              `${instance.currentPath}.${incomingId}`,
-            ),
-          );
-          continue;
-        }
-        for (const childId of [...currentEl.childIds]) {
-          if (childId === incomingId || baseName(childId) !== inBase) continue;
-          if (allCloneIds.has(childId)) {
-            const removes = collectSubtreeRemoves(
-              model,
-              childId,
-              currentEl.id,
-              `${instance.currentPath}.${childId}`,
+          )
+        );
+      });
+
+      if (anyHasSlot) {
+        for (const incomingId of instance.clonedElementIds) {
+          const inBase = baseName(incomingId);
+          const hasSlot =
+            currentEl.childIds.some(
+              (cid) => !allCloneIds.has(cid) && baseName(cid) === inBase,
+            ) ||
+            removedTemplates.some(
+              (rt) =>
+                rt.parentId === currentEl.id && baseName(rt.rootId) === inBase,
             );
-            delta.removeElements.push(...removes);
-            for (const { elementId } of removes)
-              removeSettledIds.push(elementId);
-          } else {
-            delta.hideFromParent.push({
-              elementId: childId,
-              parentElementId: currentEl.id,
-            });
-            addRemovedTemplates.push({
-              rootId: childId,
-              parentId: currentEl.id,
-            });
+          if (!hasSlot) {
+            delta.removeElements.push(
+              ...collectSubtreeRemoves(
+                model,
+                incomingId,
+                currentEl.id,
+                `${instance.currentPath}.${incomingId}`,
+              ),
+            );
+            continue;
           }
+          for (const childId of [...currentEl.childIds]) {
+            if (childId === incomingId || baseName(childId) !== inBase)
+              continue;
+            if (allCloneIds.has(childId)) {
+              const removes = collectSubtreeRemoves(
+                model,
+                childId,
+                currentEl.id,
+                `${instance.currentPath}.${childId}`,
+              );
+              delta.removeElements.push(...removes);
+              for (const { elementId } of removes)
+                removeSettledIds.push(elementId);
+            } else {
+              delta.hideFromParent.push({
+                elementId: childId,
+                parentElementId: currentEl.id,
+              });
+              addRemovedTemplates.push({
+                rootId: childId,
+                parentId: currentEl.id,
+              });
+            }
+          }
+          addSettledIds.push(incomingId);
         }
-        addSettledIds.push(incomingId);
+        for (const relId of instance.clonedRelationshipIds) {
+          delta.removeRelationshipIds.push(relId);
+        }
+        continue;
       }
-      for (const relId of instance.clonedRelationshipIds) {
-        delta.removeRelationshipIds.push(relId);
-      }
-      continue;
     }
 
     const currentPath = instance.currentPath;

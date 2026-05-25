@@ -2318,6 +2318,35 @@ describe("integration: a() c(a) gen(x)..>c.a..>b() routes through c.a, not stand
   });
 });
 
+describe("integration: object without template slots forwards token through chain", () => {
+  it("b(c) gen(x) --> a --> b.c --> d: token passes through bare object a to b.c", () => {
+    const { model, viewState } = parseAndLayout(
+      "b(c)\ngen(x) --> a --> b.c --> d",
+    );
+
+    const r0 = computeExecutionStep(model, viewState, [], 0, 0, COLOR);
+    expect(r0.nextInstances).toHaveLength(1);
+    expect(r0.nextInstances[0].currentPath).toBe("a");
+
+    const m1 = applyDeltaToModel(model, r0.delta);
+    const vs1 = new ExecuteLayout().apply(
+      m1,
+      { width: 1000, height: 1000 },
+      viewState,
+    );
+    const r1 = computeExecutionStep(
+      m1,
+      vs1,
+      r0.nextInstances,
+      1,
+      r0.nextInstanceId,
+      COLOR,
+    );
+    const paths1 = r1.nextInstances.map((i) => i.currentPath);
+    expect(paths1).toContain("b.c");
+  });
+});
+
 describe("EXECUTION_TEMPLATES: exec-linear-pipeline", () => {
   const gEl = gen(["a", "b", "c"]);
   const aEl = obj("a");
