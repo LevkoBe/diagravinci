@@ -563,7 +563,7 @@ describe("arrow navigation", () => {
 
     fireKey({ key: "ArrowDown", code: "ArrowDown" });
 
-    expect(testStore.getState().ui.selectedElementIds).toEqual(["b"]);
+    expect(testStore.getState().ui.selectedElementIds).toEqual(["a.b"]);
   });
 
   it("ArrowUp navigates to the parent element", () => {

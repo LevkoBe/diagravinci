@@ -59,6 +59,7 @@ export function VisualCanvas() {
     Record<string, { x: number; y: number }>
   >({});
   const justDraggedPathsRef = useRef<Set<string>>(new Set());
+  const dragStateRef = useRef<{ path: string | null; scales: Map<string, number> }>({ path: null, scales: new Map() });
   const geometryCacheRef = useRef<GeometryCache>(new Map());
   const currentAnimRef = useRef<Konva.Animation | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -818,6 +819,7 @@ export function VisualCanvas() {
         filterSelectors: store.getState().filter.selectors,
       }),
       opaqueElementBg,
+      dragStateRef.current,
     );
 
     const cloneIds = new Set<string>();

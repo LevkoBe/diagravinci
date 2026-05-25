@@ -20,6 +20,7 @@ import { store, syncManager } from "../../application/store/store";
 import {
   navigateSelection,
   navigateAlternative,
+  resolveIdsToFullPaths,
   type NavDirection,
 } from "../../application/navigate";
 import type { Element, ElementType } from "../../domain/models/Element";
@@ -434,7 +435,7 @@ export function useKeyboardShortcuts({
               dir === "forward" ? "next" : "prev",
               state.ui.navigationParentId,
             );
-            if (newIds.length > 0) dispatch(setSelectedElements(newIds));
+            if (newIds.length > 0) dispatch(setSelectedElements(resolveIdsToFullPaths(newIds, state.diagram.model)));
             return;
           }
 
@@ -458,7 +459,7 @@ export function useKeyboardShortcuts({
             } else {
               dispatch(setNavigationParentId(null));
             }
-            dispatch(setSelectedElements(newIds));
+            dispatch(setSelectedElements(resolveIdsToFullPaths(newIds, state.diagram.model)));
           }
           return;
         }

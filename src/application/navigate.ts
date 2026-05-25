@@ -2,6 +2,23 @@ import type { DiagramModel } from "../domain/models/DiagramModel";
 
 export type NavDirection = "forward" | "forward-all" | "backward" | "backward-all" | "parent" | "child" | "child-all";
 
+export function resolveIdsToFullPaths(ids: string[], model: DiagramModel): string[] {
+  const idToPath = new Map<string, string>();
+
+  function traverse(childIds: string[], parentPath: string | null) {
+    for (const id of childIds) {
+      if (idToPath.has(id)) continue;
+      const path = parentPath ? `${parentPath}.${id}` : id;
+      idToPath.set(id, path);
+      const el = model.elements[id];
+      if (el?.childIds.length) traverse(el.childIds, path);
+    }
+  }
+
+  traverse(model.root.childIds, null);
+  return ids.map((id) => idToPath.get(id) ?? id);
+}
+
 function getColorForId(id: string, coloredPaths: Record<string, string>): string | null {
   if (coloredPaths[id]) return coloredPaths[id];
   for (const [path, color] of Object.entries(coloredPaths)) {

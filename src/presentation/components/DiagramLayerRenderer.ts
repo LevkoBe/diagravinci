@@ -81,6 +81,12 @@ export class DiagramLayerRenderer {
   private readonly groupMap = new Map<string, Konva.Group>();
   private readonly relationshipRenderer: RelationshipRenderer;
   private hoveredPath: string | null = null;
+  private static readonly DRAG_TARGET_PX = 60;
+
+  private readonly _dragState: {
+    path: string | null;
+    scales: Map<string, number>;
+  };
   private readonly hoverIn = new Map<string, () => void>();
   private readonly hoverOut = new Map<string, () => void>();
   private readonly tooltipLabels = new Map<string, string>();
@@ -142,6 +148,7 @@ export class DiagramLayerRenderer {
       filterSelectors: Selector[];
     },
     opaqueElementBg = true,
+    dragState?: { path: string | null; scales: Map<string, number> },
   ) {
     this.stage = stage;
     this.model = model;
@@ -160,6 +167,7 @@ export class DiagramLayerRenderer {
     this.classDiagramMode = classDiagramMode;
     this.opaqueElementBg = opaqueElementBg;
     this.getGroupMoveInfo = getGroupMoveInfo;
+    this._dragState = dragState ?? { path: null, scales: new Map() };
 
     const { pixelSizes, zoomHidden, zoomDimmed } =
       elementSizes ??
@@ -235,6 +243,29 @@ export class DiagramLayerRenderer {
         elementLayer.add(group);
       for (const group of relsByDepth.get(depth) ?? [])
         relationshipLayer.add(group);
+    }
+
+    if (this._dragState.scales.size > 0) {
+      for (const [p, s] of this._dragState.scales) {
+        const grp = this.groupMap.get(p);
+        if (grp) {
+          grp.scale({ x: s, y: s });
+          grp.moveToTop();
+        }
+      }
+
+      if (this._dragState.path) {
+        const parentGroup = this.groupMap.get(this._dragState.path);
+        if (parentGroup) {
+          this.forEachChildPath(this._dragState.path, (childPath) => {
+            const childGroup = this.groupMap.get(childPath);
+            if (childGroup) {
+              childGroup.x(parentGroup.x());
+              childGroup.y(parentGroup.y());
+            }
+          });
+        }
+      }
     }
 
     elementLayer.batchDraw();
@@ -436,12 +467,119 @@ export class DiagramLayerRenderer {
       };
     });
 
+    let dragScale: number | null = null;
+    const childDragScales = new Map<string, number>();
+    const peerDragScales = new Map<string, number>();
+
     const handlers = eventHandler.createHandlers();
     group.on("click tap", handlers.onClick);
     group.on("mouseenter", handlers.onMouseEnter);
     group.on("mouseleave", handlers.onMouseLeave);
-    group.on("dragmove", handlers.onDragMove);
-    group.on("dragend", handlers.onDragEnd);
+    group.on("dragstart", () => {
+      group.moveToTop();
+      this._dragState.path = path;
+      const rect = group.getClientRect();
+      const longest = Math.max(rect.width, rect.height, 1);
+      dragScale = Math.min(DiagramLayerRenderer.DRAG_TARGET_PX / longest, 1);
+      group.scale({ x: dragScale, y: dragScale });
+      this._dragState.scales.set(path, dragScale);
+      childDragScales.clear();
+      this.forEachChildPath(path, (childPath) => {
+        const childGroup = this.groupMap.get(childPath);
+        if (!childGroup) return;
+        const childRect = childGroup.getClientRect();
+        const childLongest = Math.max(childRect.width, childRect.height, 1);
+        const cs = Math.min(
+          DiagramLayerRenderer.DRAG_TARGET_PX / childLongest,
+          1,
+        );
+        childDragScales.set(childPath, cs);
+        this._dragState.scales.set(childPath, cs);
+        childGroup.scale({ x: cs, y: cs });
+        childGroup.x(group.x());
+        childGroup.y(group.y());
+        childGroup.moveToTop();
+      });
+
+      peerDragScales.clear();
+      if (this.getGroupMoveInfo) {
+        const { selectorId, filterSelectors } = this.getGroupMoveInfo();
+        if (selectorId) {
+          const sel = filterSelectors.find((s) => s.id === selectorId);
+          const rules = this.model.rules ?? [];
+          if (sel && matchesSelector(path, sel, this.model, rules)) {
+            for (const gp of Object.keys(this.viewState.positions)) {
+              if (gp === path || childDragScales.has(gp)) continue;
+              if (!matchesSelector(gp, sel, this.model, rules)) continue;
+              const peerGroup = this.groupMap.get(gp);
+              if (!peerGroup) continue;
+              const peerRect = peerGroup.getClientRect();
+              const peerLongest = Math.max(peerRect.width, peerRect.height, 1);
+              const ps = Math.min(
+                DiagramLayerRenderer.DRAG_TARGET_PX / peerLongest,
+                1,
+              );
+              peerDragScales.set(gp, ps);
+              this._dragState.scales.set(gp, ps);
+              peerGroup.scale({ x: ps, y: ps });
+              peerGroup.moveToTop();
+            }
+          }
+        }
+      }
+    });
+    group.on("dragmove", (e: Konva.KonvaEventObject<DragEvent>) => {
+      if (dragScale !== null) {
+        group.scale({ x: dragScale, y: dragScale });
+      }
+
+      for (const [gp, ps] of peerDragScales) {
+        const peerGroup = this.groupMap.get(gp);
+        if (peerGroup) peerGroup.scale({ x: ps, y: ps });
+      }
+      handlers.onDragMove(e);
+
+      for (const [childPath, cs] of childDragScales) {
+        const childGroup = this.groupMap.get(childPath);
+        if (childGroup) childGroup.scale({ x: cs, y: cs });
+      }
+    });
+    group.on("dragend", (e: Konva.KonvaEventObject<DragEvent>) => {
+      const had = dragScale !== null && this._dragState.path === path;
+      dragScale = null;
+      if (had) {
+        this._dragState.path = null;
+        group.scale({ x: 1, y: 1 });
+        const storedParentPos = this.viewState.positions[path]?.position;
+        if (storedParentPos) {
+          const newParentPos = screenToWorld(
+            group.getAbsolutePosition(),
+            this.stage,
+          );
+          const delta = {
+            x: newParentPos.x - storedParentPos.x,
+            y: newParentPos.y - storedParentPos.y,
+          };
+          this.forEachChildPath(path, (childPath) => {
+            const childGroup = this.groupMap.get(childPath);
+            const storedChildPos =
+              this.viewState.positions[childPath]?.position;
+            if (childGroup && storedChildPos) {
+              childGroup.x(storedChildPos.x + delta.x);
+              childGroup.y(storedChildPos.y + delta.y);
+              childGroup.scale({ x: 1, y: 1 });
+            }
+          });
+        }
+        for (const gp of peerDragScales.keys()) {
+          this.groupMap.get(gp)?.scale({ x: 1, y: 1 });
+        }
+      }
+      childDragScales.clear();
+      peerDragScales.clear();
+      this._dragState.scales.clear();
+      handlers.onDragEnd(e);
+    });
     group.on("contextmenu", (e: Konva.KonvaEventObject<MouseEvent>) => {
       e.evt.preventDefault();
       this.callbacks.onContextMenu?.(element.id, path);
@@ -481,8 +619,18 @@ export class DiagramLayerRenderer {
   }
 
   private updateRelationshipLines(changedPath: string): void {
-    this.relationshipRenderer.updateLinePosition(changedPath, (path: string) =>
-      this.getLiveWorldPos(path),
+    const sizeOverride =
+      this._dragState.scales.size > 0
+        ? (path: string) => {
+            const s = this._dragState.scales.get(path);
+            if (s === undefined) return null;
+            return (this.viewState.positions[path]?.size ?? 0) * s;
+          }
+        : undefined;
+    this.relationshipRenderer.updateLinePosition(
+      changedPath,
+      (path: string) => this.getLiveWorldPos(path),
+      sizeOverride,
     );
   }
 
@@ -504,6 +652,17 @@ export class DiagramLayerRenderer {
     const parentGroup = this.groupMap.get(parentPath);
     const storedParentPos = this.viewState.positions[parentPath]?.position;
     if (!parentGroup || !storedParentPos) return;
+
+    if (this._dragState.path === parentPath) {
+      this.forEachChildPath(parentPath, (p) => {
+        const childGroup = this.groupMap.get(p);
+        if (childGroup) {
+          childGroup.x(parentGroup.x());
+          childGroup.y(parentGroup.y());
+        }
+      });
+      return;
+    }
 
     const newParentPos = screenToWorld(
       parentGroup.getAbsolutePosition(),

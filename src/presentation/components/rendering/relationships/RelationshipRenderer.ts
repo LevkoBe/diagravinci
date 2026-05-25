@@ -360,6 +360,7 @@ export class RelationshipRenderer {
   updateLinePosition(
     changedPath: string,
     getWorldPos: (path: string) => { x: number; y: number } | null,
+    getSizeOverride?: (path: string) => number | null,
   ): void {
     this.viewState.relationships.forEach((rel) => {
       if (rel.sourcePath !== changedPath && rel.targetPath !== changedPath)
@@ -374,8 +375,8 @@ export class RelationshipRenderer {
       const tp = getWorldPos(rel.targetPath);
       if (!sp || !tp) return;
 
-      const sourceSize = this.viewState.positions[rel.sourcePath]?.size ?? 0;
-      const targetSize = this.viewState.positions[rel.targetPath]?.size ?? 0;
+      const sourceSize = getSizeOverride?.(rel.sourcePath) ?? this.viewState.positions[rel.sourcePath]?.size ?? 0;
+      const targetSize = getSizeOverride?.(rel.targetPath) ?? this.viewState.positions[rel.targetPath]?.size ?? 0;
 
       const result = computeRelPoints(
         sp.x,
