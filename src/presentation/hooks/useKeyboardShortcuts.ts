@@ -56,31 +56,67 @@ function freshId(originalId: string, taken: Set<string>): string {
   return `${base}_${n}`;
 }
 
-function deleteElements(
-  selectedIds: string[],
-  m: DiagramModel,
-): DiagramModel {
-  const selectedSet = new Set(selectedIds);
+function detachPaths(selectedPaths: string[], m: DiagramModel): DiagramModel {
   const newElements = { ...m.elements };
-  for (const id of selectedIds) delete newElements[id];
-  const newRoot = {
-    ...m.root,
-    childIds: m.root.childIds.filter((id) => !selectedSet.has(id)),
-  };
-  Object.values(newElements).forEach((el) => {
-    if (el.childIds.some((id) => selectedSet.has(id))) {
-      newElements[el.id] = {
-        ...el,
-        childIds: el.childIds.filter((id) => !selectedSet.has(id)),
+  let newRoot = { ...m.root };
+
+  const detachMap = new Map<string | null, Set<string>>();
+  for (const path of selectedPaths) {
+    const parts = path.split(".");
+    const leafId = parts.at(-1)!;
+    const parentId = parts.length > 1 ? parts[parts.length - 2] : null;
+    if (!detachMap.has(parentId)) detachMap.set(parentId, new Set());
+    detachMap.get(parentId)!.add(leafId);
+  }
+
+  for (const [parentId, idsToRemove] of detachMap) {
+    if (parentId === null) {
+      newRoot = {
+        ...newRoot,
+        childIds: newRoot.childIds.filter((id) => !idsToRemove.has(id)),
+      };
+    } else if (newElements[parentId]) {
+      newElements[parentId] = {
+        ...newElements[parentId],
+        childIds: newElements[parentId].childIds.filter(
+          (id) => !idsToRemove.has(id),
+        ),
       };
     }
-  });
+  }
+
+  const toDelete = new Set<string>();
+  const queue = [...new Set(selectedPaths.map((p) => p.split(".").at(-1)!))];
+
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (toDelete.has(id)) continue;
+    const isReferenced =
+      newRoot.childIds.includes(id) ||
+      Object.entries(newElements).some(
+        ([eid, el]) => !toDelete.has(eid) && el.childIds.includes(id),
+      );
+    if (!isReferenced) {
+      toDelete.add(id);
+      const el = newElements[id];
+      if (el) queue.push(...el.childIds.filter((c) => !toDelete.has(c)));
+    }
+  }
+
+  for (const id of toDelete) delete newElements[id];
+
   const newRelationships = Object.fromEntries(
     Object.entries(m.relationships).filter(
-      ([, r]) => !selectedSet.has(r.source) && !selectedSet.has(r.target),
+      ([, r]) => !toDelete.has(r.source) && !toDelete.has(r.target),
     ),
   );
-  return { ...m, root: newRoot, elements: newElements, relationships: newRelationships };
+
+  return {
+    ...m,
+    root: newRoot,
+    elements: newElements,
+    relationships: newRelationships,
+  };
 }
 
 const MODE_KEYS: Record<string, InteractionMode> = {
@@ -172,7 +208,9 @@ export function useKeyboardShortcuts({
 
       if (ctrl && e.code === "KeyA") {
         e.preventDefault();
-        const allPaths = Object.keys(store.getState().diagram.viewState.positions);
+        const allPaths = Object.keys(
+          store.getState().diagram.viewState.positions,
+        );
         dispatch(setSelectedElements(allPaths));
         return;
       }
@@ -193,8 +231,7 @@ export function useKeyboardShortcuts({
         const selectedIds = state.ui.selectedElementIds;
         if (selectedIds.length === 0) return;
         e.preventDefault();
-        const elementIds = selectedIds.map((p) => p.split(".").at(-1)!);
-        syncManager.syncFromVis(deleteElements(elementIds, state.diagram.model));
+        syncManager.syncFromVis(detachPaths(selectedIds, state.diagram.model));
         dispatch(setSelectedElements([]));
         return;
       }
@@ -206,7 +243,11 @@ export function useKeyboardShortcuts({
         if (selectedIds.length === 0) return;
         const m = state.diagram.model;
         const elementIds = selectedIds.map((p) => p.split(".").at(-1)!);
-        clipboard = { topLevelIds: elementIds, elements: m.elements, relationships: m.relationships };
+        clipboard = {
+          topLevelIds: elementIds,
+          elements: m.elements,
+          relationships: m.relationships,
+        };
         return;
       }
 
@@ -217,8 +258,12 @@ export function useKeyboardShortcuts({
         if (selectedIds.length === 0) return;
         const m = state.diagram.model;
         const elementIds = selectedIds.map((p) => p.split(".").at(-1)!);
-        clipboard = { topLevelIds: elementIds, elements: m.elements, relationships: m.relationships };
-        syncManager.syncFromVis(deleteElements(elementIds, m));
+        clipboard = {
+          topLevelIds: elementIds,
+          elements: m.elements,
+          relationships: m.relationships,
+        };
+        syncManager.syncFromVis(detachPaths(selectedIds, m));
         dispatch(setSelectedElements([]));
         return;
       }
@@ -228,7 +273,9 @@ export function useKeyboardShortcuts({
         if (!clipboard) return;
         const state = store.getState();
         const m = state.diagram.model;
-        const pasteTargets = state.ui.selectedElementIds.map((p) => p.split(".").at(-1)!);
+        const pasteTargets = state.ui.selectedElementIds.map(
+          (p) => p.split(".").at(-1)!,
+        );
 
         const newElements = { ...m.elements };
         let newRoot = { ...m.root };
@@ -255,7 +302,10 @@ export function useKeyboardShortcuts({
               toAdd.push(srcId);
             } else {
               const id = freshId(srcId, new Set(Object.keys(newElements)));
-              newElements[id] = { ...(newElements[srcId] ?? clipboard.elements[srcId]), id };
+              newElements[id] = {
+                ...(newElements[srcId] ?? clipboard.elements[srcId]),
+                id,
+              };
               siblingSet.add(id);
               toAdd.push(id);
             }
@@ -265,7 +315,10 @@ export function useKeyboardShortcuts({
           if (targetId === null) {
             newRoot = { ...newRoot, childIds: [...siblings, ...toAdd] };
           } else if (newElements[targetId]) {
-            newElements[targetId] = { ...newElements[targetId], childIds: [...siblings, ...toAdd] };
+            newElements[targetId] = {
+              ...newElements[targetId],
+              childIds: [...siblings, ...toAdd],
+            };
           }
         }
 
@@ -277,7 +330,9 @@ export function useKeyboardShortcuts({
       if (ctrl && e.code === "KeyD") {
         e.preventDefault();
         const state = store.getState();
-        const selectedIds = state.ui.selectedElementIds.map((p) => p.split(".").at(-1)!);
+        const selectedIds = state.ui.selectedElementIds.map(
+          (p) => p.split(".").at(-1)!,
+        );
         if (selectedIds.length === 0) return;
         const m = state.diagram.model;
 
@@ -289,7 +344,10 @@ export function useKeyboardShortcuts({
           let parentId: string | null = null;
           if (!m.root.childIds.includes(selId)) {
             for (const [pid, pel] of Object.entries(m.elements)) {
-              if (pel.childIds.includes(selId)) { parentId = pid; break; }
+              if (pel.childIds.includes(selId)) {
+                parentId = pid;
+                break;
+              }
             }
           }
 
@@ -303,7 +361,10 @@ export function useKeyboardShortcuts({
             const src = newElements[srcId];
             if (!src) return;
             const newChildIds = src.childIds.map((childId) => {
-              const childNewId = freshId(childId, new Set(Object.keys(newElements)));
+              const childNewId = freshId(
+                childId,
+                new Set(Object.keys(newElements)),
+              );
               deepCopy(childId, childNewId);
               return childNewId;
             });
@@ -315,7 +376,10 @@ export function useKeyboardShortcuts({
           if (parentId === null) {
             newRoot = { ...newRoot, childIds: [...siblings, newId] };
           } else if (newElements[parentId]) {
-            newElements[parentId] = { ...newElements[parentId], childIds: [...siblings, newId] };
+            newElements[parentId] = {
+              ...newElements[parentId],
+              childIds: [...siblings, newId],
+            };
           }
         }
 

@@ -22,6 +22,10 @@ export function matchesSelector(
   model: DiagramModel,
   rules: Rule[],
 ): boolean {
+  if (selector.selectedPaths) {
+    return selector.selectedPaths.includes(path);
+  }
+
   const elementId = path.split(".").at(-1)!;
   const element = model.elements[elementId];
 

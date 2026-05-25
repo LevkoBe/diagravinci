@@ -18,6 +18,7 @@ export interface Selector {
   label: string;
   expression: string;
   color: string;
+  selectedPaths?: string[];
 }
 
 export interface Session {

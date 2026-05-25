@@ -16,6 +16,7 @@ import {
 import { toggleElementFold } from "../../application/store/filterSlice";
 import { syncManager, store } from "../../application/store/store";
 import { getCSSVariable } from "../../shared/utils";
+import { toSelectorId } from "../../domain/models/Selector";
 import { useExecution } from "../hooks/useExecution";
 import { getExecutionColorMap } from "../../application/ExecutionEngine";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
@@ -147,6 +148,56 @@ export function VisualCanvas() {
     groupMoveSelIdRef.current = groupMoveSelectorId;
   }, [groupMoveSelectorId]);
 
+  useEffect(() => {
+    if (!activeSessionId) return;
+    const { model: currentModel } = store.getState().diagram;
+    const selLabel = `Selection_${activeSessionId}`;
+    const selId = toSelectorId(selLabel);
+    const selColor = getCSSVariable("--color-state-selected");
+
+    const existingSelectors = currentModel.selectors ?? [];
+    const existingSel = existingSelectors.find((s) => s.id === selId);
+
+    const prevPaths = existingSel?.selectedPaths ?? [];
+    const nextPaths = selectedElementIds;
+
+    const pathsChanged =
+      prevPaths.length !== nextPaths.length ||
+      prevPaths.some((p, i) => p !== nextPaths[i]);
+
+    if (!pathsChanged) return;
+
+    let updatedSelectors: typeof existingSelectors;
+    if (nextPaths.length === 0) {
+      updatedSelectors = existingSelectors.filter((s) => s.id !== selId);
+    } else if (existingSel) {
+      updatedSelectors = existingSelectors.map((s) =>
+        s.id === selId ? { ...s, selectedPaths: nextPaths } : s,
+      );
+    } else {
+      updatedSelectors = [
+        ...existingSelectors,
+        { id: selId, label: selLabel, expression: "", color: selColor, selectedPaths: nextPaths },
+      ];
+    }
+
+    const updatedSessions = (currentModel.sessions ?? []).map((session) => {
+      if (session.id !== activeSessionId) return session;
+      const already = session.selectorModes[selId];
+      if (nextPaths.length === 0) {
+        if (!already || already === "off") return session;
+        const { [selId]: _, ...rest } = session.selectorModes;
+        return { ...session, selectorModes: rest };
+      }
+      if (already === "color") return session;
+      return { ...session, selectorModes: { ...session.selectorModes, [selId]: "color" as const } };
+    });
+
+    syncManager.syncFromVis(
+      { ...currentModel, selectors: updatedSelectors, sessions: updatedSessions },
+      true,
+    );
+  }, [selectedElementIds, activeSessionId]);
 
   useEffect(() => {
     if (interactionMode !== "presentation") return;
@@ -767,7 +818,6 @@ export function VisualCanvas() {
         filterSelectors: store.getState().filter.selectors,
       }),
       opaqueElementBg,
-      new Set(selectedElementIds),
     );
 
     const cloneIds = new Set<string>();
@@ -950,7 +1000,6 @@ export function VisualCanvas() {
     tickIntervalMs,
     spawnOriginsRef,
     elementSizes,
-    selectedElementIds,
   ]);
 
   useEffect(() => {
