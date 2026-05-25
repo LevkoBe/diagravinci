@@ -12,6 +12,10 @@ import type { ViewState } from "../../domain/models/ViewState";
 import { createElement } from "../../domain/models/Element";
 import { createRelationship } from "../../domain/models/Relationship";
 import { createEmptyViewState } from "../../domain/models/ViewState";
+import { Lexer } from "../../infrastructure/parser/Lexer";
+import { Parser } from "../../infrastructure/parser/Parser";
+import CircularLayout from "../../domain/layout/CircularLayout";
+import { ExecuteLayout } from "../../domain/layout/ExecuteLayout";
 
 function makeModel(
   elements: ReturnType<typeof createElement>[],
@@ -2192,6 +2196,125 @@ describe("computeExecutionStep — scope entry/exit: b(c..>d) scenario", () => {
     };
     const r2 = computeExecutionStep(model2, vs2b, [inst2], 1, 1, COLOR);
     expect(r2.nextInstances[0].currentPath).toBe("nc");
+  });
+});
+
+describe("computeExecutionStep — routing: gen(x)..>a()..>b() c(a) shared-element path resolution", () => {
+  function pe2(
+    id: string,
+    x: number,
+    y: number,
+    size = 60,
+  ): import("../../domain/models/ViewState").PositionedElement {
+    return { id, position: { x, y }, size, value: 1 };
+  }
+
+  const gEl2 = gen(["x"]);
+  const xEl2 = obj("x");
+  const aEl2 = fn("a");
+  const bEl2 = fn("b");
+  const cEl2 = fn("c", ["a"]);
+
+  const sharedModel: DiagramModel = (() => {
+    const rootEl = createElement("root", "object");
+    rootEl.childIds = ["gen", "x", "a", "b", "c"];
+    return {
+      root: rootEl,
+      elements: { gen: gEl2, x: xEl2, a: aEl2, b: bEl2, c: cEl2 },
+      relationships: {},
+      metadata: { version: "1.0.0", created: "", modified: "" },
+    };
+  })();
+
+  const sharedVS: ViewState = {
+    ...createEmptyViewState(),
+    positions: {
+      gen: pe2("gen", 0, 0),
+      x: pe2("x", 0, 80, 40),
+      a: pe2("a", 100, 0),
+      b: pe2("b", 200, 0),
+      c: pe2("c", 300, 0, 100),
+      "c.a": pe2("a", 350, 0),
+    },
+    relationships: [
+      { id: "r1", sourcePath: "gen", targetPath: "a", type: "..>" },
+      { id: "r2", sourcePath: "a", targetPath: "b", type: "..>" },
+    ],
+  };
+
+  it("tick 0: gen routes token to standalone a (not c.a)", () => {
+    const r = computeExecutionStep(sharedModel, sharedVS, [], 0, 0, COLOR);
+    expect(r.nextInstances).toHaveLength(1);
+    expect(r.nextInstances[0].currentElementId).toBe("a");
+    expect(r.nextInstances[0].currentPath).toBe("a");
+  });
+});
+
+function parseAndLayout(code: string): {
+  model: DiagramModel;
+  viewState: ViewState;
+} {
+  const tokens = new Lexer(code).tokenize();
+  const model = new Parser(tokens).parse();
+  const layout = new CircularLayout();
+  const viewState = layout.apply(model, { width: 1000, height: 1000 });
+  return { model, viewState };
+}
+
+describe("integration: gen(x)..>a()..>b() c(a) routes through a, not c.a", () => {
+  it("chain-first ordering: c(a) after the chain", () => {
+    const { model, viewState } = parseAndLayout("gen(x) ..> a() ..> b()\nc(a)");
+    const r = computeExecutionStep(model, viewState, [], 0, 0, COLOR);
+    expect(r.nextInstances).toHaveLength(1);
+    expect(r.nextInstances[0].currentPath).toBe("a");
+  });
+
+  it("container-first ordering: c(a) before the chain", () => {
+    const { model, viewState } = parseAndLayout("c(a)\ngen(x) ..> a() ..> b()");
+    const r = computeExecutionStep(model, viewState, [], 0, 0, COLOR);
+    expect(r.nextInstances).toHaveLength(1);
+    expect(r.nextInstances[0].currentPath).toBe("a");
+  });
+});
+
+describe("integration: a() c(a) gen(x)..>c.a..>b() routes through c.a, not standalone a", () => {
+  it("token routes to c.a then b", () => {
+    const { model, viewState } = parseAndLayout(
+      "a() c(a)\ngen(x) ..> c.a ..> b()",
+    );
+    const r = computeExecutionStep(model, viewState, [], 0, 0, COLOR);
+    expect(r.nextInstances).toHaveLength(1);
+    expect(r.nextInstances[0].currentPath).toBe("c.a");
+  });
+
+  it("clone is positioned inside c.a (not root a) after gen fires", () => {
+    const { model, viewState } = parseAndLayout(
+      "a() c(a)\ngen(x) ..> c.a ..> b()",
+    );
+    const r = computeExecutionStep(model, viewState, [], 0, 0, COLOR);
+    const newModel = applyDeltaToModel(model, r.delta);
+    const newVS = new ExecuteLayout().apply(
+      newModel,
+      { width: 1000, height: 1000 },
+      viewState,
+    );
+    const cloneId = r.nextInstances[0].clonedElementIds[0];
+    expect(newVS.positions[`c.a.${cloneId}`]).toBeDefined();
+    expect(newVS.positions[`a.${cloneId}`]).toBeUndefined();
+  });
+
+  it("clone is positioned inside root a (not c.a) when route goes through root a", () => {
+    const { model, viewState } = parseAndLayout("gen(x) ..> a() ..> b()\nc(a)");
+    const r = computeExecutionStep(model, viewState, [], 0, 0, COLOR);
+    const newModel = applyDeltaToModel(model, r.delta);
+    const newVS = new ExecuteLayout().apply(
+      newModel,
+      { width: 1000, height: 1000 },
+      viewState,
+    );
+    const cloneId = r.nextInstances[0].clonedElementIds[0];
+    expect(newVS.positions[`a.${cloneId}`]).toBeDefined();
+    expect(newVS.positions[`c.a.${cloneId}`]).toBeUndefined();
   });
 });
 

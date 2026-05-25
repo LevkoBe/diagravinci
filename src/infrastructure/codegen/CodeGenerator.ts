@@ -54,8 +54,9 @@ export class CodeGenerator {
       .map((id) => this.model.elements[id])
       .filter(Boolean);
 
+    const fullyEmitted = new Set<string>();
     for (const element of rootElements)
-      lines.push(this.generateElement(element, 0, new AncestryTracker()));
+      lines.push(this.generateElement(element, 0, new AncestryTracker(), fullyEmitted));
     lines.push("");
     for (const relationship of Object.values(this.model.relationships)) {
       lines.push(this.generateRelationship(relationship));
@@ -114,6 +115,7 @@ export class CodeGenerator {
     element: Element,
     indent: number,
     ancestry: AncestryTracker,
+    fullyEmitted: Set<string>,
   ): string {
     const indentation = this.getIndentation(indent);
     const wrapper = this.getWrapperFromType(element.type);
@@ -129,6 +131,9 @@ export class CodeGenerator {
     if (!hasContent)
       return `${indentation}${nameOut}${flagSuffix}${opening}${closing}`;
 
+    if (fullyEmitted.has(element.id))
+      return `${indentation}${nameOut}${flagSuffix}${opening}${closing}`;
+
     const newAncestry = ancestry.tryAdd(element.id);
     if (!newAncestry)
       return `${indentation}${nameOut}${flagSuffix}${opening}${closing} # recursion`;
@@ -138,11 +143,12 @@ export class CodeGenerator {
 
     for (const id of element.childIds) {
       lines.push(
-        this.generateElement(this.getElementById(id), indent + 1, newAncestry),
+        this.generateElement(this.getElementById(id), indent + 1, newAncestry, fullyEmitted),
       );
     }
     lines.push(`${indentation}${closing}`);
 
+    fullyEmitted.add(element.id);
     return lines.join("\n");
   }
 

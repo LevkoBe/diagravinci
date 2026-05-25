@@ -990,6 +990,19 @@ describe("Parser edge cases", () => {
       expect(model.root.childIds).toContain("c");
     });
 
+    it("element used as chain target after being declared in function container is added to root", () => {
+      const model = parse("c(a)\ngen(x) ..> a() ..> b()");
+      expect(model.root.childIds).toContain("a");
+      expect(model.elements["c"].childIds).toContain("a");
+    });
+
+    it("path token c.a as rel target chains to b: c.a→b relationship is created", () => {
+      const model = parse("a() c(a)\ngen(x) ..> c.a ..> b()");
+      const rels = Object.values(model.relationships);
+      const ca_b = rels.find((r) => r.source === "c.a" && r.target === "b");
+      expect(ca_b).toBeDefined();
+    });
+
     it("absolute path c.a-->c.b from root scope produces a valid relationship", () => {
       const model = parse("a b c(a b)\nc.a --> c.b");
       const rels = Object.values(model.relationships);

@@ -247,8 +247,10 @@ export class Parser {
                 );
               }
               lastRel = null;
-              lastEl = null;
-              lastPath = null;
+              lastPath = resolved ?? null;
+              lastEl = resolved
+                ? (this.model.elements[resolved.split(".").pop()!] ?? null)
+                : null;
               lastElWasWrapped = false;
             } else {
               lastPath = resolved;
