@@ -290,7 +290,7 @@ export class Parser {
               lastRel = null;
             }
 
-            if (!inRelContext || !existedBefore) {
+            if (!inRelContext || !existedBefore || (isRelSource && parentPath === "")) {
               if (!parent.childIds.includes(lastEl.id))
                 parent.childIds.push(lastEl.id);
             }

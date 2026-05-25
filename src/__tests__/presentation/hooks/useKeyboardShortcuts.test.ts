@@ -668,7 +668,7 @@ describe("arrow navigation", () => {
     expect(testStore.getState().ui.navigationParentId).toBe("a");
   });
 
-  it("ArrowRight clears navigationParentId", () => {
+  it("ArrowRight sets navigationParentId to the origin element", () => {
     const m = makeModel(["a", "b"], { a: [], b: [] }, [["a", "b"]]);
     testStore.dispatch(setModel(m));
     testStore.dispatch(setSelectedElements(["a"]));
@@ -677,7 +677,7 @@ describe("arrow navigation", () => {
 
     fireKey({ key: "ArrowRight", code: "ArrowRight" });
 
-    expect(testStore.getState().ui.navigationParentId).toBeNull();
+    expect(testStore.getState().ui.navigationParentId).toBe("a");
   });
 
   it("arrows do nothing when selection is empty", () => {

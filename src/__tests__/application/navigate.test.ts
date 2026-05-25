@@ -2,12 +2,15 @@ import { describe, it, expect } from "vitest";
 import {
   navigateSelection,
   navigateAlternative,
+  navigateParent,
+  navigateChild,
   findParentId,
 } from "../../application/navigate";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { Element } from "../../domain/models/Element";
 import { createElement } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
+import type { NavDirection } from "../../application/navigate";
 
 function makeModel(
   rootChildren: string[],
@@ -36,169 +39,94 @@ function makeModel(
 }
 
 describe("findParentId", () => {
-  it("returns root id for a direct root child", () => {
+  it("root child", () => {
     const m = makeModel(["a", "b"], { a: [], b: [] });
     expect(findParentId("a", m)).toBe(m.root.id);
   });
-
-  it("returns parent element id for a nested child", () => {
+  it("nested child", () => {
     const m = makeModel(["a"], { a: ["b"], b: [] });
     expect(findParentId("b", m)).toBe("a");
   });
-
-  it("returns null for an unknown id", () => {
+  it("unknown", () => {
     const m = makeModel(["a"], { a: [] });
     expect(findParentId("z", m)).toBeNull();
   });
 });
 
-describe("navigateSelection", () => {
-  it("returns empty array when no elements are selected", () => {
-    const m = makeModel(["a", "b"], { a: [], b: [] }, [["a", "b"]]);
-    expect(navigateSelection([], m, "forward")).toEqual([]);
-  });
+describe("nav: `a(b c) d --> e d --> a.b`", () => {
+  const m = makeModel(
+    ["a", "d", "e"],
+    { a: ["b", "c"], b: [], c: [], d: [], e: [] },
+    [
+      ["d", "e"],
+      ["d", "a.b"],
+    ],
+  );
+  const sel = (id: string, dir: NavDirection) =>
+    navigateSelection([id], m, dir);
+  const parent = (path: string) => navigateParent([path]);
+  const child = (path: string, all = false) => navigateChild([path], m, all);
+  const alt = (id: string, dir: "next" | "prev", origin: string | null) =>
+    navigateAlternative([id], m, dir, origin);
 
-  describe("forward", () => {
-    it("navigates to the first outgoing relationship target", () => {
-      const m = makeModel(["a", "b"], { a: [], b: [] }, [["a", "b"]]);
-      expect(navigateSelection(["a"], m, "forward")).toEqual(["b"]);
-    });
+  it("a  >", () => expect(sel("a", "forward")).toEqual([]));
+  it("a  <", () => expect(sel("a", "backward")).toEqual([]));
+  it("a  ^", () => expect(parent("a")).toEqual([]));
+  it("a  v", () => expect(child("a")).toEqual(["a.b"]));
+  it("a S>", () => expect(sel("a", "forward-all")).toEqual([]));
+  it("a S<", () => expect(sel("a", "backward-all")).toEqual([]));
+  it("a S^", () => expect(parent("a")).toEqual([]));
+  it("a Sv", () => expect(child("a", true)).toEqual(["a.b", "a.c"]));
+  it("a A>", () => expect(alt("a", "next", null)).toEqual(["d"]));
+  it("a A<", () => expect(alt("a", "prev", null)).toEqual(["e"]));
 
-    it("returns empty when no outgoing relationships", () => {
-      const m = makeModel(["a", "b"], { a: [], b: [] }, [["b", "a"]]);
-      expect(navigateSelection(["a"], m, "forward")).toEqual([]);
-    });
-  });
+  it("d  >", () => expect(sel("d", "forward")).toEqual(["e"]));
+  it("d  <", () => expect(sel("d", "backward")).toEqual([]));
+  it("d  ^", () => expect(parent("d")).toEqual([]));
+  it("d  v", () => expect(child("d")).toEqual([]));
+  it("d S>", () => expect(sel("d", "forward-all")).toEqual(["e", "a.b"]));
+  it("d S<", () => expect(sel("d", "backward-all")).toEqual([]));
+  it("d S^", () => expect(parent("d")).toEqual([]));
+  it("d Sv", () => expect(child("d", true)).toEqual([]));
+  it("d A>", () => expect(alt("d", "next", null)).toEqual(["e"]));
+  it("d A<", () => expect(alt("d", "prev", null)).toEqual(["a"]));
 
-  describe("forward-all", () => {
-    it("collects all outgoing targets", () => {
-      const m = makeModel(
-        ["a", "b", "c"],
-        { a: [], b: [], c: [] },
-        [["a", "b"], ["a", "c"]],
-      );
-      const result = navigateSelection(["a"], m, "forward-all");
-      expect(result).toHaveLength(2);
-      expect(result).toContain("b");
-      expect(result).toContain("c");
-    });
-  });
+  it("e  >", () => expect(sel("e", "forward")).toEqual([]));
+  it("e  <", () => expect(sel("e", "backward")).toEqual(["d"]));
+  it("e  ^", () => expect(parent("e")).toEqual([]));
+  it("e  v", () => expect(child("e")).toEqual([]));
+  it("e S>", () => expect(sel("e", "forward-all")).toEqual([]));
+  it("e S<", () => expect(sel("e", "backward-all")).toEqual(["d"]));
+  it("e S^", () => expect(parent("e")).toEqual([]));
+  it("e Sv", () => expect(child("e", true)).toEqual([]));
+  it("e A>", () => expect(alt("e", "next", null)).toEqual(["a"]));
+  it("e A<", () => expect(alt("e", "prev", null)).toEqual(["d"]));
 
-  describe("backward", () => {
-    it("navigates to the first incoming relationship source", () => {
-      const m = makeModel(["a", "b"], { a: [], b: [] }, [["a", "b"]]);
-      expect(navigateSelection(["b"], m, "backward")).toEqual(["a"]);
-    });
+  it("a.b  >", () => expect(sel("a.b", "forward")).toEqual([]));
+  it("a.b  <", () => expect(sel("a.b", "backward")).toEqual(["d"]));
+  it("a.b  ^", () => expect(parent("a.b")).toEqual(["a"]));
+  it("a.b  v", () => expect(child("a.b")).toEqual([]));
+  it("a.b S>", () => expect(sel("a.b", "forward-all")).toEqual([]));
+  it("a.b S<", () => expect(sel("a.b", "backward-all")).toEqual(["d"]));
+  it("a.b S^", () => expect(parent("a.b")).toEqual(["a"]));
+  it("a.b Sv", () => expect(child("a.b", true)).toEqual([]));
+  it("a.b A>", () => expect(alt("a.b", "next", "d")).toEqual(["e"]));
+  it("a.b A<", () => expect(alt("a.b", "prev", "d")).toEqual(["e"]));
+  it("a.b A>", () => expect(alt("a.b", "next", null)).toEqual(["a.c"]));
+  it("a.b A<", () => expect(alt("a.b", "prev", null)).toEqual(["a.c"]));
+  it("a.b A>", () => expect(alt("a.b", "next", "a")).toEqual(["a.c"]));
+  it("a.b A<", () => expect(alt("a.b", "prev", "a")).toEqual(["a.c"]));
 
-    it("returns empty when no incoming relationships", () => {
-      const m = makeModel(["a", "b"], { a: [], b: [] }, [["a", "b"]]);
-      expect(navigateSelection(["a"], m, "backward")).toEqual([]);
-    });
-  });
-
-  describe("backward-all", () => {
-    it("collects all incoming sources", () => {
-      const m = makeModel(
-        ["a", "b", "c"],
-        { a: [], b: [], c: [] },
-        [["a", "c"], ["b", "c"]],
-      );
-      const result = navigateSelection(["c"], m, "backward-all");
-      expect(result).toHaveLength(2);
-      expect(result).toContain("a");
-      expect(result).toContain("b");
-    });
-  });
-
-  describe("parent", () => {
-    it("returns the parent element when it is not root", () => {
-      const m = makeModel(["a"], { a: ["b"], b: [] });
-      expect(navigateSelection(["b"], m, "parent")).toEqual(["a"]);
-    });
-
-    it("returns empty when element is a direct root child", () => {
-      const m = makeModel(["a"], { a: [] });
-      expect(navigateSelection(["a"], m, "parent")).toEqual([]);
-    });
-  });
-
-  describe("child", () => {
-    it("navigates to the first child", () => {
-      const m = makeModel(["a"], { a: ["b", "c"], b: [], c: [] });
-      expect(navigateSelection(["a"], m, "child")).toEqual(["b"]);
-    });
-
-    it("returns empty when element has no children", () => {
-      const m = makeModel(["a"], { a: [] });
-      expect(navigateSelection(["a"], m, "child")).toEqual([]);
-    });
-  });
-
-  describe("child-all", () => {
-    it("navigates to all children", () => {
-      const m = makeModel(["a"], { a: ["b", "c"], b: [], c: [] });
-      const result = navigateSelection(["a"], m, "child-all");
-      expect(result).toHaveLength(2);
-      expect(result).toContain("b");
-      expect(result).toContain("c");
-    });
-  });
-
-  it("deduplicates results when multiple selected elements share a neighbor", () => {
-    const m = makeModel(
-      ["a", "b", "c"],
-      { a: [], b: [], c: [] },
-      [["a", "c"], ["b", "c"]],
-    );
-    const result = navigateSelection(["a", "b"], m, "forward");
-    expect(result).toHaveLength(1);
-    expect(result[0]).toBe("c");
-  });
-});
-
-describe("navigateAlternative", () => {
-  it("returns empty array when no elements are selected", () => {
-    const m = makeModel(["a", "b"], { a: [], b: [] });
-    expect(navigateAlternative([], m, "next", null)).toEqual([]);
-  });
-
-  it("navigates to the next sibling", () => {
-    const m = makeModel(["a", "b", "c"], { a: [], b: [], c: [] });
-    expect(navigateAlternative(["a"], m, "next", m.root.id)).toEqual(["b"]);
-  });
-
-  it("navigates to the previous sibling", () => {
-    const m = makeModel(["a", "b", "c"], { a: [], b: [], c: [] });
-    expect(navigateAlternative(["b"], m, "prev", m.root.id)).toEqual(["a"]);
-  });
-
-  it("wraps from last to first for next", () => {
-    const m = makeModel(["a", "b", "c"], { a: [], b: [], c: [] });
-    expect(navigateAlternative(["c"], m, "next", m.root.id)).toEqual(["a"]);
-  });
-
-  it("wraps from first to last for prev", () => {
-    const m = makeModel(["a", "b", "c"], { a: [], b: [], c: [] });
-    expect(navigateAlternative(["a"], m, "prev", m.root.id)).toEqual(["c"]);
-  });
-
-  it("returns empty when element is an only child", () => {
-    const m = makeModel(["a"], { a: [] });
-    expect(navigateAlternative(["a"], m, "next", m.root.id)).toEqual([]);
-  });
-
-  it("uses parentIdHint when valid", () => {
-    const m = makeModel(["p"], { p: ["x", "y"], x: [], y: [] });
-    expect(navigateAlternative(["x"], m, "next", "p")).toEqual(["y"]);
-  });
-
-  it("falls back to real parent when hint does not contain the element", () => {
-    const m = makeModel(["p"], { p: ["x", "y"], x: [], y: [] });
-    expect(navigateAlternative(["x"], m, "next", "z")).toEqual(["y"]);
-  });
-
-  it("navigates nested children via their parent", () => {
-    const m = makeModel(["a"], { a: ["b", "c"], b: [], c: [] });
-    expect(navigateAlternative(["b"], m, "next", null)).toEqual(["c"]);
-  });
+  it("a.c  >", () => expect(sel("a.c", "forward")).toEqual([]));
+  it("a.c  <", () => expect(sel("a.c", "backward")).toEqual([]));
+  it("a.c  ^", () => expect(parent("a.c")).toEqual(["a"]));
+  it("a.c  v", () => expect(child("a.c")).toEqual([]));
+  it("a.c S>", () => expect(sel("a.c", "forward-all")).toEqual([]));
+  it("a.c S<", () => expect(sel("a.c", "backward-all")).toEqual([]));
+  it("a.c S^", () => expect(parent("a.c")).toEqual(["a"]));
+  it("a.c Sv", () => expect(child("a.c", true)).toEqual([]));
+  it("a.c A>", () => expect(alt("a.c", "next", null)).toEqual(["a.b"]));
+  it("a.c A<", () => expect(alt("a.c", "prev", null)).toEqual(["a.b"]));
+  it("a.c A>", () => expect(alt("a.c", "next", "a")).toEqual(["a.b"]));
+  it("a.c A<", () => expect(alt("a.c", "prev", "a")).toEqual(["a.b"]));
 });

@@ -1,8 +1,18 @@
 import type { DiagramModel } from "../domain/models/DiagramModel";
 
-export type NavDirection = "forward" | "forward-all" | "backward" | "backward-all" | "parent" | "child" | "child-all";
+export type NavDirection =
+  | "forward"
+  | "forward-all"
+  | "backward"
+  | "backward-all"
+  | "parent"
+  | "child"
+  | "child-all";
 
-export function resolveIdsToFullPaths(ids: string[], model: DiagramModel): string[] {
+export function resolveIdsToFullPaths(
+  ids: string[],
+  model: DiagramModel,
+): string[] {
   const idToPath = new Map<string, string>();
 
   function traverse(childIds: string[], parentPath: string | null) {
@@ -19,7 +29,10 @@ export function resolveIdsToFullPaths(ids: string[], model: DiagramModel): strin
   return ids.map((id) => idToPath.get(id) ?? id);
 }
 
-function getColorForId(id: string, coloredPaths: Record<string, string>): string | null {
+function getColorForId(
+  id: string,
+  coloredPaths: Record<string, string>,
+): string | null {
   if (coloredPaths[id]) return coloredPaths[id];
   for (const [path, color] of Object.entries(coloredPaths)) {
     if (path.split(".").at(-1) === id) return color;
@@ -27,7 +40,11 @@ function getColorForId(id: string, coloredPaths: Record<string, string>): string
   return null;
 }
 
-function colorMatchRank(peerId: string, currentColor: string | null, coloredPaths: Record<string, string>): number {
+function colorMatchRank(
+  peerId: string,
+  currentColor: string | null,
+  coloredPaths: Record<string, string>,
+): number {
   if (!currentColor) return 1;
   return getColorForId(peerId, coloredPaths) === currentColor ? 0 : 1;
 }
@@ -41,6 +58,34 @@ export function findParentId(
     if (el.childIds.includes(childId)) return id;
   }
   return null;
+}
+
+export function navigateParent(paths: string[]): string[] {
+  const result = new Set<string>();
+  for (const path of paths) {
+    if (!path.includes(".")) continue;
+    result.add(path.split(".").slice(0, -1).join("."));
+  }
+  return [...result];
+}
+
+export function navigateChild(
+  paths: string[],
+  model: DiagramModel,
+  all: boolean,
+): string[] {
+  const result = new Set<string>();
+  for (const path of paths) {
+    const leafId = path.split(".").at(-1)!;
+    const el = model.elements[leafId];
+    if (!el?.childIds.length) continue;
+    if (all) {
+      el.childIds.forEach((cid) => result.add(`${path}.${cid}`));
+    } else {
+      result.add(`${path}.${el.childIds[0]}`);
+    }
+  }
+  return [...result];
 }
 
 export function navigateSelection(
@@ -60,32 +105,80 @@ export function navigateSelection(
     switch (direction) {
       case "forward": {
         const outgoing = rels
-          .filter((r) => r.source === id || r.source.split(".").at(-1) === id)
-          .sort((a, b) => colorMatchRank(a.target.split(".").at(-1)!, currentColor, coloredPaths ?? {}) - colorMatchRank(b.target.split(".").at(-1)!, currentColor, coloredPaths ?? {}));
+          .filter((r) => r.source === id)
+          .sort(
+            (a, b) =>
+              colorMatchRank(
+                a.target.split(".").at(-1)!,
+                currentColor,
+                coloredPaths ?? {},
+              ) -
+              colorMatchRank(
+                b.target.split(".").at(-1)!,
+                currentColor,
+                coloredPaths ?? {},
+              ),
+          );
         if (outgoing.length > 0)
-          result.add(outgoing[0].target.split(".").at(-1)!);
+          result.add(outgoing[0].target);
         break;
       }
       case "forward-all": {
         const outgoing = rels
-          .filter((r) => r.source === id || r.source.split(".").at(-1) === id)
-          .sort((a, b) => colorMatchRank(a.target.split(".").at(-1)!, currentColor, coloredPaths ?? {}) - colorMatchRank(b.target.split(".").at(-1)!, currentColor, coloredPaths ?? {}));
-        outgoing.forEach((r) => result.add(r.target.split(".").at(-1)!));
+          .filter((r) => r.source === id)
+          .sort(
+            (a, b) =>
+              colorMatchRank(
+                a.target.split(".").at(-1)!,
+                currentColor,
+                coloredPaths ?? {},
+              ) -
+              colorMatchRank(
+                b.target.split(".").at(-1)!,
+                currentColor,
+                coloredPaths ?? {},
+              ),
+          );
+        outgoing.forEach((r) => result.add(r.target));
         break;
       }
       case "backward": {
         const incoming = rels
-          .filter((r) => r.target === id || r.target.split(".").at(-1) === id)
-          .sort((a, b) => colorMatchRank(a.source.split(".").at(-1)!, currentColor, coloredPaths ?? {}) - colorMatchRank(b.source.split(".").at(-1)!, currentColor, coloredPaths ?? {}));
+          .filter((r) => r.target === id)
+          .sort(
+            (a, b) =>
+              colorMatchRank(
+                a.source.split(".").at(-1)!,
+                currentColor,
+                coloredPaths ?? {},
+              ) -
+              colorMatchRank(
+                b.source.split(".").at(-1)!,
+                currentColor,
+                coloredPaths ?? {},
+              ),
+          );
         if (incoming.length > 0)
-          result.add(incoming[0].source.split(".").at(-1)!);
+          result.add(incoming[0].source);
         break;
       }
       case "backward-all": {
         const incoming = rels
-          .filter((r) => r.target === id || r.target.split(".").at(-1) === id)
-          .sort((a, b) => colorMatchRank(a.source.split(".").at(-1)!, currentColor, coloredPaths ?? {}) - colorMatchRank(b.source.split(".").at(-1)!, currentColor, coloredPaths ?? {}));
-        incoming.forEach((r) => result.add(r.source.split(".").at(-1)!));
+          .filter((r) => r.target === id)
+          .sort(
+            (a, b) =>
+              colorMatchRank(
+                a.source.split(".").at(-1)!,
+                currentColor,
+                coloredPaths ?? {},
+              ) -
+              colorMatchRank(
+                b.source.split(".").at(-1)!,
+                currentColor,
+                coloredPaths ?? {},
+              ),
+          );
+        incoming.forEach((r) => result.add(r.source));
         break;
       }
       case "parent": {
@@ -113,33 +206,62 @@ export function navigateAlternative(
   selectedIds: string[],
   model: DiagramModel,
   direction: "next" | "prev",
-  parentIdHint: string | null,
+  originIdHint: string | null,
 ): string[] {
   if (selectedIds.length === 0) return selectedIds;
 
+  const rels = Object.values(model.relationships);
   const result = new Set<string>();
 
   for (const id of selectedIds) {
-    let parentId: string | null = parentIdHint;
-    if (parentId !== null) {
-      const hintParent =
-        parentId === model.root.id ? model.root : model.elements[parentId];
-      if (!hintParent?.childIds.includes(id)) parentId = null;
-    }
-    if (parentId === null) parentId = findParentId(id, model);
-    if (parentId === null) continue;
+    const leafId = id.split(".").at(-1)!;
+    const parentPath = id.includes(".") ? id.split(".").slice(0, -1).join(".") : "";
+    const siblingPath = (sibId: string) => parentPath ? `${parentPath}.${sibId}` : sibId;
 
+    if (originIdHint !== null) {
+      const allFromOrigin = rels.filter(
+        (r) =>
+          r.source === originIdHint ||
+          r.source.split(".").at(-1) === originIdHint,
+      );
+      const currentRelIdx = allFromOrigin.findIndex(
+        (r) => r.target === id || r.target.split(".").at(-1) === leafId,
+      );
+      if (currentRelIdx !== -1 && allFromOrigin.length > 1) {
+        const n = allFromOrigin.length;
+        const nextIdx =
+          direction === "next"
+            ? (currentRelIdx + 1) % n
+            : (currentRelIdx - 1 + n) % n;
+        result.add(allFromOrigin[nextIdx].target);
+        continue;
+      }
+
+      const originEl =
+        originIdHint === model.root.id
+          ? model.root
+          : model.elements[originIdHint];
+      if (originEl?.childIds.includes(leafId)) {
+        const siblings = originEl.childIds;
+        const idx = siblings.indexOf(leafId);
+        if (idx !== -1 && siblings.length > 1) {
+          const n = siblings.length;
+          result.add(siblingPath(siblings[direction === "next" ? (idx + 1) % n : (idx - 1 + n) % n]));
+        }
+        continue;
+      }
+    }
+
+    const parentId = findParentId(leafId, model);
+    if (parentId === null) continue;
     const parent =
       parentId === model.root.id ? model.root : model.elements[parentId];
     if (!parent) continue;
-
     const siblings = parent.childIds;
-    const idx = siblings.indexOf(id);
+    const idx = siblings.indexOf(leafId);
     if (idx === -1 || siblings.length <= 1) continue;
-
     const n = siblings.length;
-    const next = direction === "next" ? (idx + 1) % n : (idx - 1 + n) % n;
-    result.add(siblings[next]);
+    result.add(siblingPath(siblings[direction === "next" ? (idx + 1) % n : (idx - 1 + n) % n]));
   }
 
   return [...result];
