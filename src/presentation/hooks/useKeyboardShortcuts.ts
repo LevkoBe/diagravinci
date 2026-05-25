@@ -172,8 +172,8 @@ export function useKeyboardShortcuts({
 
       if (ctrl && e.code === "KeyA") {
         e.preventDefault();
-        const allIds = Object.keys(store.getState().diagram.model.elements);
-        dispatch(setSelectedElements(allIds));
+        const allPaths = Object.keys(store.getState().diagram.viewState.positions);
+        dispatch(setSelectedElements(allPaths));
         return;
       }
 
@@ -193,7 +193,8 @@ export function useKeyboardShortcuts({
         const selectedIds = state.ui.selectedElementIds;
         if (selectedIds.length === 0) return;
         e.preventDefault();
-        syncManager.syncFromVis(deleteElements(selectedIds, state.diagram.model));
+        const elementIds = selectedIds.map((p) => p.split(".").at(-1)!);
+        syncManager.syncFromVis(deleteElements(elementIds, state.diagram.model));
         dispatch(setSelectedElements([]));
         return;
       }
@@ -204,7 +205,8 @@ export function useKeyboardShortcuts({
         const selectedIds = state.ui.selectedElementIds;
         if (selectedIds.length === 0) return;
         const m = state.diagram.model;
-        clipboard = { topLevelIds: selectedIds, elements: m.elements, relationships: m.relationships };
+        const elementIds = selectedIds.map((p) => p.split(".").at(-1)!);
+        clipboard = { topLevelIds: elementIds, elements: m.elements, relationships: m.relationships };
         return;
       }
 
@@ -214,8 +216,9 @@ export function useKeyboardShortcuts({
         const selectedIds = state.ui.selectedElementIds;
         if (selectedIds.length === 0) return;
         const m = state.diagram.model;
-        clipboard = { topLevelIds: selectedIds, elements: m.elements, relationships: m.relationships };
-        syncManager.syncFromVis(deleteElements(selectedIds, m));
+        const elementIds = selectedIds.map((p) => p.split(".").at(-1)!);
+        clipboard = { topLevelIds: elementIds, elements: m.elements, relationships: m.relationships };
+        syncManager.syncFromVis(deleteElements(elementIds, m));
         dispatch(setSelectedElements([]));
         return;
       }
@@ -225,7 +228,7 @@ export function useKeyboardShortcuts({
         if (!clipboard) return;
         const state = store.getState();
         const m = state.diagram.model;
-        const pasteTargets = state.ui.selectedElementIds;
+        const pasteTargets = state.ui.selectedElementIds.map((p) => p.split(".").at(-1)!);
 
         const newElements = { ...m.elements };
         let newRoot = { ...m.root };
@@ -274,7 +277,7 @@ export function useKeyboardShortcuts({
       if (ctrl && e.code === "KeyD") {
         e.preventDefault();
         const state = store.getState();
-        const selectedIds = state.ui.selectedElementIds;
+        const selectedIds = state.ui.selectedElementIds.map((p) => p.split(".").at(-1)!);
         if (selectedIds.length === 0) return;
         const m = state.diagram.model;
 
@@ -357,7 +360,8 @@ export function useKeyboardShortcuts({
         if (dir !== null) {
           e.preventDefault();
           const state = store.getState();
-          const currentIds = state.ui.selectedElementIds;
+          const currentPaths = state.ui.selectedElementIds;
+          const currentIds = currentPaths.map((p) => p.split(".").at(-1)!);
 
           if (e.altKey && (dir === "backward" || dir === "forward")) {
             const newIds = navigateAlternative(

@@ -115,6 +115,7 @@ export class DiagramLayerRenderer {
   private readonly executionColorMap: Record<string, string>;
   private readonly classDiagramMode: boolean;
   private readonly opaqueElementBg: boolean;
+  private readonly selectedPaths: Set<string>;
   private readonly getGroupMoveInfo?: () => {
     selectorId: string | null;
     filterSelectors: Selector[];
@@ -142,6 +143,7 @@ export class DiagramLayerRenderer {
       filterSelectors: Selector[];
     },
     opaqueElementBg = true,
+    selectedPaths: Set<string> = new Set(),
   ) {
     this.stage = stage;
     this.model = model;
@@ -159,6 +161,7 @@ export class DiagramLayerRenderer {
     this.executionColorMap = executionColorMap;
     this.classDiagramMode = classDiagramMode;
     this.opaqueElementBg = opaqueElementBg;
+    this.selectedPaths = selectedPaths;
     this.getGroupMoveInfo = getGroupMoveInfo;
 
     const { pixelSizes, zoomHidden, zoomDimmed } =
@@ -252,9 +255,11 @@ export class DiagramLayerRenderer {
 
     const isDimmed = this.dimmedSet.has(path);
     const colorOverride =
-      this.executionColorMap[element.id] ??
-      this.viewState.coloredPaths?.[path] ??
-      null;
+      this.selectedPaths.has(path)
+        ? this.colors.selected
+        : (this.executionColorMap[element.id] ??
+          this.viewState.coloredPaths?.[path] ??
+          null);
 
     const elementGroup = this.renderElement(
       element,

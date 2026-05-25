@@ -20,7 +20,7 @@ export function PropertiesPanel() {
 
   const clampedIndex =
     selectedIds.length > 0 ? Math.min(inspectIndex, selectedIds.length - 1) : 0;
-  const selectedId = selectedIds[clampedIndex] ?? null;
+  const selectedId = selectedIds[clampedIndex]?.split(".").at(-1) ?? null;
 
   if (!selectedId) {
     return (
@@ -164,8 +164,8 @@ function PropertiesPanelContent({
     dispatch(setViewState({ ...viewState, positions: renamedPositions }));
     syncManager.syncFromVis(renamedModel);
 
-    const newSelectedIds = selectedIds.map((id) =>
-      id === selectedId ? trimmed : id,
+    const newSelectedIds = selectedIds.map((path) =>
+      renamePath(path, selectedId, trimmed),
     );
     dispatch(setSelectedElements(newSelectedIds));
   };

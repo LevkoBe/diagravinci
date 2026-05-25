@@ -6,6 +6,7 @@ import { Provider } from "react-redux";
 import diagramReducer, {
   setModel,
   setViewMode,
+  setViewState,
 } from "../../../application/store/diagramSlice";
 import uiReducer, {
   setInteractionMode,
@@ -198,6 +199,8 @@ describe("canvas selection shortcuts", () => {
   it("Ctrl+A selects all elements", () => {
     const model = makeModel(["a", "b", "c"], { a: [], b: [], c: [] });
     testStore.dispatch(setModel(model));
+    const pos = (id: string) => ({ id, position: { x: 0, y: 0 }, size: 60, value: 0 });
+    testStore.dispatch(setViewState({ ...testStore.getState().diagram.viewState, positions: { a: pos("a"), b: pos("b"), c: pos("c") } }));
     renderHook(() => useKeyboardShortcuts(), { wrapper: Wrapper });
 
     fireKey({ code: "KeyA", ctrlKey: true });

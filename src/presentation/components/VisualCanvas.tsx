@@ -16,8 +16,6 @@ import {
 import { toggleElementFold } from "../../application/store/filterSlice";
 import { syncManager, store } from "../../application/store/store";
 import { getCSSVariable } from "../../shared/utils";
-import { toSelectorId } from "../../domain/models/Selector";
-import type { SelectorMode } from "../../domain/models/Selector";
 import { useExecution } from "../hooks/useExecution";
 import { getExecutionColorMap } from "../../application/ExecutionEngine";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
@@ -27,10 +25,7 @@ import {
   FilterResolver,
   matchesSelector,
 } from "../../domain/sync/FilterResolver";
-import {
-  getSubtreeIds,
-  type DiagramModel,
-} from "../../domain/models/DiagramModel";
+import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { Element, ElementType } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
 import type { Position } from "../../domain/models/Element";
@@ -152,72 +147,6 @@ export function VisualCanvas() {
     groupMoveSelIdRef.current = groupMoveSelectorId;
   }, [groupMoveSelectorId]);
 
-  useEffect(() => {
-    if (!activeSessionId) return;
-    const { model: currentModel } = store.getState().diagram;
-    const selLabel = `Selection_${activeSessionId}`;
-    const selId = toSelectorId(selLabel);
-    const selColor = getCSSVariable("--color-state-selected");
-    const selectedSet = new Set(selectedElementIds);
-
-    let needsUpdate = false;
-    const updatedElements = { ...currentModel.elements };
-    for (const [id, el] of Object.entries(currentModel.elements)) {
-      const hasFlag = (el.flags ?? []).includes(selLabel);
-      const shouldHaveFlag = selectedSet.has(id);
-      if (hasFlag === shouldHaveFlag) continue;
-      needsUpdate = true;
-      const newFlags = (el.flags ?? []).filter((f) => f !== selLabel);
-      if (shouldHaveFlag) newFlags.push(selLabel);
-      updatedElements[id] = {
-        ...el,
-        flags: newFlags.length > 0 ? newFlags : undefined,
-      };
-    }
-
-    const existingSelectors = currentModel.selectors ?? [];
-    let updatedSelectors = existingSelectors;
-    let sessionsChanged = false;
-    let updatedSessions = currentModel.sessions ?? [];
-
-    if (selectedSet.size > 0) {
-      const selectorIsNew = !existingSelectors.some((s) => s.id === selId);
-      if (selectorIsNew) {
-        updatedSelectors = [
-          ...existingSelectors,
-          { id: selId, label: selLabel, expression: "", color: selColor },
-        ];
-        needsUpdate = true;
-        const mapped = (currentModel.sessions ?? []).map((session) => {
-          if (
-            session.id !== activeSessionId ||
-            session.selectorModes[selId] === "color"
-          )
-            return session;
-          sessionsChanged = true;
-          return {
-            ...session,
-            selectorModes: {
-              ...session.selectorModes,
-              [selId]: "color" as SelectorMode,
-            },
-          };
-        });
-        if (sessionsChanged) updatedSessions = mapped;
-      }
-    }
-
-    if (!needsUpdate && !sessionsChanged) return;
-    syncManager.syncFromVis(
-      {
-        ...currentModel,
-        elements: updatedElements,
-        selectors: updatedSelectors,
-        sessions: updatedSessions,
-      },
-      true,
-    );
-  }, [selectedElementIds, activeSessionId]);
 
   useEffect(() => {
     if (interactionMode !== "presentation") return;
@@ -226,11 +155,9 @@ export function VisualCanvas() {
     if (!stage) return;
 
     const positions = store.getState().diagram.viewState.positions;
+    const selectedSet = new Set(selectedElementIds);
     const selectedPaths = Object.entries(positions)
-      .filter(([path]) => {
-        const id = path.split(".").at(-1)!;
-        return selectedElementIds.includes(id);
-      })
+      .filter(([path]) => selectedSet.has(path))
       .map(([, v]) => v);
 
     if (selectedPaths.length === 0) return;
@@ -481,23 +408,22 @@ export function VisualCanvas() {
       const x2 = Math.max(ws.x, we.x);
       const y2 = Math.max(ws.y, we.y);
       const positions = store.getState().diagram.viewState.positions;
-      const idsInRect: string[] = [];
+      const pathsInRect: string[] = [];
       for (const [path, pos] of Object.entries(positions)) {
         const { x, y } = pos.position;
         if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
-          const id = path.split(".").at(-1)!;
-          if (!idsInRect.includes(id)) idsInRect.push(id);
+          pathsInRect.push(path);
         }
       }
-      const currentIds = store.getState().ui.selectedElementIds;
-      const currentSet = new Set(currentIds);
-      const result = [...currentIds];
-      for (const id of idsInRect) {
-        if (currentSet.has(id)) {
-          const idx = result.indexOf(id);
+      const currentPaths = store.getState().ui.selectedElementIds;
+      const currentSet = new Set(currentPaths);
+      const result = [...currentPaths];
+      for (const path of pathsInRect) {
+        if (currentSet.has(path)) {
+          const idx = result.indexOf(path);
           if (idx !== -1) result.splice(idx, 1);
         } else {
-          result.push(id);
+          result.push(path);
         }
       }
       dispatch(setSelectedElements(result));
@@ -793,31 +719,31 @@ export function VisualCanvas() {
             }
           } else {
             if (shiftKey) {
-              const subtreeIds = getSubtreeIds(
-                leafId,
-                modelRef.current.elements,
+              const positions = store.getState().diagram.viewState.positions;
+              const subtreePaths = Object.keys(positions).filter(
+                (p) => p === elementPath || p.startsWith(elementPath + "."),
               );
-              const currentIds = store.getState().ui.selectedElementIds;
-              const currentSet = new Set(currentIds);
-              const allSelected = subtreeIds.every((id) => currentSet.has(id));
+              const currentPaths = store.getState().ui.selectedElementIds;
+              const currentSet = new Set(currentPaths);
+              const allSelected = subtreePaths.every((p) => currentSet.has(p));
               if (allSelected) {
-                const subtreeSet = new Set(subtreeIds);
+                const subtreeSet = new Set(subtreePaths);
                 dispatch(
                   setSelectedElements(
-                    currentIds.filter((id) => !subtreeSet.has(id)),
+                    currentPaths.filter((p) => !subtreeSet.has(p)),
                   ),
                 );
               } else {
-                const combined = [...currentIds];
-                for (const id of subtreeIds) {
-                  if (!currentSet.has(id)) combined.push(id);
+                const combined = [...currentPaths];
+                for (const p of subtreePaths) {
+                  if (!currentSet.has(p)) combined.push(p);
                 }
                 dispatch(setSelectedElements(combined));
               }
             } else if (ctrlKey) {
-              dispatch(toggleSelectedElement(leafId));
+              dispatch(toggleSelectedElement(elementPath));
             } else {
-              dispatch(setSelectedElement(leafId));
+              dispatch(setSelectedElement(elementPath));
             }
           }
         },
@@ -841,6 +767,7 @@ export function VisualCanvas() {
         filterSelectors: store.getState().filter.selectors,
       }),
       opaqueElementBg,
+      new Set(selectedElementIds),
     );
 
     const cloneIds = new Set<string>();
@@ -1023,6 +950,7 @@ export function VisualCanvas() {
     tickIntervalMs,
     spawnOriginsRef,
     elementSizes,
+    selectedElementIds,
   ]);
 
   useEffect(() => {
