@@ -58,16 +58,18 @@ export function resolveRelationships(
     pathsByElementId.set(id, bucket);
   }
 
-  const resolveAll = (ref: string): string[] => {
+  const resolveAll = (ref: string, allowExpansion: boolean): string[] => {
     if (positions[ref]) {
-      if (ref.includes(".")) {
+      if (allowExpansion && ref.includes(".")) {
         return Object.keys(positions).filter(
           (p) => p === ref || p.endsWith("." + ref),
         );
       }
       return [ref];
     }
-    const lastId = ref.includes(".") ? ref.slice(ref.lastIndexOf(".") + 1) : ref;
+    const lastId = ref.includes(".")
+      ? ref.slice(ref.lastIndexOf(".") + 1)
+      : ref;
     return pathsByElementId.get(lastId) ?? [];
   };
 
@@ -77,16 +79,28 @@ export function resolveRelationships(
   const result: PositionedRelationship[] = [];
   const seen = new Set<string>();
 
-  const push = (id: string, sp: string, tp: string, rel: (typeof model.relationships)[string]) => {
+  const push = (
+    id: string,
+    sp: string,
+    tp: string,
+    rel: (typeof model.relationships)[string],
+  ) => {
     const key = `${sp}\x00${tp}`;
     if (seen.has(key)) return;
     seen.add(key);
-    result.push({ id, sourcePath: sp, targetPath: tp, type: rel.type, label: rel.label });
+    result.push({
+      id,
+      sourcePath: sp,
+      targetPath: tp,
+      type: rel.type,
+      label: rel.label,
+    });
   };
 
   for (const rel of Object.values(model.relationships)) {
-    const sourcePaths = resolveAll(rel.source);
-    const targetPaths = resolveAll(rel.target);
+    const allowExpansion = !(positions[rel.source] && positions[rel.target]);
+    const sourcePaths = resolveAll(rel.source, allowExpansion);
+    const targetPaths = resolveAll(rel.target, allowExpansion);
     if (!sourcePaths.length || !targetPaths.length) continue;
 
     const pairs: [string, string][] = [];

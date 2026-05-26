@@ -76,8 +76,14 @@ function effectiveRels(
 ): EffectiveRel[] {
   if (viewState.relationships.length > 0) return viewState.relationships;
   return Object.values(model.relationships).map((r) => ({
-    sourcePath: findElementPath(viewState, leafId(r.source)),
-    targetPath: findElementPath(viewState, leafId(r.target)),
+    sourcePath: findElementPath(
+      viewState,
+      r.source.includes(".") ? r.source : leafId(r.source),
+    ),
+    targetPath: findElementPath(
+      viewState,
+      r.target.includes(".") ? r.target : leafId(r.target),
+    ),
     type: r.type,
     label: r.label,
   }));
@@ -519,27 +525,71 @@ export function computeExecutionStep(
     if (targets.length === 0) {
       if (currentEl?.type === "collection" || currentEl?.type === "state") {
         nextInstances.push(instance);
-      } else if (instance.pendingExits?.length) {
-        const topExit = instance.pendingExits[instance.pendingExits.length - 1];
-        const exitPath = topExit.exitTargets[0];
-        const popped = {
-          ...instance,
-          pendingExits: instance.pendingExits.slice(0, -1),
-        };
-        if (exitPath) {
-          forwardInstance(
-            popped,
-            viewState.positions[exitPath]?.id ?? exitPath,
-            exitPath,
-            viewState.positions[exitPath]?.position ?? { x: 0, y: 0 },
-            delta,
-            nextInstances,
-          );
-        } else {
-          removeInstanceClones();
-        }
       } else {
-        removeInstanceClones();
+        let handled = false;
+        const deChildSrcs = Object.keys(outgoing).filter((k) =>
+          k.startsWith(currentPath + "."),
+        );
+        if (deChildSrcs.length > 0) {
+          const deChildDsts = new Set(
+            deChildSrcs.flatMap((k) =>
+              outgoing[k].filter((t) => t.startsWith(currentPath + ".")),
+            ),
+          );
+          const deChainEntry = deChildSrcs.find((s) => !deChildDsts.has(s));
+          if (deChainEntry && deChildDsts.size > 0) {
+            const firstSeg = deChainEntry
+              .slice(currentPath.length + 1)
+              .split(".")[0];
+            const effectiveDeEntry = `${currentPath}.${firstSeg}`;
+            const pushed = {
+              ...instance,
+              pendingExits: [
+                ...(instance.pendingExits ?? []),
+                { enteredAt: currentPath, exitTargets: [] as string[] },
+              ],
+            };
+            forwardInstance(
+              pushed,
+              viewState.positions[effectiveDeEntry]?.id ?? effectiveDeEntry,
+              effectiveDeEntry,
+              viewState.positions[effectiveDeEntry]?.position ?? {
+                x: 0,
+                y: 0,
+              },
+              delta,
+              nextInstances,
+            );
+            handled = true;
+          }
+        }
+        if (!handled) {
+          let cascaded = instance;
+          let forwarded = false;
+          while (cascaded.pendingExits?.length && !forwarded) {
+            const topExit =
+              cascaded.pendingExits[cascaded.pendingExits.length - 1];
+            const exitPath = topExit.exitTargets[0];
+            const popped = {
+              ...cascaded,
+              pendingExits: cascaded.pendingExits.slice(0, -1),
+            };
+            if (exitPath) {
+              forwardInstance(
+                popped,
+                viewState.positions[exitPath]?.id ?? exitPath,
+                exitPath,
+                viewState.positions[exitPath]?.position ?? { x: 0, y: 0 },
+                delta,
+                nextInstances,
+              );
+              forwarded = true;
+            } else {
+              cascaded = popped;
+            }
+          }
+          if (!forwarded) removeInstanceClones();
+        }
       }
       continue;
     }
@@ -895,7 +945,11 @@ export function computeExecutionStep(
           ),
         );
         const chainEntry = childSrcs.find((s) => !childDsts.has(s));
-        if (chainEntry) {
+        if (chainEntry && childDsts.size > 0) {
+          const firstSeg = chainEntry
+            .slice(currentPath.length + 1)
+            .split(".")[0];
+          const effectiveEntry = `${currentPath}.${firstSeg}`;
           const pushed = {
             ...instance,
             pendingExits: [
@@ -905,9 +959,9 @@ export function computeExecutionStep(
           };
           forwardInstance(
             pushed,
-            viewState.positions[chainEntry]?.id ?? chainEntry,
-            chainEntry,
-            viewState.positions[chainEntry]?.position ?? { x: 0, y: 0 },
+            viewState.positions[effectiveEntry]?.id ?? effectiveEntry,
+            effectiveEntry,
+            viewState.positions[effectiveEntry]?.position ?? { x: 0, y: 0 },
             delta,
             nextInstances,
           );
@@ -1031,6 +1085,44 @@ export function computeExecutionStep(
     removeSettledIds,
     addRemovedTemplates,
   };
+}
+
+export function computeCloneDuplicateHiddenPaths(
+  instances: TokenInstance[],
+  model: DiagramModel,
+): string[] {
+  if (instances.length === 0) return [];
+
+  const allPaths = new Map<string, string[]>();
+  function collectPaths(
+    elementId: string,
+    path: string,
+    visited: Set<string>,
+  ): void {
+    if (visited.has(elementId)) return;
+    const existing = allPaths.get(elementId);
+    if (existing) existing.push(path);
+    else allPaths.set(elementId, [path]);
+    const el = model.elements[elementId];
+    if (!el) return;
+    visited.add(elementId);
+    for (const childId of el.childIds) {
+      collectPaths(childId, `${path}.${childId}`, visited);
+    }
+    visited.delete(elementId);
+  }
+  for (const id of model.root.childIds) collectPaths(id, id, new Set());
+
+  const hidden: string[] = [];
+  for (const inst of instances) {
+    for (const cloneId of inst.clonedElementIds) {
+      const correctPath = `${inst.currentPath}.${cloneId}`;
+      for (const clonePath of allPaths.get(cloneId) ?? []) {
+        if (clonePath !== correctPath) hidden.push(clonePath);
+      }
+    }
+  }
+  return hidden;
 }
 
 export function getExecutionColorMap(

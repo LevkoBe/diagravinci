@@ -280,6 +280,7 @@ export class DiagramLayerRenderer {
     byDepth: Map<number, Konva.Group[]>,
   ): void {
     if (this.hiddenSet.has(path)) return;
+    if (!this.viewState.positions[path]) return;
 
     const isDimmed = this.dimmedSet.has(path);
     const colorOverride =

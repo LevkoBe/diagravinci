@@ -112,10 +112,16 @@ export class ExecuteLayout implements LayoutAlgorithm {
       const myEntry = positions[myPath];
       if (!myEntry) return;
 
+      const hasActiveDescendant = () => {
+        const prefix = myPath + ".";
+        for (const p of activePaths) if (p.startsWith(prefix)) return true;
+        return false;
+      };
       if (
         activePaths.size > 0 &&
         (pathCountByElementId.get(elementId) ?? 0) > 1 &&
-        !activePaths.has(myPath)
+        !activePaths.has(myPath) &&
+        !hasActiveDescendant()
       )
         return;
 

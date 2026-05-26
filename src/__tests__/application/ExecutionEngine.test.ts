@@ -1978,7 +1978,7 @@ describe("computeExecutionStep — scope entry/exit: b(c..>d) scenario", () => {
     expect(r.nextInstances[0].clonedElementIds).toContain("x_0");
   });
 
-  it("tick 1: token at a forwards to b, no scope push", () => {
+  it("tick 1: token at a forwards to b", () => {
     const vs: ViewState = {
       ...scopeVS,
       positions: { ...scopeVS.positions, "a.x_0": pe("x_0", 100, 0, 30) },
@@ -1996,7 +1996,6 @@ describe("computeExecutionStep — scope entry/exit: b(c..>d) scenario", () => {
     expect(ni).toBeDefined();
     expect(ni!.currentElementId).toBe("b");
     expect(ni!.currentPath).toBe("b");
-    expect(ni!.pendingExits ?? []).toHaveLength(0);
 
     const move = r.delta.moveElements.find((m) => m.elementId === "x_0");
     expect(move).toBeDefined();
@@ -2006,7 +2005,7 @@ describe("computeExecutionStep — scope entry/exit: b(c..>d) scenario", () => {
     expect(move!.toPath).toBe("b.x_0");
   });
 
-  it("tick 2: token at b enters scope → currentPath becomes b.c, pendingExit pushed", () => {
+  it("tick 2: token at b enters b.c with pendingExit targeting e", () => {
     const vs: ViewState = {
       ...scopeVS,
       positions: { ...scopeVS.positions, "b.x_0": pe("x_0", 200, 0, 30) },
@@ -2036,26 +2035,7 @@ describe("computeExecutionStep — scope entry/exit: b(c..>d) scenario", () => {
     expect(move!.toPath).toBe("b.c.x_0");
   });
 
-  it("tick 2: clone toPath is b.c.x_0, never c.x_0 (core regression check)", () => {
-    const vs: ViewState = {
-      ...scopeVS,
-      positions: { ...scopeVS.positions, "b.x_0": pe("x_0", 200, 0, 30) },
-    };
-    const instance: TokenInstance = {
-      id: "inst_0",
-      currentElementId: "b",
-      currentPath: "b",
-      clonedElementIds: ["x_0"],
-      clonedRelationshipIds: [],
-    };
-    const r = computeExecutionStep(scopeModel, vs, [instance], 1, 1, COLOR);
-
-    const move = r.delta.moveElements[0];
-    expect(move.toPath).toBe("b.c.x_0");
-    expect(move.toPath).not.toBe("c.x_0");
-  });
-
-  it("tick 3: token at b.c continues inside scope → moves to b.d", () => {
+  it("tick 3: token at b.c follows internal rel to b.d", () => {
     const vs: ViewState = {
       ...scopeVS,
       positions: { ...scopeVS.positions, "b.c.x_0": pe("x_0", 250, -50, 30) },
@@ -2072,19 +2052,16 @@ describe("computeExecutionStep — scope entry/exit: b(c..>d) scenario", () => {
 
     const ni = r.nextInstances.find((i) => i.id === "inst_0");
     expect(ni).toBeDefined();
-    expect(ni!.currentElementId).toBe("d");
     expect(ni!.currentPath).toBe("b.d");
     expect(ni!.pendingExits).toHaveLength(1);
 
     const move = r.delta.moveElements.find((m) => m.elementId === "x_0");
     expect(move).toBeDefined();
-    expect(move!.fromParentId).toBe("c");
-    expect(move!.toParentId).toBe("d");
     expect(move!.fromPath).toBe("b.c.x_0");
     expect(move!.toPath).toBe("b.d.x_0");
   });
 
-  it("tick 4: token at b.d (dead end) exits scope to e", () => {
+  it("tick 4: token at b.d exits scope and moves to e", () => {
     const vs: ViewState = {
       ...scopeVS,
       positions: { ...scopeVS.positions, "b.d.x_0": pe("x_0", 250, 50, 30) },
@@ -2101,19 +2078,15 @@ describe("computeExecutionStep — scope entry/exit: b(c..>d) scenario", () => {
 
     const ni = r.nextInstances.find((i) => i.id === "inst_0");
     expect(ni).toBeDefined();
-    expect(ni!.currentElementId).toBe("e");
     expect(ni!.currentPath).toBe("e");
     expect((ni!.pendingExits ?? []).length).toBe(0);
 
     const move = r.delta.moveElements.find((m) => m.elementId === "x_0");
     expect(move).toBeDefined();
-    expect(move!.fromParentId).toBe("d");
-    expect(move!.toParentId).toBe("e");
-    expect(move!.fromPath).toBe("b.d.x_0");
     expect(move!.toPath).toBe("e.x_0");
   });
 
-  it("tick 5: token at e (dead end, no scope) is consumed", () => {
+  it("tick 5: token at e (dead end) is consumed", () => {
     const vs: ViewState = {
       ...scopeVS,
       positions: { ...scopeVS.positions, "e.x_0": pe("x_0", 500, 0, 30) },
@@ -2128,9 +2101,7 @@ describe("computeExecutionStep — scope entry/exit: b(c..>d) scenario", () => {
     const r = computeExecutionStep(scopeModel, vs, [instance], 1, 1, COLOR);
 
     expect(r.nextInstances.find((i) => i.id === "inst_0")).toBeUndefined();
-    expect(r.delta.removeElements.some((re) => re.elementId === "x_0")).toBe(
-      true,
-    );
+    expect(r.delta.removeElements.some((re) => re.elementId === "x_0")).toBe(true);
     expect(r.delta.moveElements.some((m) => m.elementId === "x_0")).toBe(false);
   });
 

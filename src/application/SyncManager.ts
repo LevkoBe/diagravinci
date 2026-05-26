@@ -151,6 +151,7 @@ export class SyncManager {
     preservePositions = false,
     pathRemapping?: { oldPrefix: string; newPrefix: string },
     cloneIds?: Set<string>,
+    correctClonePaths?: Map<string, string>,
   ): void {
     const {
       model: currentModel,
@@ -194,9 +195,15 @@ export class SyncManager {
           (p) => p === cloneId || p.endsWith(`.${cloneId}`),
         );
         if (matching.length <= 1) continue;
-        const maxDepth = Math.max(...matching.map((p) => p.split(".").length));
-        for (const p of matching) {
-          if (p.split(".").length < maxDepth) delete positions[p];
+        const toKeep = correctClonePaths?.get(cloneId) ??
+          matching.reduce((a, b) =>
+            a.split(".").length >= b.split(".").length ? a : b,
+          );
+        for (const wrongPath of matching) {
+          if (wrongPath === toKeep) continue;
+          for (const p of Object.keys(positions)) {
+            if (p === wrongPath || p.startsWith(wrongPath + ".")) delete positions[p];
+          }
         }
       }
       newViewState = { ...newViewState, positions };

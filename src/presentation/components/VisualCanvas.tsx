@@ -18,7 +18,7 @@ import { syncManager, store } from "../../application/store/store";
 import { getCSSVariable } from "../../shared/utils";
 import { toSelectorId } from "../../domain/models/Selector";
 import { useExecution } from "../hooks/useExecution";
-import { getExecutionColorMap } from "../../application/ExecutionEngine";
+import { getExecutionColorMap, computeCloneDuplicateHiddenPaths } from "../../application/ExecutionEngine";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
 import { computeElementSizes } from "./rendering/elementSizing";
 import type { GeometryCache } from "./rendering/relationships/RelationshipRenderer";
@@ -618,10 +618,15 @@ export function VisualCanvas() {
       return;
     currentAnimRef.current?.stop();
     currentAnimRef.current = null;
+    const wrongClonePaths = computeCloneDuplicateHiddenPaths(execInstances, model);
+    const renderViewState =
+      wrongClonePaths.length > 0
+        ? { ...viewState, hiddenPaths: [...viewState.hiddenPaths, ...wrongClonePaths] }
+        : viewState;
     const renderer = new DiagramLayerRenderer(
       stageRef.current,
       model,
-      viewState,
+      renderViewState,
       connectingFromId,
       {
         ...canvasColors,
