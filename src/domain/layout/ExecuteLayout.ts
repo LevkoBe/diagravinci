@@ -145,6 +145,9 @@ export class ExecuteLayout implements LayoutAlgorithm {
       const offsets = circularChildPositions(children, model, containerSize);
       children.forEach((child, i) => {
         const childPath = `${myPath}.${child.id}`;
+        for (const p of Object.keys(positions)) {
+          if (p.startsWith(childPath + ".")) delete positions[p];
+        }
         positions[childPath] = {
           id: child.id,
           position: {

@@ -151,22 +151,25 @@ function PropertiesPanelContent({
   const commitRename = (newName: string) => {
     setEditingName(false);
     const trimmed = newName.trim();
-    if (!trimmed || trimmed === selectedId) return;
+    const selectedPath = selectedIds[inspectIndex];
+    if (!trimmed || !selectedPath) return;
+    const leafId = selectedPath.split(".").at(-1)!;
+    if (trimmed === leafId) return;
 
-    const renamedModel = renameElement(model, selectedId, trimmed);
+    const renamedModel = renameElementAtPath(model, selectedPath, trimmed);
 
     const renamedPositions: typeof viewState.positions = {};
     for (const [path, val] of Object.entries(viewState.positions)) {
-      const newPath = renamePath(path, selectedId, trimmed);
-      renamedPositions[newPath] = val;
+      renamedPositions[renamePathAtContext(path, selectedPath, trimmed)] = val;
     }
     dispatch(setViewState({ ...viewState, positions: renamedPositions }));
     syncManager.syncFromVis(renamedModel);
 
-    const newSelectedIds = selectedIds.map((path) =>
-      renamePath(path, selectedId, trimmed),
+    dispatch(
+      setSelectedElements(
+        selectedIds.map((path) => renamePathAtContext(path, selectedPath, trimmed)),
+      ),
     );
-    dispatch(setSelectedElements(newSelectedIds));
   };
 
   return (
@@ -347,40 +350,55 @@ function PropertiesPanelContent({
   );
 }
 
-function renamePath(path: string, oldId: string, newId: string): string {
-  return path
-    .split(".")
-    .map((seg) => (seg === oldId ? newId : seg))
-    .join(".");
+function renamePathAtContext(path: string, oldPath: string, newLeafId: string): string {
+  if (path === oldPath) {
+    return [...oldPath.split(".").slice(0, -1), newLeafId].join(".");
+  }
+  if (path.startsWith(oldPath + ".")) {
+    const newPrefix = [...oldPath.split(".").slice(0, -1), newLeafId].join(".");
+    return newPrefix + path.slice(oldPath.length);
+  }
+  return path;
 }
 
-function renameElement(
+function renameElementAtPath(
   model: DiagramModel,
-  oldId: string,
-  newId: string,
+  oldPath: string,
+  newLeafId: string,
 ): DiagramModel {
+  const parts = oldPath.split(".");
+  const oldLeafId = parts.at(-1)!;
+  const parentId = parts.length > 1 ? parts[parts.length - 2] : null;
+
   const elements = { ...model.elements };
 
-  if (!elements[newId]) {
-    const el = elements[oldId];
-    elements[newId] = { ...el, id: newId };
+  if (!elements[newLeafId]) {
+    const el = elements[oldLeafId];
+    if (el) elements[newLeafId] = { ...el, id: newLeafId };
   }
-  delete elements[oldId];
 
   let root = model.root;
-  if (root.childIds.includes(oldId)) {
+  if (parentId === null) {
     root = {
       ...root,
-      childIds: root.childIds.map((id) => (id === oldId ? newId : id)),
+      childIds: root.childIds.map((id) => (id === oldLeafId ? newLeafId : id)),
+    };
+  } else if (elements[parentId]) {
+    elements[parentId] = {
+      ...elements[parentId],
+      childIds: elements[parentId].childIds.map((id) =>
+        id === oldLeafId ? newLeafId : id,
+      ),
     };
   }
-  for (const [id, elem] of Object.entries(elements)) {
-    if (elem.childIds.includes(oldId)) {
-      elements[id] = {
-        ...elem,
-        childIds: elem.childIds.map((cid) => (cid === oldId ? newId : cid)),
-      };
-    }
+
+  const isStillReferenced =
+    root.childIds.includes(oldLeafId) ||
+    Object.values(elements).some(
+      (el) => el.id !== oldLeafId && el.childIds.includes(oldLeafId),
+    );
+  if (!isStillReferenced) {
+    delete elements[oldLeafId];
   }
 
   const relationships = Object.fromEntries(
@@ -388,8 +406,8 @@ function renameElement(
       rid,
       {
         ...r,
-        source: r.source === oldId ? newId : r.source,
-        target: r.target === oldId ? newId : r.target,
+        source: renamePathAtContext(r.source, oldPath, newLeafId),
+        target: renamePathAtContext(r.target, oldPath, newLeafId),
       },
     ]),
   );

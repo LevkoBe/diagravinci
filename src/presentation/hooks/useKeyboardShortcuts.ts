@@ -22,7 +22,6 @@ import {
   navigateAlternative,
   navigateParent,
   navigateChild,
-  resolveIdsToFullPaths,
   type NavDirection,
 } from "../../application/navigate";
 import type { Element, ElementType } from "../../domain/models/Element";
@@ -442,8 +441,7 @@ export function useKeyboardShortcuts({
           }
 
           if (dir === "parent") {
-            const fullPaths = resolveIdsToFullPaths(currentIds, state.diagram.model);
-            const parentPaths = navigateParent(fullPaths);
+            const parentPaths = navigateParent(currentPaths);
             if (parentPaths.length > 0) {
               dispatch(setNavigationParentId(null));
               dispatch(setSelectedElements(parentPaths));

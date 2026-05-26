@@ -340,17 +340,6 @@ export function computeExecutionStep(
     );
   }
 
-  const templateChildTypesCache = new Map<string, Set<string>>();
-  function templateChildTypes(el: Element): Set<string> {
-    const cached = templateChildTypesCache.get(el.id);
-    if (cached) return cached;
-    const types = new Set(
-      templateChildren(el).map((id) => model.elements[id]!.type),
-    );
-    templateChildTypesCache.set(el.id, types);
-    return types;
-  }
-
   const connectorSkipIds = new Set<string>();
   const connectorGroups = new Map<string, TokenInstance[]>();
   for (const instance of instances) {
@@ -424,7 +413,7 @@ export function computeExecutionStep(
 
   const deduplicatorSeen = new Map<string, Set<string>>();
 
-  for (const instance of instances) {
+  for (let instance of instances) {
     if (connectorSkipIds.has(instance.id)) continue;
     const currentEl =
       model.elements[
@@ -522,6 +511,52 @@ export function computeExecutionStep(
       (t) => viewState.positions[t] !== undefined,
     );
 
+    if (currentEl?.type === "flow") {
+      const flowChildren = templateChildren(currentEl);
+      if (
+        flowChildren.length > 0 &&
+        (targets.length > 0 || (instance.pendingExits?.length ?? 0) > 0)
+      ) {
+        removeInstanceClones();
+        const suffix = String(idCounter++);
+        const { all: clonedItems, relationships: clonedRels } = cloneSubtree(
+          model,
+          flowChildren,
+          suffix,
+        );
+        const flowPos =
+          viewState.positions[currentPath]?.position ?? { x: 0, y: 0 };
+        const flowSize = viewState.positions[currentPath]?.size ?? 40;
+        for (const { element: el, parentCloneId } of clonedItems) {
+          const parentElementId = parentCloneId ?? currentEl.id;
+          const parentPath = parentCloneId
+            ? `${currentPath}.${parentCloneId}`
+            : currentPath;
+          delta.addElements.push({
+            element: el,
+            parentElementId,
+            path: `${parentPath}.${el.id}`,
+            posEntry: {
+              id: el.id,
+              position: flowPos,
+              size: Math.round(flowSize * 0.5),
+              value: 1,
+            },
+            spawnOriginId: currentEl.id,
+          });
+        }
+        for (const rel of clonedRels) delta.addRelationships.push(rel);
+        const topLevelCloneIds = clonedItems
+          .filter((c) => c.parentCloneId === null)
+          .map((c) => c.element.id);
+        instance = {
+          ...instance,
+          clonedElementIds: topLevelCloneIds,
+          clonedRelationshipIds: clonedRels.map((r) => r.id),
+        };
+      }
+    }
+
     if (targets.length === 0) {
       if (currentEl?.type === "collection" || currentEl?.type === "state") {
         nextInstances.push(instance);
@@ -592,19 +627,6 @@ export function computeExecutionStep(
         }
       }
       continue;
-    }
-
-    if (currentEl?.type === "flow") {
-      const allowed = templateChildTypes(currentEl);
-      if (allowed.size > 0) {
-        const hasMatch = instance.clonedElementIds.some((cid) =>
-          allowed.has(model.elements[cid]?.type ?? ""),
-        );
-        if (!hasMatch) {
-          removeInstanceClones();
-          continue;
-        }
-      }
     }
 
     if (currentEl?.type === "choice" && targets.length > 1) {
