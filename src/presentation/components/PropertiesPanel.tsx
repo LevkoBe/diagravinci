@@ -152,7 +152,6 @@ function PropertiesPanelContent({
     setEditingName(false);
     const trimmed = newName.trim();
     if (!trimmed || trimmed === selectedId) return;
-    if (model.elements[trimmed]) return;
 
     const renamedModel = renameElement(model, selectedId, trimmed);
 
@@ -362,9 +361,11 @@ function renameElement(
 ): DiagramModel {
   const elements = { ...model.elements };
 
-  const el = elements[oldId];
+  if (!elements[newId]) {
+    const el = elements[oldId];
+    elements[newId] = { ...el, id: newId };
+  }
   delete elements[oldId];
-  elements[newId] = { ...el, id: newId };
 
   let root = model.root;
   if (root.childIds.includes(oldId)) {
