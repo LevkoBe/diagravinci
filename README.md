@@ -178,6 +178,7 @@ The **DigraVinci collection** in the Template Panel contains diagrams of this fr
 - **Token propagation** — tokens move along relationships, carrying animated state through the diagram
 - **gen elements** — periodically spawn new tokens; configurable child elements define the spawned payload
 - **round_robin routing** — distribute tokens across multiple outgoing relationships in rotation
+- **Flow payload substitution** — when a `flow>>` element has children, the incoming token is replaced with clones of those children; a flow with no children passes the token through unchanged
 - **Choice branching** — tokens fork at `<>` elements; children define the match condition
 - **Function chaining** — functions declared inside functions model subroutine call order transparently
 - **Special execution elements** — `multiplier_N` (fan-out N copies), `duplicator` (copy to all outgoing paths), `deduplicator` (suppress duplicate tokens per tick), `connector` (merge arrivals into one token), `disconnector` (split combined token back into parts), `throttler_N` (pass every Nth token)

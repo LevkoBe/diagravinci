@@ -568,7 +568,7 @@ describe("arrow navigation", () => {
 
   it("ArrowUp navigates to the parent element", () => {
     const m = makeModel(["a"], { a: ["b"], b: [] });
-    setupNavigation(m, ["b"]);
+    setupNavigation(m, ["a.b"]);
 
     fireKey({ key: "ArrowUp", code: "ArrowUp" });
 

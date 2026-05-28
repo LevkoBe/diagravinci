@@ -506,7 +506,7 @@ describe("computeExecutionStep — flow type filtering", () => {
     expect(result.delta.removeElements).toHaveLength(0);
   });
 
-  it("flow passes tokens whose type matches a template child type", () => {
+  it("flow with template children replaces token with template child clone", () => {
     const tmplChild = state("cond");
     const f = flow("f", ["cond"]);
     const dst = coll("dst");
@@ -528,10 +528,11 @@ describe("computeExecutionStep — flow type filtering", () => {
 
     const result = computeExecutionStep(model, vs, [instance], 1, 1, COLOR);
     expect(result.delta.moveElements).toHaveLength(1);
-    expect(result.delta.removeElements).toHaveLength(0);
+    expect(result.delta.removeElements).toHaveLength(1);
+    expect(result.delta.removeElements[0].elementId).toBe("token_0");
   });
 
-  it("flow drops tokens whose type does NOT match template child types", () => {
+  it("flow with template children replaces token regardless of token type", () => {
     const tmplChild = state("cond");
     const f = flow("f", ["cond"]);
     const dst = coll("dst");
@@ -556,8 +557,8 @@ describe("computeExecutionStep — flow type filtering", () => {
     expect(
       result.delta.removeElements.some((r) => r.elementId === "token_0"),
     ).toBe(true);
-    expect(result.delta.moveElements).toHaveLength(0);
-    expect(result.nextInstances).toHaveLength(0);
+    expect(result.delta.moveElements).toHaveLength(1);
+    expect(result.nextInstances).toHaveLength(1);
   });
 
   it("flow at dead end consumes regardless of type filter", () => {
