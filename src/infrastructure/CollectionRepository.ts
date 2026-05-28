@@ -26,6 +26,8 @@ import {
   USER_CUSTOMER_COLLECTION_ID,
   PLANNING_ROADMAP_COLLECTION_ID,
   BUSINESS_PROCESS_COLLECTION_ID,
+  DIAGRAVINCI_COLLECTION,
+  DIAGRAVINCI_COLLECTION_ID,
 } from "../domain/models/TemplateCollection";
 import type { DiagramTemplate } from "../domain/models/DiagramTemplate";
 
@@ -55,6 +57,7 @@ const BUILT_IN_IDS = new Set([
   USER_CUSTOMER_COLLECTION_ID,
   PLANNING_ROADMAP_COLLECTION_ID,
   BUSINESS_PROCESS_COLLECTION_ID,
+  DIAGRAVINCI_COLLECTION_ID,
 ]);
 
 function loadUserCollections(): TemplateCollection[] {
@@ -107,6 +110,7 @@ export const CollectionRepository = {
     return [
       ARCHITECTURE_COLLECTION,
       PRODUCT_PROCESS_COLLECTION,
+      DIAGRAVINCI_COLLECTION,
       // DEVELOPER_TESTING_COLLECTION,
       EXPLORATION_SHOWCASES_COLLECTION,
       ...loadUserCollections(),

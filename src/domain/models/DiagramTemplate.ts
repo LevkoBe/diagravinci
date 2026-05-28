@@ -2440,6 +2440,946 @@ Feasible --no--> Deferred||`,
   },
 ];
 
+export const DIAGRAVINCI_TEMPLATES: DiagramTemplate[] = [
+  {
+    id: "dv-diagram-use-cases",
+    name: "Diagram Use Cases",
+    description:
+      "Why diagrams matter — four arms (Communicate, Understand, Document, Design) each unfolding into real scenarios and the DigraVinci feature that answers them",
+    tags: ["diagravinci", "overview", "use-cases", "snowflake"],
+    preferredView: "radial",
+    code: `# Radial layout recommended — center: Diagrams
+# Ring 1: why   Ring 2: when   Ring 3: DigraVinci answer
+
+!rule  id=comm_arm  all_name=Communicate|team_alignment|stakeholder_pitch|PR_review|incident_postmortem|cross_team_handoff|named_sessions|audience_views|git_diffable_dg|session_chapters|live_link_sharing
+!rule  id=und_arm   all_name=Understand|architecture_map|onboarding|debugging|code_review|dependency_tracing|canvas|filter_and_dim|execution_engine|fold_to_depth|highlight_flows
+!rule  id=doc_arm   all_name=Document|living_docs|API_contracts|version_history|design_decisions|runbooks|PNG_export|dg_syntax|visual_diff|dg_in_pr|template_snapshots
+!rule  id=des_arm   all_name=Design|system_design|data_modeling|user_flows|API_design|event_modeling|AI_generation|class_diagram_mode|flow_animation|AI_gap_finder|token_simulation
+
+!selector  name=Communicate  color=#22c55e  expression=comm_arm
+!selector  name=Understand   color=#f97316  expression=und_arm
+!selector  name=Document     color=#f472b6  expression=doc_arm
+!selector  name=Design       color=#fbbf24  expression=des_arm
+
+!session  id=overview  label=Overview    selectors=communicate:color,understand:color,document:color,design:color
+!session  id=comm      label=Communicate selectors=communicate:dim
+!session  id=und       label=Understand  selectors=understand:dim
+!session  id=doc       label=Document    selectors=document:dim
+!session  id=des       label=Design      selectors=design:dim
+
+Diagrams{}
+
+# Ring 1 — why diagrams
+Communicate{}
+Understand{}
+Document{}
+Design{}
+
+# Ring 2 — specific scenarios
+team_alignment||
+stakeholder_pitch||
+PR_review||
+incident_postmortem||
+cross_team_handoff||
+
+architecture_map||
+onboarding||
+debugging||
+code_review||
+dependency_tracing||
+
+living_docs||
+API_contracts||
+version_history||
+design_decisions||
+runbooks||
+
+system_design||
+data_modeling||
+user_flows||
+API_design||
+event_modeling||
+
+# Ring 3 — DigraVinci answers
+named_sessions{}
+audience_views{}
+git_diffable_dg{}
+session_chapters{}
+live_link_sharing{}
+
+canvas{}
+filter_and_dim{}
+execution_engine{}
+fold_to_depth{}
+highlight_flows{}
+
+PNG_export{}
+dg_syntax{}
+visual_diff{}
+dg_in_pr{}
+template_snapshots{}
+
+AI_generation{}
+class_diagram_mode{}
+flow_animation{}
+AI_gap_finder{}
+token_simulation{}
+
+# Relationships
+Diagrams --> Communicate
+Diagrams --> Understand
+Diagrams --> Document
+Diagrams --> Design
+
+Communicate --> team_alignment
+Communicate --> stakeholder_pitch
+Communicate --> PR_review
+Communicate --> incident_postmortem
+Communicate --> cross_team_handoff
+
+Understand --> architecture_map
+Understand --> onboarding
+Understand --> debugging
+Understand --> code_review
+Understand --> dependency_tracing
+
+Document --> living_docs
+Document --> API_contracts
+Document --> version_history
+Document --> design_decisions
+Document --> runbooks
+
+Design --> system_design
+Design --> data_modeling
+Design --> user_flows
+Design --> API_design
+Design --> event_modeling
+
+team_alignment --> named_sessions
+stakeholder_pitch --> audience_views
+PR_review --> git_diffable_dg
+incident_postmortem --> session_chapters
+cross_team_handoff --> live_link_sharing
+
+architecture_map --> canvas
+onboarding --> filter_and_dim
+debugging --> execution_engine
+code_review --> fold_to_depth
+dependency_tracing --> highlight_flows
+
+living_docs --> PNG_export
+API_contracts --> dg_syntax
+version_history --> visual_diff
+design_decisions --> dg_in_pr
+runbooks --> template_snapshots
+
+system_design --> AI_generation
+data_modeling --> class_diagram_mode
+user_flows --> flow_animation
+API_design --> AI_gap_finder
+event_modeling --> token_simulation`,
+  },
+  {
+    id: "dv-diagravinci-features",
+    name: "DigraVinci Features",
+    description:
+      "Four input modes (Canvas, Code, AI, Templates) each branching into feature areas and concrete capabilities — a complete feature map of the tool",
+    tags: ["diagravinci", "features", "overview", "snowflake"],
+    preferredView: "radial",
+    code: `# Radial layout recommended — center: DigraVinci
+# Ring 1: input modes   Ring 2: features per mode   Ring 3: specific capabilities
+
+!rule  id=canvas_arm  all_name=Canvas|spatial_editing|nesting_hierarchy|class_mode|visual_diff_view|drag_connect_nest|arrange|fold_depth|schema_view|diff_highlights|direct_manipulation
+!rule  id=code_arm    all_name=Code|six_element_types|labeled_relationships|selectors_and_sessions|nesting_and_scope|flags_and_tags|six_types|named_edges|audience_sessions|dot_notation_refs|flag_targeting
+!rule  id=ai_arm      all_name=AI|describe_to_diagram|targeted_additions|AI_analysis|AI_consistency_check|diagram_explanation|natural_language|grow_existing|gap_finder|architecture_review|plain_english_tour
+!rule  id=tmpl_arm    all_name=Templates|architecture_patterns|saved_diagrams|blank_start|collection_browsing|snapshot_compare|patterns|prior_baseline|instant_structure|curated_libraries|version_diff
+
+!selector  name=Canvas    color=#6366f1  expression=canvas_arm
+!selector  name=Code      color=#22c55e  expression=code_arm
+!selector  name=AI        color=#f472b6  expression=ai_arm
+!selector  name=Templates color=#fbbf24  expression=tmpl_arm
+
+!session  id=overview  label=Overview   selectors=canvas:color,code:color,ai:color,templates:color
+!session  id=canvas_s  label=Canvas     selectors=canvas:dim
+!session  id=code_s    label=Code       selectors=code:dim
+!session  id=ai_s      label=AI         selectors=ai:dim
+!session  id=tmpl_s    label=Templates  selectors=templates:dim
+
+DigraVinci{}
+
+# Ring 1 — input modes
+Canvas{}
+Code{}
+AI{}
+Templates{}
+
+# Ring 2 — Canvas
+spatial_editing{}
+nesting_hierarchy{}
+class_mode{}
+visual_diff_view{}
+drag_connect_nest{}
+
+# Ring 2 — Code
+six_element_types{}
+labeled_relationships{}
+selectors_and_sessions{}
+nesting_and_scope{}
+flags_and_tags{}
+
+# Ring 2 — AI
+describe_to_diagram{}
+targeted_additions{}
+AI_analysis{}
+AI_consistency_check{}
+diagram_explanation{}
+
+# Ring 2 — Templates
+architecture_patterns{}
+saved_diagrams{}
+blank_start{}
+collection_browsing{}
+snapshot_compare{}
+
+# Ring 3 — Canvas specifics
+arrange{}
+fold_depth{}
+schema_view{}
+diff_highlights{}
+direct_manipulation{}
+
+# Ring 3 — Code specifics
+six_types{}
+named_edges{}
+audience_sessions{}
+dot_notation_refs{}
+flag_targeting{}
+
+# Ring 3 — AI specifics
+natural_language{}
+grow_existing{}
+gap_finder{}
+architecture_review{}
+plain_english_tour{}
+
+# Ring 3 — Template specifics
+patterns{}
+prior_baseline{}
+instant_structure{}
+curated_libraries{}
+version_diff{}
+
+# Relationships
+DigraVinci --> Canvas
+DigraVinci --> Code
+DigraVinci --> AI
+DigraVinci --> Templates
+
+Canvas --> spatial_editing
+Canvas --> nesting_hierarchy
+Canvas --> class_mode
+Canvas --> visual_diff_view
+Canvas --> drag_connect_nest
+
+Code --> six_element_types
+Code --> labeled_relationships
+Code --> selectors_and_sessions
+Code --> nesting_and_scope
+Code --> flags_and_tags
+
+AI --> describe_to_diagram
+AI --> targeted_additions
+AI --> AI_analysis
+AI --> AI_consistency_check
+AI --> diagram_explanation
+
+Templates --> architecture_patterns
+Templates --> saved_diagrams
+Templates --> blank_start
+Templates --> collection_browsing
+Templates --> snapshot_compare
+
+spatial_editing --> arrange
+nesting_hierarchy --> fold_depth
+class_mode --> schema_view
+visual_diff_view --> diff_highlights
+drag_connect_nest --> direct_manipulation
+
+six_element_types --> six_types
+labeled_relationships --> named_edges
+selectors_and_sessions --> audience_sessions
+nesting_and_scope --> dot_notation_refs
+flags_and_tags --> flag_targeting
+
+describe_to_diagram --> natural_language
+targeted_additions --> grow_existing
+AI_analysis --> gap_finder
+AI_consistency_check --> architecture_review
+diagram_explanation --> plain_english_tour
+
+architecture_patterns --> patterns
+saved_diagrams --> prior_baseline
+blank_start --> instant_structure
+collection_browsing --> curated_libraries
+snapshot_compare --> version_diff`,
+  },
+  {
+    id: "dv-framework-cycle",
+    name: "Framework: Sketch → Deepen → Showcase → Evolve",
+    description:
+      "The four-stage DigraVinci workflow — each stage with its tools and sub-features; sessions highlight one stage at a time",
+    tags: ["diagravinci", "framework", "workflow"],
+    preferredView: "circular",
+    code: `# Circular layout recommended
+# Sessions walk one stage at a time; Evolve → Sketch closes the loop
+# Fold to depth 2 for overview; unfold specific nodes for detail
+
+!rule  id=sketch    all=^Sketch
+!rule  id=deepen    all=^Deepen
+!rule  id=showcase  all=^Showcase
+!rule  id=evolve    all=^Evolve
+
+!selector  name=Sketch_Stage    color=#6366f1  expression=sketch
+!selector  name=Deepen_Stage    color=#22c55e  expression=deepen
+!selector  name=Showcase_Stage  color=#f97316  expression=showcase
+!selector  name=Evolve_Stage    color=#f472b6  expression=evolve
+
+!session  id=overview    label=Overview   selectors=sketch_stage:color,deepen_stage:color,showcase_stage:color,evolve_stage:color
+!session  id=sketch_s    label=Sketch     selectors=sketch_stage:dim
+!session  id=deepen_s    label=Deepen     selectors=deepen_stage:dim
+!session  id=showcase_s  label=Showcase   selectors=showcase_stage:dim
+!session  id=evolve_s    label=Evolve     selectors=evolve_stage:dim
+
+Sketch{
+  Canvas{
+    drag_connect_nest{}
+    class_diagram_mode{}
+  }
+  Code{
+    six_element_types{
+      Object{}
+      Collection[]
+      State||
+      Function()
+      Flow>>
+      Choice<>
+    }
+    six_relationship_types{
+      association{}
+      data_flow{}
+      inheritance{}
+      realization{}
+      aggregation{}
+      composition{}
+    }
+    labels{}
+    nesting{}
+    dot_notation{}
+    flags{}
+  }
+  AI{
+    describe_to_diagram{}
+    targeted_additions{}
+  }
+  Templates{
+    Layered_Architecture{}
+    Microservices{}
+    Capstone_App{}
+    User_Journey{}
+    saved_diagrams{}
+  }
+}
+
+Deepen{
+  completeness{
+    subsystems_and_services{}
+    interfaces_and_abstractions{}
+    lifecycle_stages||
+    pipeline_boundaries>>
+    decision_points<>
+  }
+  relationships{
+    label_every_edge{}
+    structural_dependency{}
+    data_and_exec_flow{}
+    ownership_relationships{}
+    dependency_direction{}
+  }
+  navigation{
+    fold_to_depth{}
+    selective_unfold{}
+    dot_notation{}
+  }
+  AI_deepening{
+    suggest_missing{}
+    suggest_connections{}
+    evaluate_consistency{}
+  }
+}
+
+Showcase{
+  filter{
+    selectors{
+      by_name{}
+      by_type{}
+      by_level{}
+      by_flag{}
+    }
+    modes{
+      color_mode{}
+      dim_mode{}
+      hide_mode{}
+      stacked{}
+    }
+    sessions{
+      named_presets{}
+      audience_views{}
+      one_click_switch{}
+    }
+  }
+  navigate{
+    labeled_edge_narration{}
+    edge_step_through{}
+    keyboard_shortcuts{}
+  }
+  animate{
+    token_simulation{}
+    execution_behaviors{
+      objects_upsert{}
+      collections_accumulate{}
+      functions_route{}
+      choices_branch{}
+    }
+    special_functions{
+      gen()
+      round_robin()
+      duplicator()
+      throttler()
+    }
+  }
+  export{
+    PNG_export{}
+    live_link{}
+    AI_on_demand{}
+  }
+}
+
+Evolve{
+  Templates{
+    save_snapshot{}
+    load_snapshot{}
+    future_variant{}
+  }
+  Canvas{
+    add_remove_elements{}
+    visual_diff{}
+  }
+  Code{
+    intent_flags{}
+    sessions_for_changes{}
+    git_backed_dg{}
+    pr_reviewable{}
+  }
+  AI{
+    suggest_new_features{}
+    identify_gaps{}
+    describe_future_state{}
+  }
+}
+
+Sketch --> Deepen
+Deepen --> Showcase
+Showcase --> Evolve
+Evolve --> Sketch`,
+  },
+  {
+    id: "dv-architecture-core",
+    name: "Architecture: Core Sync Flow",
+    description:
+      "The bidirectional sync between CodeEditor and VisualCanvas — CD flow (code → model) and VIS flow (canvas → code) highlighted by session",
+    tags: ["diagravinci", "architecture", "internals"],
+    preferredView: "circular",
+    code: `!rule  id=cd  all_name=gen_code|syncFromCode|tokenize|parse|diagramSlice|render
+!rule  id=vis  all_name=gen_vis|syncFromVis|generate|diagramSlice|output
+!selector  name=CD_Flow  color=#22c55e  expression=cd
+!selector  name=VIS_Flow  color=#f97316  expression=vis
+!selector  name=Selection_default  color=#3773d5
+!session  id=default  label=Default  selectors=cd_flow:color,vis_flow:color,selection_default:color
+!session  id=cd_view  label="CD Flow"  selectors=cd_flow:dim,vis_flow:color,selection_default:color
+!session  id=vis_view  label="VIS Flow"  selectors=vis_flow:dim,cd_flow:color,selection_default:color
+
+PresentationLayer{
+  CodeEditor{
+    MonacoEditor{
+      output()
+      gen_code(
+        change{}
+      )
+    }
+    Store{
+      uiSlice{
+        updateUI()
+      }
+      diagramSlice{
+        updateDiagram()
+        route<
+          code{}
+        >
+      }
+    }
+    SyncManager{
+      Parser{
+        parse(
+          code{}
+        )
+        anon_5>
+          DiagramModel{
+            elements{}
+            relationships{}
+            metadata{}
+          }
+        >
+      }
+      Lexer{
+        tokenize(
+          code{}
+        )
+        anon_2>
+          token[]
+        >
+      }
+      CodeGenerator{
+        generate(
+          model{}
+        )
+        anon_8>
+          code{}
+        >
+      }
+      Store{}
+      syncFromCode(
+        tokenize()
+        parse()
+        anon_5>>
+        anon_2>>
+      )
+      syncFromVis(
+        generate()
+        anon_9>
+          code{}
+        >
+      )
+    }
+  }
+  VisualCanvas{
+    Store{}
+    SyncManager{}
+    DiagramLayerRenderer{
+      _gen_vis(
+        event{}
+      )
+    }
+    KonvaCanvas{
+      render()
+    }
+  }
+}
+ApplicationLayer{
+  Store{}
+  SyncManager{}
+}
+DomainLayer{
+  DiagramModel{}
+  ViewState{
+    positionedElements{}
+    positionedRelationships{}
+  }
+}
+InfrastructureLayer{
+  Lexer{}
+  Parser{}
+  CodeGenerator{}
+}
+
+PresentationLayer.CodeEditor.SyncManager.Parser.parse ..> PresentationLayer.CodeEditor.SyncManager.Parser.anon_5
+PresentationLayer.CodeEditor.SyncManager.Parser.anon_5 ..> _
+PresentationLayer.CodeEditor.SyncManager.Lexer.tokenize ..> PresentationLayer.CodeEditor.SyncManager.Lexer.anon_2
+PresentationLayer.CodeEditor.SyncManager.Lexer.anon_2 ..> _
+PresentationLayer.CodeEditor.SyncManager.CodeGenerator.generate ..> PresentationLayer.CodeEditor.SyncManager.CodeGenerator.anon_8
+PresentationLayer.CodeEditor.SyncManager.CodeGenerator.anon_8 ..> _
+PresentationLayer.CodeEditor.SyncManager.syncFromCode.parse ..> PresentationLayer.CodeEditor.SyncManager.syncFromCode.anon_5
+PresentationLayer.CodeEditor.SyncManager.syncFromCode.anon_5 ..> anon_2
+PresentationLayer.CodeEditor.SyncManager.syncFromCode.anon_2 ..> _
+PresentationLayer.CodeEditor.SyncManager.syncFromVis.generate ..> PresentationLayer.CodeEditor.SyncManager.syncFromVis.anon_9
+PresentationLayer.CodeEditor.SyncManager.syncFromVis.anon_9 ..> _
+InfrastructureLayer.Lexer.tokenize ..> InfrastructureLayer.Lexer.anon_2
+InfrastructureLayer.Lexer.anon_2 ..> _
+InfrastructureLayer.Parser.parse ..> InfrastructureLayer.Parser.anon_5
+InfrastructureLayer.Parser.anon_5 ..> _
+InfrastructureLayer.CodeGenerator.generate ..> InfrastructureLayer.CodeGenerator.anon_8
+InfrastructureLayer.CodeGenerator.anon_8 ..> _
+Store.diagramSlice --> DiagramModel
+Store.diagramSlice --> ViewState
+ApplicationLayer.SyncManager --> DiagramModel
+ApplicationLayer.SyncManager --> ViewState
+ApplicationLayer.SyncManager.syncFromCode ..> ApplicationLayer.Store.diagramSlice.updateDiagram
+ApplicationLayer.Store.diagramSlice.updateDiagram ..> ApplicationLayer.Store.diagramSlice.route
+ApplicationLayer.Store.diagramSlice.route --code..> PresentationLayer.CodeEditor.MonacoEditor.output
+ApplicationLayer.Store.diagramSlice.route --model..> PresentationLayer.VisualCanvas.KonvaCanvas.render
+PresentationLayer.VisualCanvas.DiagramLayerRenderer._gen_vis ..> ApplicationLayer.SyncManager.syncFromVis
+ApplicationLayer.SyncManager.syncFromCode.tokenize ..> ApplicationLayer.SyncManager.syncFromCode.anon_2
+ApplicationLayer.SyncManager.syncFromCode.anon_2 ..> ApplicationLayer.SyncManager.syncFromCode.parse
+ApplicationLayer.SyncManager.syncFromCode.parse ..> ApplicationLayer.SyncManager.syncFromCode.anon_5
+ApplicationLayer.SyncManager.syncFromVis.generate ..> ApplicationLayer.SyncManager.syncFromVis.anon_9
+ApplicationLayer.SyncManager.syncFromVis ..> ApplicationLayer.Store.diagramSlice.updateDiagram
+PresentationLayer.CodeEditor.MonacoEditor.gen_code ..> ApplicationLayer.SyncManager.syncFromCode`,
+  },
+  //   {
+  //     id: "dv-architecture-current",
+  //     name: "Architecture: Full System",
+  //     description:
+  //       "Complete DigraVinci architecture — all flows (CD, VIS, AI, Execution, Filter, Persistence, Tab sync) with sessions for each; abstractions session hides layout implementations",
+  //     tags: ["diagravinci", "architecture", "internals", "full"],
+  //     preferredView: "circular",
+  //     code: `!rule  id=cd  all_name=gen_code|syncFromCode|tokenize|parse|diagramSlice|render
+  // !rule  id=vis  all_name=gen_vis|syncFromVis|generate|diagramSlice|output
+  // !rule  id=ai  all_name=AIPanel|AIOrchestrator|PromptBuilder|GeminiService|ResponseValidator|syncFromAI
+  // !rule  id=exec  all_name=ExecutionEngine|tick|TokenScheduler|spawnTokens|advanceTokens|executionSlice|ExecuteLayout
+  // !rule  id=persist  all_name=diagramSlice|filterSlice|IndexedDB|LocalStorage
+  // !rule  id=filter_fl  all_name=SelectorModal|filterSlice|FilterResolver|SelectorEvaluator
+  // !rule  id=tab  all_name=TabSyncManager|broadcast|onMessage|diagramSlice
+  // !rule  id=layout_impls  all_name=HierarchicalLayout|CircularLayout|RadialLayout|TimelineLayout|PipelineLayout|ExecuteLayout|ForceDirectedLayout|ManualLayout
+  // !rule  id=layout_inh  all_name=HierarchicalLayout|CircularLayout|RadialLayout|TimelineLayout|PipelineLayout|ExecuteLayout|ForceDirectedLayout|ManualLayout|BaseLayout
+  // !rule  id=deep  all_level=4-10
+  // !selector  name=CD_Flow  color=#22c55e  expression=cd
+  // !selector  name=VIS_Flow  color=#f97316  expression=vis
+  // !selector  name=AI_Flow  color=#f472b6  expression=ai
+  // !selector  name=Exec_Flow  color=#fbbf24  expression=exec
+  // !selector  name=Persistence  color=#a78bfa  expression=persist
+  // !selector  name=Filter_Flow  color=#34d399  expression=filter_fl
+  // !selector  name=Tab_Flow  color=#60a5fa  expression=tab
+  // !selector  name=Layout_Impls  color=#fb923c  expression=layout_impls
+  // !selector  name=No_Layout_Impls  color=#888888  expression=-layout_inh
+  // !selector  name=Overview  color=#888888  expression=-deep
+  // !selector  name=Selection_default  color=#3773d5
+  // !session  id=default  label=Default  selectors=cd_flow:color,vis_flow:color,selection_default:color
+  // !session  id=cd_view  label="CD Flow"  selectors=cd_flow:dim,vis_flow:color,selection_default:color
+  // !session  id=vis_view  label="VIS Flow"  selectors=vis_flow:dim,cd_flow:color,selection_default:color
+  // !session  id=ai_view  label="AI Flow"  selectors=ai_flow:color
+  // !session  id=exec_view  label=Execution  selectors=exec_flow:color
+  // !session  id=all_flows  label="All Flows"  selectors=cd_flow:color,vis_flow:color,ai_flow:color,exec_flow:color,persistence:color,filter_flow:color,tab_flow:color
+  // !session  id=abstractions  label=Abstractions  selectors=no_layout_impls:hide,overview:dim
+
+  // PresentationLayer{
+  //   CodeEditor{
+  //     MonacoEditor{
+  //       output()
+  //       gen_code(
+  //         change{}
+  //       )
+  //     }
+  //     Store{
+  //       uiSlice{
+  //         updateUI()
+  //         interactionMode||
+  //         selectedElementIds[]
+  //         renderStyle||
+  //         relLineStyle||
+  //         classDiagramMode||
+  //       }
+  //       diagramSlice{
+  //         updateDiagram()
+  //         route<
+  //           code{}
+  //         >
+  //       }
+  //       filterSlice{
+  //         selectors[]
+  //         foldLevel||
+  //         manuallyFolded[]
+  //         manuallyUnfolded[]
+  //       }
+  //       historySlice{
+  //         past[]
+  //         future[]
+  //       }
+  //       diffSlice{
+  //         active||
+  //         addedIds[]
+  //         removedIds[]
+  //       }
+  //       executionSlice{
+  //         status||
+  //         tickCount{}
+  //         instances[]
+  //         tickIntervalMs{}
+  //       }
+  //       themeSlice{
+  //         theme||
+  //       }
+  //     }
+  //     SyncManager{
+  //       Parser{
+  //         parse(
+  //           code{}
+  //         )
+  //         anon_5>
+  //           DiagramModel{
+  //             elements{}
+  //             relationships{}
+  //             metadata{}
+  //           }
+  //         >
+  //       }
+  //       Lexer{
+  //         tokenize(
+  //           code{}
+  //         )
+  //         anon_2>
+  //           token[]
+  //         >
+  //       }
+  //       CodeGenerator{
+  //         generate(
+  //           model{}
+  //         )
+  //         anon_8>
+  //           code{}
+  //         >
+  //       }
+  //       Store{}
+  //       syncFromCode(
+  //         tokenize()
+  //         parse()
+  //         anon_5>>
+  //         anon_2>>
+  //       )
+  //       syncFromVis(
+  //         generate()
+  //         anon_9>
+  //           code{}
+  //         >
+  //       )
+  //       syncFromAI()
+  //     }
+  //   }
+  //   VisualCanvas{
+  //     Store{}
+  //     SyncManager{}
+  //     DiagramLayerRenderer{
+  //       _gen_vis(
+  //         event{}
+  //       )
+  //     }
+  //     KonvaCanvas{
+  //       render()
+  //     }
+  //   }
+  //   ToolBar{}
+  //   AIPanel{
+  //     ApiKeySetup{}
+  //   }
+  //   SelectorModal{
+  //     SelectorEditor{}
+  //   }
+  //   TemplatePanel{}
+  //   PropertiesPanel{}
+  //   SelectedPanel{}
+  //   AppSettingsPanel{}
+  //   CanvasControls{}
+  //   HelpModal{}
+  //   hooks{
+  //     useUndoRedo()
+  //     useKeyboardShortcuts()
+  //     useExecution()
+  //   }
+  // }
+  // ApplicationLayer{
+  //   SyncManager{}
+  //   Store{}
+  //   AIOrchestrator{
+  //     generateDiagram()
+  //     analyzeBugs()
+  //     getSuggestions()
+  //   }
+  //   TabSyncManager{
+  //     broadcast()
+  //     onMessage()
+  //   }
+  //   ExecutionEngine{
+  //     tick()
+  //     reset()
+  //     TokenScheduler{
+  //       spawnTokens()
+  //       advanceTokens()
+  //     }
+  //     SpecialFunctions{
+  //       gen()
+  //       round_robin()
+  //       multiplier()
+  //       duplicator()
+  //       deduplicator()
+  //       connector()
+  //       disconnector()
+  //       throttler()
+  //     }
+  //   }
+  //   ForceSimulationService{}
+  // }
+  // DomainLayer{
+  //   DiagramModel{}
+  //   ViewState{
+  //     positionedElements{}
+  //     positionedRelationships{}
+  //   }
+  //   Element{
+  //     id{}
+  //     name{}
+  //     type||
+  //     children[]
+  //     properties[]
+  //   }
+  //   Relationship{
+  //     source{}
+  //     target{}
+  //     type||
+  //     label{}
+  //   }
+  //   Selector{
+  //     rules[]
+  //     combiners[]
+  //     mode||
+  //   }
+  //   DiagramTemplate{}
+  //   TemplateCollection{}
+  //   Layouts{
+  //     LayoutAlgorithm{}
+  //     LayoutRegistry{}
+  //     LayoutUtils{}
+  //     BaseLayout{}
+  //     HierarchicalLayout{}
+  //     CircularLayout{}
+  //     RadialLayout{}
+  //     TimelineLayout{}
+  //     PipelineLayout{}
+  //     ExecuteLayout{}
+  //     ForceDirectedLayout{}
+  //     ManualLayout{}
+  //   }
+  //   Sync{
+  //     FilterResolver{
+  //       resolve()
+  //     }
+  //     ModelDiffer{
+  //       computeDiff()
+  //     }
+  //     ViewStateMerger{
+  //       merge()
+  //     }
+  //   }
+  //   SelectorEvaluator{
+  //     evaluate()
+  //     matchByName()
+  //     matchByPath()
+  //     matchByLevel()
+  //   }
+  //   SelectorPresets{}
+  //   ValidationRules{}
+  // }
+  // InfrastructureLayer{
+  //   Lexer{}
+  //   Parser{}
+  //   CodeGenerator{}
+  //   AIServices{
+  //     GeminiService{
+  //       generate()
+  //       analyzeCode()
+  //     }
+  //     PromptBuilder{
+  //       buildGeneratePrompt()
+  //       buildAnalysisPrompt()
+  //     }
+  //     ResponseValidator{
+  //       validate()
+  //       extractCode()
+  //     }
+  //     apiKeyStorage{}
+  //   }
+  //   Persistence{
+  //     IndexedDB{}
+  //     LocalStorage{}
+  //     ExportSvg{}
+  //     CollectionRepository{}
+  //     CollectionZip{}
+  //   }
+  // }
+
+  // PresentationLayer.CodeEditor.SyncManager.Parser.parse ..> PresentationLayer.CodeEditor.SyncManager.Parser.anon_5
+  // PresentationLayer.CodeEditor.SyncManager.Parser.anon_5 ..> _
+  // PresentationLayer.CodeEditor.SyncManager.Lexer.tokenize ..> PresentationLayer.CodeEditor.SyncManager.Lexer.anon_2
+  // PresentationLayer.CodeEditor.SyncManager.Lexer.anon_2 ..> _
+  // PresentationLayer.CodeEditor.SyncManager.CodeGenerator.generate ..> PresentationLayer.CodeEditor.SyncManager.CodeGenerator.anon_8
+  // PresentationLayer.CodeEditor.SyncManager.CodeGenerator.anon_8 ..> _
+  // PresentationLayer.CodeEditor.SyncManager.syncFromCode.parse ..> PresentationLayer.CodeEditor.SyncManager.syncFromCode.anon_5
+  // PresentationLayer.CodeEditor.SyncManager.syncFromCode.anon_5 ..> anon_2
+  // PresentationLayer.CodeEditor.SyncManager.syncFromCode.anon_2 ..> _
+  // PresentationLayer.CodeEditor.SyncManager.syncFromVis.generate ..> PresentationLayer.CodeEditor.SyncManager.syncFromVis.anon_9
+  // PresentationLayer.CodeEditor.SyncManager.syncFromVis.anon_9 ..> _
+  // ApplicationLayer.SyncManager.syncFromCode.parse ..> ApplicationLayer.SyncManager.syncFromCode.anon_5
+  // ApplicationLayer.SyncManager.syncFromCode.anon_2 ..> _
+  // ApplicationLayer.SyncManager.syncFromVis.generate ..> ApplicationLayer.SyncManager.syncFromVis.anon_9
+  // ApplicationLayer.SyncManager.syncFromVis.anon_9 ..> _
+  // InfrastructureLayer.Lexer.tokenize ..> InfrastructureLayer.Lexer.anon_2
+  // InfrastructureLayer.Lexer.anon_2 ..> _
+  // InfrastructureLayer.Parser.parse ..> InfrastructureLayer.Parser.anon_5
+  // InfrastructureLayer.Parser.anon_5 ..> _
+  // InfrastructureLayer.CodeGenerator.generate ..> InfrastructureLayer.CodeGenerator.anon_8
+  // InfrastructureLayer.CodeGenerator.anon_8 ..> _
+  // Store.diagramSlice --> DiagramModel
+  // Store.diagramSlice --> ViewState
+  // ApplicationLayer.SyncManager --> DiagramModel
+  // ApplicationLayer.SyncManager --> ViewState
+  // ApplicationLayer.SyncManager.syncFromCode ..> ApplicationLayer.Store.diagramSlice.updateDiagram
+  // ApplicationLayer.Store.diagramSlice.updateDiagram ..> ApplicationLayer.Store.diagramSlice.route
+  // ApplicationLayer.Store.diagramSlice.route --code..> PresentationLayer.CodeEditor.MonacoEditor.output
+  // ApplicationLayer.Store.diagramSlice.route --model..> PresentationLayer.VisualCanvas.KonvaCanvas.render
+  // PresentationLayer.VisualCanvas.DiagramLayerRenderer._gen_vis ..> ApplicationLayer.SyncManager.syncFromVis
+  // ApplicationLayer.SyncManager.syncFromCode.tokenize ..> ApplicationLayer.SyncManager.syncFromCode.anon_2
+  // ApplicationLayer.SyncManager.syncFromCode.anon_2 ..> ApplicationLayer.SyncManager.syncFromCode.parse
+  // ApplicationLayer.SyncManager.syncFromVis ..> ApplicationLayer.Store.diagramSlice.updateDiagram
+  // PresentationLayer.CodeEditor.MonacoEditor.gen_code ..> ApplicationLayer.SyncManager.syncFromCode
+  // PresentationLayer.AIPanel ..> ApplicationLayer.AIOrchestrator.generateDiagram
+  // ApplicationLayer.AIOrchestrator.generateDiagram ..> InfrastructureLayer.AIServices.PromptBuilder.buildGeneratePrompt
+  // InfrastructureLayer.AIServices.PromptBuilder.buildGeneratePrompt ..> InfrastructureLayer.AIServices.GeminiService.generate
+  // InfrastructureLayer.AIServices.GeminiService.generate ..> InfrastructureLayer.AIServices.ResponseValidator.validate
+  // InfrastructureLayer.AIServices.ResponseValidator.validate ..> ApplicationLayer.SyncManager.syncFromAI
+  // ApplicationLayer.SyncManager.syncFromAI ..> ApplicationLayer.Store.diagramSlice.updateDiagram
+  // PresentationLayer.ToolBar --play--> ApplicationLayer.ExecutionEngine
+  // ApplicationLayer.ExecutionEngine.tick ..> ApplicationLayer.ExecutionEngine.TokenScheduler.spawnTokens
+  // ApplicationLayer.ExecutionEngine.TokenScheduler.spawnTokens ..> ApplicationLayer.ExecutionEngine.TokenScheduler.advanceTokens
+  // ApplicationLayer.ExecutionEngine.TokenScheduler.advanceTokens ..> ApplicationLayer.Store.executionSlice.instances
+  // ApplicationLayer.Store.executionSlice.instances ..> DomainLayer.Layouts.ExecuteLayout
+  // DomainLayer.Layouts.ExecuteLayout ..> PresentationLayer.VisualCanvas
+  // PresentationLayer.SelectorModal --apply--> ApplicationLayer.Store.filterSlice
+  // ApplicationLayer.Store.filterSlice ..> DomainLayer.Sync.FilterResolver.resolve
+  // DomainLayer.Sync.FilterResolver.resolve ..> DomainLayer.SelectorEvaluator.evaluate
+  // DomainLayer.Sync.FilterResolver.resolve ..> PresentationLayer.VisualCanvas
+  // ApplicationLayer.TabSyncManager.broadcast ..> ApplicationLayer.Store.diagramSlice
+  // ApplicationLayer.Store.diagramSlice ..> ApplicationLayer.TabSyncManager.onMessage
+  // ApplicationLayer.Store.diagramSlice --save--> InfrastructureLayer.Persistence.IndexedDB
+  // InfrastructureLayer.Persistence.IndexedDB --load--> ApplicationLayer.Store.diagramSlice
+  // ApplicationLayer.Store.filterSlice --save--> InfrastructureLayer.Persistence.LocalStorage
+  // DomainLayer.Layouts.HierarchicalLayout --|> DomainLayer.Layouts.BaseLayout
+  // DomainLayer.Layouts.CircularLayout --|> DomainLayer.Layouts.BaseLayout
+  // DomainLayer.Layouts.RadialLayout --|> DomainLayer.Layouts.BaseLayout
+  // DomainLayer.Layouts.TimelineLayout --|> DomainLayer.Layouts.BaseLayout
+  // DomainLayer.Layouts.PipelineLayout --|> DomainLayer.Layouts.BaseLayout
+  // DomainLayer.Layouts.ExecuteLayout --|> DomainLayer.Layouts.BaseLayout
+  // DomainLayer.Layouts.ForceDirectedLayout --|> DomainLayer.Layouts.BaseLayout
+  // DomainLayer.Layouts.ManualLayout --|> DomainLayer.Layouts.BaseLayout`,
+  //   },
+];
+
 export const BUILT_IN_TEMPLATES: DiagramTemplate[] = [
   ICON_SHOWCASE_TEMPLATE,
   ALL_REL_TYPES_TEMPLATE,
@@ -2461,4 +3401,5 @@ export const BUILT_IN_TEMPLATES: DiagramTemplate[] = [
   ...USER_CUSTOMER_TEMPLATES,
   ...PLANNING_ROADMAP_TEMPLATES,
   ...BUSINESS_PROCESS_TEMPLATES,
+  ...DIAGRAVINCI_TEMPLATES,
 ];
