@@ -85,10 +85,7 @@ import {
   setCode,
   setViewMode,
 } from "../../application/store/diagramSlice";
-import {
-  toSelectorId,
-  FOLD_SELECTOR_ID,
-} from "../../domain/models/Selector";
+import { toSelectorId, FOLD_SELECTOR_ID } from "../../domain/models/Selector";
 import {
   startExecution,
   pauseExecution,
@@ -127,7 +124,7 @@ const REL_TYPES: {
   },
   {
     type: "..>",
-    label: "Dependency",
+    label: "Flow",
     icon: <span className="font-mono text-xs leading-none">{"··>"}</span>,
   },
   {
@@ -242,8 +239,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
   }, [sessions, activeSession, dispatch]);
 
   const activePresetCount = selectors.filter((s) => {
-    if (s.id === FOLD_SELECTOR_ID)
-      return false;
+    if (s.id === FOLD_SELECTOR_ID) return false;
     return (activeSession?.selectorModes[s.id] ?? "off") !== "off";
   }).length;
 
@@ -275,7 +271,11 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
   const cleanupAndReset = () => {
     if (!execState.materialize && execState.instances.length > 0) {
       const { model: currentModel } = store.getState().diagram;
-      const cleanedModel = buildCleanedModel(currentModel, execState.instances, execState.removedTemplates);
+      const cleanedModel = buildCleanedModel(
+        currentModel,
+        execState.instances,
+        execState.removedTemplates,
+      );
       syncManager.syncFromVis(cleanedModel);
     }
     dispatch(resetExecution());
@@ -655,12 +655,60 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
                 dispatch(setActiveElementType(v as typeof activeElementType))
               }
               options={[
-                { value: "object", label: "Object", icon: <span className="font-mono text-xs leading-none">{"{}"}</span> },
-                { value: "collection", label: "Collection", icon: <span className="font-mono text-xs leading-none">{"[]"}</span> },
-                { value: "state", label: "State", icon: <span className="font-mono text-xs leading-none">{"||"}</span> },
-                { value: "function", label: "Function", icon: <span className="font-mono text-xs leading-none">{"()"}</span> },
-                { value: "flow", label: "Flow", icon: <span className="font-mono text-xs leading-none">{">>"}</span> },
-                { value: "choice", label: "Choice", icon: <span className="font-mono text-xs leading-none">{"<>"}</span> },
+                {
+                  value: "object",
+                  label: "Object",
+                  icon: (
+                    <span className="font-mono text-xs leading-none">
+                      {"{}"}
+                    </span>
+                  ),
+                },
+                {
+                  value: "collection",
+                  label: "Collection",
+                  icon: (
+                    <span className="font-mono text-xs leading-none">
+                      {"[]"}
+                    </span>
+                  ),
+                },
+                {
+                  value: "state",
+                  label: "State",
+                  icon: (
+                    <span className="font-mono text-xs leading-none">
+                      {"||"}
+                    </span>
+                  ),
+                },
+                {
+                  value: "function",
+                  label: "Function",
+                  icon: (
+                    <span className="font-mono text-xs leading-none">
+                      {"()"}
+                    </span>
+                  ),
+                },
+                {
+                  value: "flow",
+                  label: "Flow",
+                  icon: (
+                    <span className="font-mono text-xs leading-none">
+                      {">>"}
+                    </span>
+                  ),
+                },
+                {
+                  value: "choice",
+                  label: "Choice",
+                  icon: (
+                    <span className="font-mono text-xs leading-none">
+                      {"<>"}
+                    </span>
+                  ),
+                },
               ]}
             />
           </>
