@@ -4,7 +4,7 @@
 
 **Feedback form:** https://forms.gle/gXc7GmhQnDBsrv867
 
-**Video tutorial:** [https://drive.google.com/file/d/190J67MwD3adfzf03B](https://drive.google.com/file/d/190J67MwD3adfzf03B-fISCcGqhQ7PlH9/view?usp=sharing)
+**Video tutorial:** https://youtu.be/qvlEvPjr9JI
 
 **Time to complete:** ~15–20 minutes
 
