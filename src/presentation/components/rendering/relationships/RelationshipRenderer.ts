@@ -295,75 +295,72 @@ export class RelationshipRenderer {
     }
   }
 
+  private tryBuildRelGroup(rel: { id: string; sourcePath: string; targetPath: string; type: RelationshipType; label?: string }): Konva.Group | null {
+    const { sourcePath, targetPath } = rel;
+    if (this.isHidden(sourcePath) || this.isHidden(targetPath)) return null;
+
+    const sourcePos = this.viewState.positions[sourcePath];
+    const targetPos = this.viewState.positions[targetPath];
+    if (!sourcePos || !targetPos) return null;
+
+    if (
+      this.viewportRect &&
+      isPositionOutsideViewport(sourcePos.position.x, sourcePos.position.y, sourcePos.size, this.viewportRect) &&
+      isPositionOutsideViewport(targetPos.position.x, targetPos.position.y, targetPos.size, this.viewportRect)
+    ) return null;
+
+    const isDimmed = this.dimmedSet.has(sourcePath) || this.dimmedSet.has(targetPath);
+    const opacity = isDimmed ? RC.REL_DIM_OPACITY : RC.REL_NORMAL_OPACITY;
+
+    const cacheKey = this.geometryCache
+      ? `${rel.id}|${sourcePos.position.x},${sourcePos.position.y},${sourcePos.size}|${targetPos.position.x},${targetPos.position.y},${targetPos.size}|z${this.zoom}`
+      : null;
+
+    let result = cacheKey ? this.geometryCache!.get(cacheKey) : undefined;
+    if (!result) {
+      result = computeRelPoints(
+        sourcePos.position.x, sourcePos.position.y, sourcePos.size,
+        targetPos.position.x, targetPos.position.y, targetPos.size,
+        rel.type, this.zoom,
+      );
+      if (cacheKey) this.geometryCache!.set(cacheKey, result);
+    }
+    if (!result.points) return null;
+
+    const group = new Konva.Group({ opacity });
+    this.relGroups.set(rel.id, group);
+    this.populateRelGroup(group, result as RelPoints, rel.type, rel.label, opacity);
+    return group;
+  }
+
   render(layer: Konva.Layer): void {
     this.relGroups.clear();
-
     this.viewState.relationships.forEach((rel) => {
-      const { sourcePath, targetPath } = rel;
-      if (this.isHidden(sourcePath) || this.isHidden(targetPath))
-        return;
-
-      const sourcePos = this.viewState.positions[sourcePath];
-      const targetPos = this.viewState.positions[targetPath];
-      if (!sourcePos || !targetPos) return;
-
-      if (
-        this.viewportRect &&
-        isPositionOutsideViewport(
-          sourcePos.position.x,
-          sourcePos.position.y,
-          sourcePos.size,
-          this.viewportRect,
-        ) &&
-        isPositionOutsideViewport(
-          targetPos.position.x,
-          targetPos.position.y,
-          targetPos.size,
-          this.viewportRect,
-        )
-      )
-        return;
-
-      const isDimmed =
-        this.dimmedSet.has(sourcePath) || this.dimmedSet.has(targetPath);
-      const opacity = isDimmed ? RC.REL_DIM_OPACITY : RC.REL_NORMAL_OPACITY;
-
-      const cacheKey = this.geometryCache
-        ? `${rel.id}|${sourcePos.position.x},${sourcePos.position.y},${sourcePos.size}|${targetPos.position.x},${targetPos.position.y},${targetPos.size}|z${this.zoom}`
-        : null;
-
-      let result = cacheKey ? this.geometryCache!.get(cacheKey) : undefined;
-      if (!result) {
-        result = computeRelPoints(
-          sourcePos.position.x,
-          sourcePos.position.y,
-          sourcePos.size,
-          targetPos.position.x,
-          targetPos.position.y,
-          targetPos.size,
-          rel.type,
-          this.zoom,
-        );
-        if (cacheKey) this.geometryCache!.set(cacheKey, result);
-      }
-      if (!result.points) return;
-
-      const group = new Konva.Group({ opacity });
-      layer.add(group);
-      this.relGroups.set(rel.id, group);
-      this.populateRelGroup(
-        group,
-        result as RelPoints,
-        rel.type,
-        rel.label,
-        opacity,
-      );
+      const group = this.tryBuildRelGroup(rel);
+      if (group) layer.add(group);
     });
+  }
+
+  buildGroupsByDepth(positionDepthMap: Map<string, number>): Map<number, Konva.Group[]> {
+    this.relGroups.clear();
+    const byDepth = new Map<number, Konva.Group[]>();
+    this.viewState.relationships.forEach((rel) => {
+      const group = this.tryBuildRelGroup(rel);
+      if (!group) return;
+      const srcDepth = positionDepthMap.get(rel.sourcePath) ?? rel.sourcePath.split(".").length;
+      const tgtDepth = positionDepthMap.get(rel.targetPath) ?? rel.targetPath.split(".").length;
+      const depth = Math.max(srcDepth, tgtDepth);
+      const arr = byDepth.get(depth) ?? [];
+      arr.push(group);
+      byDepth.set(depth, arr);
+    });
+    return byDepth;
   }
 
   updateLinePosition(
     changedPath: string,
     getWorldPos: (path: string) => { x: number; y: number } | null,
+    getSizeOverride?: (path: string) => number | null,
   ): void {
     this.viewState.relationships.forEach((rel) => {
       if (rel.sourcePath !== changedPath && rel.targetPath !== changedPath)
@@ -378,8 +375,8 @@ export class RelationshipRenderer {
       const tp = getWorldPos(rel.targetPath);
       if (!sp || !tp) return;
 
-      const sourceSize = this.viewState.positions[rel.sourcePath]?.size ?? 0;
-      const targetSize = this.viewState.positions[rel.targetPath]?.size ?? 0;
+      const sourceSize = getSizeOverride?.(rel.sourcePath) ?? this.viewState.positions[rel.sourcePath]?.size ?? 0;
+      const targetSize = getSizeOverride?.(rel.targetPath) ?? this.viewState.positions[rel.targetPath]?.size ?? 0;
 
       const result = computeRelPoints(
         sp.x,

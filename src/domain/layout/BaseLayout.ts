@@ -42,29 +42,89 @@ export function resolveRelationships(
   positions: Record<string, PositionedElement>,
 ): PositionedRelationship[] {
   const shallowPathByElementId = new Map<string, string>();
+  const pathsByElementId = new Map<string, string[]>();
   const depthOf = new Map<string, number>();
+
   for (const path of Object.keys(positions)) {
     const lastDot = path.lastIndexOf(".");
     const id = lastDot === -1 ? path : path.slice(lastDot + 1);
     const depth = (path.match(/\./g) ?? []).length + 1;
-    const existingDepth = depthOf.get(id) ?? Infinity;
-    if (depth < existingDepth) {
+    if (depth < (depthOf.get(id) ?? Infinity)) {
       shallowPathByElementId.set(id, path);
       depthOf.set(id, depth);
     }
+    const bucket = pathsByElementId.get(id) ?? [];
+    bucket.push(path);
+    pathsByElementId.set(id, bucket);
   }
 
-  const resolve = (ref: string): string | null =>
+  const resolveAll = (ref: string, allowExpansion: boolean): string[] => {
+    if (positions[ref]) {
+      if (allowExpansion && ref.includes(".")) {
+        return Object.keys(positions).filter(
+          (p) => p === ref || p.endsWith("." + ref),
+        );
+      }
+      return [ref];
+    }
+    const lastId = ref.includes(".")
+      ? ref.slice(ref.lastIndexOf(".") + 1)
+      : ref;
+    return pathsByElementId.get(lastId) ?? [];
+  };
+
+  const resolveSingle = (ref: string): string | null =>
     positions[ref] ? ref : (shallowPathByElementId.get(ref) ?? null);
 
-  return Object.values(model.relationships).flatMap((rel) => {
-    const sourcePath = resolve(rel.source);
-    const targetPath = resolve(rel.target);
-    if (!sourcePath || !targetPath) return [];
-    return [
-      { id: rel.id, sourcePath, targetPath, type: rel.type, label: rel.label },
-    ];
-  });
+  const result: PositionedRelationship[] = [];
+  const seen = new Set<string>();
+
+  const push = (
+    id: string,
+    sp: string,
+    tp: string,
+    rel: (typeof model.relationships)[string],
+  ) => {
+    const key = `${sp}\x00${tp}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push({
+      id,
+      sourcePath: sp,
+      targetPath: tp,
+      type: rel.type,
+      label: rel.label,
+    });
+  };
+
+  for (const rel of Object.values(model.relationships)) {
+    const allowExpansion = !(positions[rel.source] && positions[rel.target]);
+    const sourcePaths = resolveAll(rel.source, allowExpansion);
+    const targetPaths = resolveAll(rel.target, allowExpansion);
+    if (!sourcePaths.length || !targetPaths.length) continue;
+
+    const pairs: [string, string][] = [];
+    for (const sp of sourcePaths) {
+      const spParent = sp.slice(0, sp.lastIndexOf("."));
+      for (const tp of targetPaths) {
+        const tpParent = tp.slice(0, tp.lastIndexOf("."));
+        if (spParent === tpParent) pairs.push([sp, tp]);
+      }
+    }
+    const matched = pairs.length > 0;
+    for (const [sp, tp] of pairs) {
+      const id = pairs.length === 1 ? rel.id : `${rel.id}@${sp}`;
+      push(id, sp, tp, rel);
+    }
+
+    if (!matched) {
+      const sp = resolveSingle(rel.source);
+      const tp = resolveSingle(rel.target);
+      if (sp && tp) push(rel.id, sp, tp, rel);
+    }
+  }
+
+  return result;
 }
 
 export abstract class BaseLayout implements LayoutAlgorithm {

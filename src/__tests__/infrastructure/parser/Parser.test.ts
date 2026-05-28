@@ -434,6 +434,78 @@ describe("Parser", () => {
     expect(rel2.target).toBe(shop.id);
   });
 
+  it("flow at end of line does not connect to next line", () => {
+    const model = parse("f1()\n>>\nf2()");
+    const rels = Object.values(model.relationships);
+    const f1 = model.elements["f1"];
+    const f2 = model.elements["f2"];
+    expect(f1).toBeDefined();
+    expect(f2).toBeDefined();
+    expect(rels.every((r) => !(r.source === f1.id && r.target === f2.id))).toBe(
+      true,
+    );
+    expect(rels.every((r) => r.target !== f2.id)).toBe(true);
+  });
+
+  it("function return type notation: func(input)>output>", () => {
+    const model = parse("func(input)>output>");
+    const func = model.elements["func"];
+    const output = model.elements["output"];
+    expect(func?.type).toBe("function");
+    expect(output?.type).toBe("object");
+    const rels = Object.values(model.relationships);
+    expect(rels.every((r) => r.target !== output.id)).toBe(true);
+  });
+
+  it("function with named flow output: f()named_out>out>", () => {
+    const model = parse("f()named_out>out>");
+    expect(Object.values(model.elements).length).toBe(3);
+    const f = model.elements["f"];
+    const named_out = model.elements["named_out"];
+    const out = model.elements["out"];
+    expect(f?.type).toBe("function");
+    expect(named_out?.type).toBe("flow");
+    expect(named_out?.childIds).toContain("out");
+    expect(out?.type).toBe("object");
+    const rels = Object.values(model.relationships);
+    expect(rels).toHaveLength(2);
+    const fRel = rels.find(r => r.source === "f");
+    const outRel = rels.find(r => r.source === "named_out");
+    expect(fRel?.target).toBe("named_out");
+    expect(outRel?.target).toBe("_");
+  });
+
+  it("named flow with anonymous source: from{} >x> to produces 4 elements and 2 ..> relationships", () => {
+    const model = parse("from{} >x> to");
+    expect(Object.values(model.elements).length).toBe(4);
+    const rels = Object.values(model.relationships);
+    expect(rels).toHaveLength(2);
+    expect(rels.every((r) => r.type === "..>")).toBe(true);
+  });
+
+  it("named flow with bare source: from named>x> to produces 4 elements and 2 ..> relationships", () => {
+    const model = parse("from named>x> to");
+    expect(Object.values(model.elements).length).toBe(4);
+    const rels = Object.values(model.relationships);
+    expect(rels).toHaveLength(2);
+    expect(rels.every((r) => r.type === "..>")).toBe(true);
+    const from = model.elements["from"];
+    const named = model.elements["named"];
+    const to = model.elements["to"];
+    expect(from?.type).toBe("object");
+    expect(named?.type).toBe("flow");
+    expect(to?.type).toBe("object");
+    expect(rels[0].source).toBe("from");
+    expect(rels[0].target).toBe("named");
+    expect(rels[1].source).toBe("named");
+    expect(rels[1].target).toBe("to");
+  });
+
+  it("subsequent wrappers do not override the first type", () => {
+    const model = parse("a[](){}");
+    expect(model.elements["a"].type).toBe("collection");
+  });
+
   it("should handle anonymity", () => {
     const model = parse("player-->{}-->X");
     expect(Object.values(model.elements).length).toBe(3);
@@ -543,6 +615,43 @@ describe("Parser", () => {
     expect(a.childIds.length).toBe(1);
   });
 
+  it("anonymous nested objects get unique ids: {{}}", () => {
+    const model = parse("{{}}");
+    const elements = Object.values(model.elements);
+    expect(elements.length).toBe(2);
+    const [outer, inner] = elements;
+    expect(outer.id).not.toBe(inner.id);
+    expect(outer.type).toBe("object");
+    expect(inner.type).toBe("object");
+    expect(outer.childIds).toContain(inner.id);
+  });
+
+  it("anonymous nested wrappers get unique ids: [()]", () => {
+    const model = parse("[()]");
+    const elements = Object.values(model.elements);
+    expect(elements.length).toBe(2);
+    const [outer, inner] = elements;
+    expect(outer.id).not.toBe(inner.id);
+    expect(outer.type).toBe("collection");
+    expect(inner.type).toBe("function");
+    expect(outer.childIds).toContain(inner.id);
+  });
+
+  it("anonymous elements across different scopes get unique ids: ||--{[]}", () => {
+    const model = parse("||--{[]}");
+    const elements = Object.values(model.elements);
+    expect(elements.length).toBe(3);
+    const ids = elements.map((e) => e.id);
+    expect(new Set(ids).size).toBe(3);
+    const state = elements.find((e) => e.type === "state");
+    const obj = elements.find((e) => e.type === "object");
+    const coll = elements.find((e) => e.type === "collection");
+    expect(state).toBeDefined();
+    expect(obj).toBeDefined();
+    expect(coll).toBeDefined();
+    expect(obj!.childIds).toContain(coll!.id);
+  });
+
   it("should parse curried function (QUESTIONABLE)", () => {
     const model = parse("f(x)(y)(z)");
     expect(Object.values(model.elements).length).toBe(4);
@@ -562,7 +671,7 @@ describe("Parser", () => {
     expect(Object.values(model.elements).length).toBe(5);
     const [f, a, b, c, d] = Array.from(Object.values(model.elements));
     expect(f.id).toBe("f");
-    expect(f.type).toBe("choice");
+    expect(f.type).toBe("function");
     expect(f.childIds).toContain(a.id);
     expect(f.childIds).toContain(b.id);
     expect(f.childIds).toContain(c.id);
@@ -582,7 +691,7 @@ describe("Parser", () => {
     expect(rel1.source).toBe(a.id);
     expect(rel1.target).toBe("a.b");
     expect(rel2.source).toBe("a.b");
-    expect(rel2.target).toBe(a.id);
+    expect(rel2.target).toBe("_");
   });
 
   it("should handle deep nesting duplicates", () => {
@@ -609,6 +718,69 @@ describe("Parser", () => {
     expect(b.childIds).toContain(b.id);
     expect(c.childIds).toHaveLength(1);
     expect(c.childIds).toContain(a.id);
+  });
+});
+
+describe("Parser sessions", () => {
+  const parse = (input: string) => {
+    const tokens = new Lexer(input).tokenize();
+    return new Parser(tokens).parse();
+  };
+
+  it("always pre-seeds a default session even without a !session directive", () => {
+    const model = parse("a{}");
+    const sessions = model.sessions ?? [];
+    const def = sessions.find((s) => s.id === "default");
+    expect(def).toBeDefined();
+  });
+
+  it("updates the pre-seeded default session from a !session id=default directive", () => {
+    const model = parse(
+      '!session  id=default  label="My Default"  selectors=foo:color',
+    );
+    const sessions = model.sessions ?? [];
+    const def = sessions.find((s) => s.id === "default");
+    expect(def).toBeDefined();
+    expect(def!.label).toBe("My Default");
+    expect(def!.selectorModes["foo"]).toBe("color");
+  });
+
+  it("does not create duplicate default sessions when !session id=default is explicit", () => {
+    const model = parse(
+      "!session  id=default  label=Default  selectors=foo:color",
+    );
+    const defaults = (model.sessions ?? []).filter((s) => s.id === "default");
+    expect(defaults.length).toBe(1);
+  });
+
+  it("parses multiple sessions including a non-default one", () => {
+    const code =
+      "!session  id=default  label=Default  selectors=s1:color\n" +
+      "!session  id=remote  label=Remote  selectors=s1:dim,s2:color";
+    const model = parse(code);
+    const sessions = model.sessions ?? [];
+    const ids = sessions.map((s) => s.id);
+    expect(ids).toContain("default");
+    expect(ids).toContain("remote");
+  });
+
+  it("parses all valid SelectorModes in a single session directive", () => {
+    const model = parse(
+      "!session  id=s1  label=S1  selectors=a:color,b:dim,c:hide,d:off",
+    );
+    const s1 = (model.sessions ?? []).find((s) => s.id === "s1");
+    expect(s1).toBeDefined();
+    expect(s1!.selectorModes["a"]).toBe("color");
+    expect(s1!.selectorModes["b"]).toBe("dim");
+    expect(s1!.selectorModes["c"]).toBe("hide");
+    expect(s1!.selectorModes["d"]).toBe("off");
+  });
+
+  it("ignores !session without an id field", () => {
+    const model = parse("!session  label=NoId");
+    const sessions = model.sessions ?? [];
+    expect(sessions.length).toBe(1);
+    expect(sessions[0].id).toBe("default");
   });
 });
 
@@ -657,7 +829,6 @@ describe("Parser edge cases", () => {
     const s = (model.selectors ?? [])[0];
     expect(s.id).toBe("warn");
     expect(s.color).toBe("#f00");
-    expect(s.mode).toBe("dim");
     expect(s.expression).toBe("1");
   });
 
@@ -804,6 +975,45 @@ describe("Parser edge cases", () => {
 
     it("skips relationship and emits validation error when .a not in container", () => {
       const model = parse("a() c()\ng{.a-->c}");
+      expect(Object.values(model.relationships)).toHaveLength(0);
+      expect(model.validationErrors?.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("function container with pre-existing shared elements — c(a b)", () => {
+    it("adds pre-existing root elements as children of the function container", () => {
+      const model = parse("a b c(a b)");
+      expect(model.elements["c"].childIds).toContain("a");
+      expect(model.elements["c"].childIds).toContain("b");
+      expect(model.root.childIds).toContain("a");
+      expect(model.root.childIds).toContain("b");
+      expect(model.root.childIds).toContain("c");
+    });
+
+    it("element used as chain target after being declared in function container is added to root", () => {
+      const model = parse("c(a)\ngen(x) ..> a() ..> b()");
+      expect(model.root.childIds).toContain("a");
+      expect(model.elements["c"].childIds).toContain("a");
+    });
+
+    it("path token c.a as rel target chains to b: c.a→b relationship is created", () => {
+      const model = parse("a() c(a)\ngen(x) ..> c.a ..> b()");
+      const rels = Object.values(model.relationships);
+      const ca_b = rels.find((r) => r.source === "c.a" && r.target === "b");
+      expect(ca_b).toBeDefined();
+    });
+
+    it("absolute path c.a-->c.b from root scope produces a valid relationship", () => {
+      const model = parse("a b c(a b)\nc.a --> c.b");
+      const rels = Object.values(model.relationships);
+      expect(rels).toHaveLength(1);
+      expect(rels[0].source).toBe("c.a");
+      expect(rels[0].target).toBe("c.b");
+      expect(model.validationErrors).toBeUndefined();
+    });
+
+    it("absolute path c.a-->c.b is removed when c has no children", () => {
+      const model = parse("a b c()\nc.a --> c.b");
       expect(Object.values(model.relationships)).toHaveLength(0);
       expect(model.validationErrors?.length).toBeGreaterThan(0);
     });

@@ -34,6 +34,8 @@ export abstract class BaseElementRenderer implements IElementRenderer {
 
   protected readonly maxScreenPx: number;
 
+  protected readonly opaqueElementBg: boolean;
+
   constructor(
     element: Element,
     path: string,
@@ -46,6 +48,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     zoom: number,
     colorOverride: string | null = null,
     maxScreenPx = 320,
+    opaqueElementBg = true,
   ) {
     this.element = element;
     this.path = path;
@@ -58,6 +61,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     this.zoom = zoom;
     this.colorOverride = colorOverride;
     this.maxScreenPx = maxScreenPx;
+    this.opaqueElementBg = opaqueElementBg;
   }
 
   protected classDiagramContent: ClassDiagramContent | null = null;
@@ -70,6 +74,15 @@ export abstract class BaseElementRenderer implements IElementRenderer {
   protected abstract addElementShape(group: Konva.Group): Konva.Shape;
 
   protected addBackground(group: Konva.Group): void {
+    if (this.opaqueElementBg) {
+      group.add(
+        new Konva.Circle({
+          radius: this.size / 2,
+          fill: this.colors.bgSecondary,
+          listening: false,
+        }),
+      );
+    }
     group.add(
       new Konva.Circle({
         radius: this.size / 2,
@@ -367,7 +380,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       );
     }
 
-    if (this.connectingFromId === this.element.id) {
+    if (this.connectingFromId === this.path) {
       group.add(
         new Konva.Circle({
           radius:

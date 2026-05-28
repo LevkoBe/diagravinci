@@ -9,14 +9,16 @@ import { matchesSelector } from "../../domain/sync/FilterResolver";
 import { ElementEventHandler } from "./rendering/elements/ElementEventHandler";
 import {
   RelationshipRenderer,
-  type ViewportRect,
   type GeometryCache,
 } from "./rendering/relationships/RelationshipRenderer";
 import { SvgPathElementRenderer } from "./rendering/elements/SvgPathElementRenderer";
 import { SimpleRectElementRenderer } from "./rendering/elements/SimpleRectElementRenderer";
 import { PolygonElementRenderer } from "./rendering/elements/PolygonElementRenderer";
 import type { IElementRenderer } from "./rendering/elements/BaseElementRenderer";
-import type { RenderStyle, RelLineStyle } from "../../application/store/uiSlice";
+import type {
+  RenderStyle,
+  RelLineStyle,
+} from "../../application/store/uiSlice";
 
 import {
   computeElementSizes,
@@ -42,6 +44,7 @@ function createElementRenderer(
   zoom: number,
   colorOverride: string | null,
   maxScreenPx: number,
+  opaqueElementBg: boolean,
 ): IElementRenderer {
   const args = [
     element,
@@ -55,6 +58,7 @@ function createElementRenderer(
     zoom,
     colorOverride,
     maxScreenPx,
+    opaqueElementBg,
   ] as const;
   switch (renderStyle) {
     case "rect":
@@ -77,6 +81,12 @@ export class DiagramLayerRenderer {
   private readonly groupMap = new Map<string, Konva.Group>();
   private readonly relationshipRenderer: RelationshipRenderer;
   private hoveredPath: string | null = null;
+  private static readonly DRAG_TARGET_PX = 60;
+
+  private readonly _dragState: {
+    path: string | null;
+    scales: Map<string, number>;
+  };
   private readonly hoverIn = new Map<string, () => void>();
   private readonly hoverOut = new Map<string, () => void>();
   private readonly tooltipLabels = new Map<string, string>();
@@ -105,12 +115,16 @@ export class DiagramLayerRenderer {
   private readonly zoom: number;
   private readonly maxScreenPx: number;
   private readonly renderStyle: RenderStyle;
-  private readonly viewportRect: ViewportRect;
 
   private readonly isReadonly: boolean;
+  private readonly isPresentation: boolean;
   private readonly executionColorMap: Record<string, string>;
   private readonly classDiagramMode: boolean;
-  private readonly getGroupMoveInfo?: () => { selectorId: string | null; filterSelectors: Selector[] };
+  private readonly opaqueElementBg: boolean;
+  private readonly getGroupMoveInfo?: () => {
+    selectorId: string | null;
+    filterSelectors: Selector[];
+  };
 
   constructor(
     stage: Konva.Stage,
@@ -124,11 +138,17 @@ export class DiagramLayerRenderer {
     renderStyle: RenderStyle = "polygon",
     relLineStyle: RelLineStyle = "straight",
     isReadonly = false,
+    isPresentation = false,
     executionColorMap: Record<string, string> = {},
     classDiagramMode = true,
     elementSizes?: ElementSizes,
     geometryCache?: GeometryCache,
-    getGroupMoveInfo?: () => { selectorId: string | null; filterSelectors: Selector[] },
+    getGroupMoveInfo?: () => {
+      selectorId: string | null;
+      filterSelectors: Selector[];
+    },
+    opaqueElementBg = true,
+    dragState?: { path: string | null; scales: Map<string, number> },
   ) {
     this.stage = stage;
     this.model = model;
@@ -142,9 +162,12 @@ export class DiagramLayerRenderer {
       Math.min(stage.width(), stage.height()) * MAX_SCREEN_RATIO;
     this.renderStyle = renderStyle;
     this.isReadonly = isReadonly;
+    this.isPresentation = isPresentation;
     this.executionColorMap = executionColorMap;
     this.classDiagramMode = classDiagramMode;
+    this.opaqueElementBg = opaqueElementBg;
     this.getGroupMoveInfo = getGroupMoveInfo;
+    this._dragState = dragState ?? { path: null, scales: new Map() };
 
     const { pixelSizes, zoomHidden, zoomDimmed } =
       elementSizes ??
@@ -164,20 +187,12 @@ export class DiagramLayerRenderer {
     this.filterHiddenSet = new Set(this.hiddenSet);
     this.dimmedSet = new Set([...viewState.dimmedPaths, ...zoomDimmed]);
 
-    const stagePos = stage.position();
-    this.viewportRect = {
-      x: -stagePos.x / zoom,
-      y: -stagePos.y / zoom,
-      w: stage.width() / zoom,
-      h: stage.height() / zoom,
-    };
-
     this.relationshipRenderer = new RelationshipRenderer(
       viewState,
       colors,
       this.hiddenSet,
       this.dimmedSet,
-      this.viewportRect,
+      undefined,
       geometryCache,
       zoom,
       relLineStyle,
@@ -195,73 +210,108 @@ export class DiagramLayerRenderer {
   }
 
   render(relationshipLayer: Konva.Layer, elementLayer: Konva.Layer): void {
-    relationshipLayer.destroyChildren();
     elementLayer.destroyChildren();
+    if (relationshipLayer !== elementLayer) relationshipLayer.destroyChildren();
 
     this.groupMap.clear();
     this.hoverIn.clear();
     this.hoverOut.clear();
     this.hoveredPath = null;
 
-    this.relationshipRenderer.render(relationshipLayer);
-
+    const elementsByDepth = new Map<number, Konva.Group[]>();
     const visited = new Set<string>();
     this.model.root.childIds.forEach((id) => {
       const element = this.model.elements[id];
-      if (element) this.renderRecursive(element, elementLayer, id, visited);
+      if (element)
+        this.collectElementsByDepth(element, id, visited, 1, elementsByDepth);
     });
 
-    relationshipLayer.batchDraw();
+    const posDepthMap = new Map<string, number>();
+    for (const path of Object.keys(this.viewState.positions)) {
+      posDepthMap.set(path, path.split(".").length);
+    }
+    const relsByDepth =
+      this.relationshipRenderer.buildGroupsByDepth(posDepthMap);
+
+    const allDepths = new Set([
+      ...elementsByDepth.keys(),
+      ...relsByDepth.keys(),
+    ]);
+    const maxDepth = allDepths.size > 0 ? Math.max(...allDepths) : 0;
+    for (let depth = 1; depth <= maxDepth; depth++) {
+      for (const group of elementsByDepth.get(depth) ?? [])
+        elementLayer.add(group);
+      for (const group of relsByDepth.get(depth) ?? [])
+        relationshipLayer.add(group);
+    }
+
+    if (this._dragState.scales.size > 0) {
+      for (const [p, s] of this._dragState.scales) {
+        const grp = this.groupMap.get(p);
+        if (grp) {
+          grp.scale({ x: s, y: s });
+          grp.moveToTop();
+        }
+      }
+
+      if (this._dragState.path) {
+        const parentGroup = this.groupMap.get(this._dragState.path);
+        if (parentGroup) {
+          this.forEachChildPath(this._dragState.path, (childPath) => {
+            const childGroup = this.groupMap.get(childPath);
+            if (childGroup) {
+              childGroup.x(parentGroup.x());
+              childGroup.y(parentGroup.y());
+            }
+          });
+        }
+      }
+    }
+
     elementLayer.batchDraw();
+    if (relationshipLayer !== elementLayer) relationshipLayer.batchDraw();
   }
 
-  private isOffScreen(path: string): boolean {
-    const pos = this.viewState.positions[path];
-    if (!pos) return false;
-    const { x, y } = pos.position;
-    const half = pos.size / 2;
-    const vp = this.viewportRect;
-    return (
-      x + half < vp.x ||
-      x - half > vp.x + vp.w ||
-      y + half < vp.y ||
-      y - half > vp.y + vp.h
-    );
-  }
-
-  private renderRecursive(
+  private collectElementsByDepth(
     element: Element,
-    elementLayer: Konva.Layer,
     path: string,
     visited: Set<string>,
+    depth: number,
+    byDepth: Map<number, Konva.Group[]>,
   ): void {
     if (this.hiddenSet.has(path)) return;
+    if (!this.viewState.positions[path]) return;
 
-    const skipRender = this.isOffScreen(path);
     const isDimmed = this.dimmedSet.has(path);
+    const colorOverride =
+      this.executionColorMap[element.id] ??
+      this.viewState.coloredPaths?.[path] ??
+      null;
 
-    if (!skipRender) {
-      const colorOverride =
-        this.executionColorMap[element.id] ??
-        this.viewState.coloredPaths?.[path] ??
-        null;
-
-      const elementGroup = this.renderElement(
-        element,
-        path,
-        isDimmed,
-        colorOverride,
-      );
-      if (elementGroup) {
-        elementLayer.add(elementGroup);
-      }
+    const elementGroup = this.renderElement(
+      element,
+      path,
+      isDimmed,
+      colorOverride,
+    );
+    if (elementGroup) {
+      const arr = byDepth.get(depth) ?? [];
+      arr.push(elementGroup);
+      byDepth.set(depth, arr);
     }
 
     if (
       this.classDiagramMode &&
       !isDimmed &&
-      shouldUseClassDiagramMode(element, path, this.viewState, this.filterHiddenSet, this.model)
-    ) return;
+      shouldUseClassDiagramMode(
+        element,
+        path,
+        this.viewState,
+        this.filterHiddenSet,
+        this.model,
+      )
+    )
+      return;
 
     if (visited.has(element.id)) return;
     if (this.viewState.foldedPaths.includes(path)) return;
@@ -269,14 +319,14 @@ export class DiagramLayerRenderer {
     visited.add(element.id);
     element.childIds.forEach((childId) => {
       const child = this.model.elements[childId];
-      if (child) {
-        this.renderRecursive(
+      if (child)
+        this.collectElementsByDepth(
           child,
-          elementLayer,
           `${path}.${childId}`,
           visited,
+          depth + 1,
+          byDepth,
         );
-      }
     });
     visited.delete(element.id);
   }
@@ -308,15 +358,27 @@ export class DiagramLayerRenderer {
       this.zoom,
       colorOverride,
       this.maxScreenPx,
+      this.opaqueElementBg,
     );
 
     if (
       this.classDiagramMode &&
       !isDimmed &&
-      shouldUseClassDiagramMode(element, path, this.viewState, this.filterHiddenSet, this.model)
+      shouldUseClassDiagramMode(
+        element,
+        path,
+        this.viewState,
+        this.filterHiddenSet,
+        this.model,
+      )
     ) {
       elementRenderer.setClassDiagramContent(
-        computeClassDiagramContent(element, path, this.model, this.filterHiddenSet),
+        computeClassDiagramContent(
+          element,
+          path,
+          this.model,
+          this.filterHiddenSet,
+        ),
       );
     }
 
@@ -353,6 +415,26 @@ export class DiagramLayerRenderer {
       return group;
     }
 
+    if (this.isPresentation) {
+      group.draggable(false);
+      group.on("mouseenter", () => {
+        this.stage.container().style.cursor = "pointer";
+        this.setHovered(path);
+      });
+      group.on("mouseleave", () => {
+        this.stage.container().style.cursor = "default";
+        this.setHovered(null);
+      });
+      group.on("click tap", (e: Konva.KonvaEventObject<MouseEvent>) => {
+        this.callbacks.onClick?.(
+          path,
+          e.evt.shiftKey,
+          e.evt.ctrlKey || e.evt.metaKey,
+        );
+      });
+      return group;
+    }
+
     const eventHandler = new ElementEventHandler(
       { id: element.id, path },
       path,
@@ -361,7 +443,8 @@ export class DiagramLayerRenderer {
         onClick: this.callbacks.onClick,
         onPositionChange: this.callbacks.onPositionChange,
         onReparent: this.callbacks.onReparent,
-        moveGroupPeers: (path, worldPos) => this.moveGroupPeersForDrag(path, worldPos),
+        moveGroupPeers: (path, worldPos) =>
+          this.moveGroupPeersForDrag(path, worldPos),
         setHovered: (p) => this.setHovered(p),
         findHoveredPath: (id, pos) => this.findBestPath(id, pos, null),
         findNewParentPath: (p, pos) =>
@@ -376,7 +459,8 @@ export class DiagramLayerRenderer {
     );
 
     group.dragBoundFunc(() => {
-      const target = this.stage.getPointerPosition() ?? group.getAbsolutePosition();
+      const target =
+        this.stage.getPointerPosition() ?? group.getAbsolutePosition();
       const cur = group.getAbsolutePosition();
       return {
         x: cur.x + (target.x - cur.x) * 0.2,
@@ -384,12 +468,119 @@ export class DiagramLayerRenderer {
       };
     });
 
+    let dragScale: number | null = null;
+    const childDragScales = new Map<string, number>();
+    const peerDragScales = new Map<string, number>();
+
     const handlers = eventHandler.createHandlers();
     group.on("click tap", handlers.onClick);
     group.on("mouseenter", handlers.onMouseEnter);
     group.on("mouseleave", handlers.onMouseLeave);
-    group.on("dragmove", handlers.onDragMove);
-    group.on("dragend", handlers.onDragEnd);
+    group.on("dragstart", () => {
+      group.moveToTop();
+      this._dragState.path = path;
+      const rect = group.getClientRect();
+      const longest = Math.max(rect.width, rect.height, 1);
+      dragScale = Math.min(DiagramLayerRenderer.DRAG_TARGET_PX / longest, 1);
+      group.scale({ x: dragScale, y: dragScale });
+      this._dragState.scales.set(path, dragScale);
+      childDragScales.clear();
+      this.forEachChildPath(path, (childPath) => {
+        const childGroup = this.groupMap.get(childPath);
+        if (!childGroup) return;
+        const childRect = childGroup.getClientRect();
+        const childLongest = Math.max(childRect.width, childRect.height, 1);
+        const cs = Math.min(
+          DiagramLayerRenderer.DRAG_TARGET_PX / childLongest,
+          1,
+        );
+        childDragScales.set(childPath, cs);
+        this._dragState.scales.set(childPath, cs);
+        childGroup.scale({ x: cs, y: cs });
+        childGroup.x(group.x());
+        childGroup.y(group.y());
+        childGroup.moveToTop();
+      });
+
+      peerDragScales.clear();
+      if (this.getGroupMoveInfo) {
+        const { selectorId, filterSelectors } = this.getGroupMoveInfo();
+        if (selectorId) {
+          const sel = filterSelectors.find((s) => s.id === selectorId);
+          const rules = this.model.rules ?? [];
+          if (sel && matchesSelector(path, sel, this.model, rules)) {
+            for (const gp of Object.keys(this.viewState.positions)) {
+              if (gp === path || childDragScales.has(gp)) continue;
+              if (!matchesSelector(gp, sel, this.model, rules)) continue;
+              const peerGroup = this.groupMap.get(gp);
+              if (!peerGroup) continue;
+              const peerRect = peerGroup.getClientRect();
+              const peerLongest = Math.max(peerRect.width, peerRect.height, 1);
+              const ps = Math.min(
+                DiagramLayerRenderer.DRAG_TARGET_PX / peerLongest,
+                1,
+              );
+              peerDragScales.set(gp, ps);
+              this._dragState.scales.set(gp, ps);
+              peerGroup.scale({ x: ps, y: ps });
+              peerGroup.moveToTop();
+            }
+          }
+        }
+      }
+    });
+    group.on("dragmove", (e: Konva.KonvaEventObject<DragEvent>) => {
+      if (dragScale !== null) {
+        group.scale({ x: dragScale, y: dragScale });
+      }
+
+      for (const [gp, ps] of peerDragScales) {
+        const peerGroup = this.groupMap.get(gp);
+        if (peerGroup) peerGroup.scale({ x: ps, y: ps });
+      }
+      handlers.onDragMove(e);
+
+      for (const [childPath, cs] of childDragScales) {
+        const childGroup = this.groupMap.get(childPath);
+        if (childGroup) childGroup.scale({ x: cs, y: cs });
+      }
+    });
+    group.on("dragend", (e: Konva.KonvaEventObject<DragEvent>) => {
+      const had = dragScale !== null && this._dragState.path === path;
+      dragScale = null;
+      if (had) {
+        this._dragState.path = null;
+        group.scale({ x: 1, y: 1 });
+        const storedParentPos = this.viewState.positions[path]?.position;
+        if (storedParentPos) {
+          const newParentPos = screenToWorld(
+            group.getAbsolutePosition(),
+            this.stage,
+          );
+          const delta = {
+            x: newParentPos.x - storedParentPos.x,
+            y: newParentPos.y - storedParentPos.y,
+          };
+          this.forEachChildPath(path, (childPath) => {
+            const childGroup = this.groupMap.get(childPath);
+            const storedChildPos =
+              this.viewState.positions[childPath]?.position;
+            if (childGroup && storedChildPos) {
+              childGroup.x(storedChildPos.x + delta.x);
+              childGroup.y(storedChildPos.y + delta.y);
+              childGroup.scale({ x: 1, y: 1 });
+            }
+          });
+        }
+        for (const gp of peerDragScales.keys()) {
+          this.groupMap.get(gp)?.scale({ x: 1, y: 1 });
+        }
+      }
+      childDragScales.clear();
+      peerDragScales.clear();
+      this._dragState.scales.clear();
+      handlers.onDragEnd(e);
+    });
     group.on("contextmenu", (e: Konva.KonvaEventObject<MouseEvent>) => {
       e.evt.preventDefault();
       this.callbacks.onContextMenu?.(element.id, path);
@@ -429,8 +620,18 @@ export class DiagramLayerRenderer {
   }
 
   private updateRelationshipLines(changedPath: string): void {
-    this.relationshipRenderer.updateLinePosition(changedPath, (path: string) =>
-      this.getLiveWorldPos(path),
+    const sizeOverride =
+      this._dragState.scales.size > 0
+        ? (path: string) => {
+            const s = this._dragState.scales.get(path);
+            if (s === undefined) return null;
+            return (this.viewState.positions[path]?.size ?? 0) * s;
+          }
+        : undefined;
+    this.relationshipRenderer.updateLinePosition(
+      changedPath,
+      (path: string) => this.getLiveWorldPos(path),
+      sizeOverride,
     );
   }
 
@@ -453,6 +654,17 @@ export class DiagramLayerRenderer {
     const storedParentPos = this.viewState.positions[parentPath]?.position;
     if (!parentGroup || !storedParentPos) return;
 
+    if (this._dragState.path === parentPath) {
+      this.forEachChildPath(parentPath, (p) => {
+        const childGroup = this.groupMap.get(p);
+        if (childGroup) {
+          childGroup.x(parentGroup.x());
+          childGroup.y(parentGroup.y());
+        }
+      });
+      return;
+    }
+
     const newParentPos = screenToWorld(
       parentGroup.getAbsolutePosition(),
       this.stage,
@@ -472,7 +684,10 @@ export class DiagramLayerRenderer {
     });
   }
 
-  private moveGroupPeersForDrag(path: string, worldPos: { x: number; y: number }): void {
+  private moveGroupPeersForDrag(
+    path: string,
+    worldPos: { x: number; y: number },
+  ): void {
     if (!this.getGroupMoveInfo) return;
     const { selectorId, filterSelectors } = this.getGroupMoveInfo();
     if (!selectorId) return;

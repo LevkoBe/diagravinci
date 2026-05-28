@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import {
   Sun,
   Moon,
@@ -24,6 +24,7 @@ import {
   Trash2,
   Unlink,
   Lock,
+  Presentation,
   Circle,
   Network,
   ArrowRightLeft,
@@ -37,9 +38,9 @@ import {
   Minimize2,
   SlidersHorizontal,
   ListFilter,
-  Eraser,
   Atom,
   Move,
+  Layers,
 } from "lucide-react";
 import { AppConfig } from "../../config/appConfig";
 import { stageRegistry } from "../../shared/stageRegistry";
@@ -73,6 +74,8 @@ import {
   setRenderStyle,
   setRelLineStyle,
   toggleClassDiagramMode,
+  toggleOpaqueElementBg,
+  setActiveSession,
   type RenderStyle,
   type RelLineStyle,
 } from "../../application/store/uiSlice";
@@ -82,7 +85,7 @@ import {
   setCode,
   setViewMode,
 } from "../../application/store/diagramSlice";
-import { toSelectorId } from "../../domain/models/Selector";
+import { toSelectorId, FOLD_SELECTOR_ID } from "../../domain/models/Selector";
 import {
   startExecution,
   pauseExecution,
@@ -121,7 +124,7 @@ const REL_TYPES: {
   },
   {
     type: "..>",
-    label: "Dependency",
+    label: "Flow",
     icon: <span className="font-mono text-xs leading-none">{"··>"}</span>,
   },
   {
@@ -202,6 +205,8 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
     renderStyle,
     relLineStyle,
     classDiagramMode,
+    opaqueElementBg,
+    activeSessionId,
   } = useAppSelector((s) => s.ui);
   const { selectors, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
     useAppSelector((s) => s.filter);
@@ -224,9 +229,19 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
       ? "circular"
       : viewMode;
 
-  const activePresetCount = selectors.filter(
-    (s) => s.mode !== "off" && s.id !== "__fold__" && s.id !== "__selection__",
-  ).length;
+  const sessions = useMemo(() => model.sessions ?? [], [model.sessions]);
+  const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
+
+  useEffect(() => {
+    if (sessions.length === 0) return;
+    if (activeSession) return;
+    dispatch(setActiveSession(sessions[0].id));
+  }, [sessions, activeSession, dispatch]);
+
+  const activePresetCount = selectors.filter((s) => {
+    if (s.id === FOLD_SELECTOR_ID) return false;
+    return (activeSession?.selectorModes[s.id] ?? "off") !== "off";
+  }).length;
 
   const foldMode = !foldActive
     ? "expanded"
@@ -243,30 +258,6 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
       <AlignJustify size={15} />
     );
 
-  const handleClearOrphanedFlags = () => {
-    const { model: currentModel } = store.getState().diagram;
-    const { selectors: currentSelectors } = store.getState().filter;
-    const selectorIds = new Set(currentSelectors.map((s) => s.id));
-
-    let changed = false;
-    const updatedElements = { ...currentModel.elements };
-    for (const [id, el] of Object.entries(currentModel.elements)) {
-      if (!el.flags || el.flags.length === 0) continue;
-      const cleanedFlags = el.flags.filter((f) => selectorIds.has(toSelectorId(f)));
-      if (cleanedFlags.length !== el.flags.length) {
-        changed = true;
-        updatedElements[id] = {
-          ...el,
-          flags: cleanedFlags.length > 0 ? cleanedFlags : undefined,
-        };
-      }
-    }
-
-    if (!changed) return;
-    const newCode = new CodeGenerator({ ...currentModel, elements: updatedElements }).generate();
-    syncManager.syncFromCode(newCode, true);
-  };
-
   const toggleTheme = () => {
     if (isDark) {
       setColors(parchmentTheme);
@@ -280,7 +271,11 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
   const cleanupAndReset = () => {
     if (!execState.materialize && execState.instances.length > 0) {
       const { model: currentModel } = store.getState().diagram;
-      const cleanedModel = buildCleanedModel(currentModel, execState.instances);
+      const cleanedModel = buildCleanedModel(
+        currentModel,
+        execState.instances,
+        execState.removedTemplates,
+      );
       syncManager.syncFromVis(cleanedModel);
     }
     dispatch(resetExecution());
@@ -640,6 +635,11 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
               icon: <Unlink size={14} />,
             },
             { value: "readonly", label: "Read-only", icon: <Lock size={14} /> },
+            {
+              value: "presentation",
+              label: "Presentation",
+              icon: <Presentation size={14} />,
+            },
           ]}
         />
 
@@ -655,12 +655,60 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
                 dispatch(setActiveElementType(v as typeof activeElementType))
               }
               options={[
-                { value: "object", label: "Object", icon: <span className="font-mono text-xs leading-none">{"{}"}</span> },
-                { value: "collection", label: "Collection", icon: <span className="font-mono text-xs leading-none">{"[]"}</span> },
-                { value: "state", label: "State", icon: <span className="font-mono text-xs leading-none">{"||"}</span> },
-                { value: "function", label: "Function", icon: <span className="font-mono text-xs leading-none">{"()"}</span> },
-                { value: "flow", label: "Flow", icon: <span className="font-mono text-xs leading-none">{">>"}</span> },
-                { value: "choice", label: "Choice", icon: <span className="font-mono text-xs leading-none">{"<>"}</span> },
+                {
+                  value: "object",
+                  label: "Object",
+                  icon: (
+                    <span className="font-mono text-xs leading-none">
+                      {"{}"}
+                    </span>
+                  ),
+                },
+                {
+                  value: "collection",
+                  label: "Collection",
+                  icon: (
+                    <span className="font-mono text-xs leading-none">
+                      {"[]"}
+                    </span>
+                  ),
+                },
+                {
+                  value: "state",
+                  label: "State",
+                  icon: (
+                    <span className="font-mono text-xs leading-none">
+                      {"||"}
+                    </span>
+                  ),
+                },
+                {
+                  value: "function",
+                  label: "Function",
+                  icon: (
+                    <span className="font-mono text-xs leading-none">
+                      {"()"}
+                    </span>
+                  ),
+                },
+                {
+                  value: "flow",
+                  label: "Flow",
+                  icon: (
+                    <span className="font-mono text-xs leading-none">
+                      {">>"}
+                    </span>
+                  ),
+                },
+                {
+                  value: "choice",
+                  label: "Choice",
+                  icon: (
+                    <span className="font-mono text-xs leading-none">
+                      {"<>"}
+                    </span>
+                  ),
+                },
               ]}
             />
           </>
@@ -802,6 +850,16 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
           <Table2 size={15} />
         </Button>
 
+        <Button
+          title="Opaque element background"
+          variant={opaqueElementBg ? "secondary" : "ghost"}
+          size="sm"
+          className="w-9 h-9 p-0 rounded-full shrink-0"
+          onClick={() => dispatch(toggleOpaqueElementBg())}
+        >
+          <Layers size={15} />
+        </Button>
+
         <input
           type="number"
           min={1}
@@ -827,6 +885,12 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
           {foldIcon}
         </Button>
 
+        <Select
+          value={activeSession?.id ?? sessions[0]?.id ?? ""}
+          onValueChange={(v: string) => dispatch(setActiveSession(v))}
+          options={sessions.map((s) => ({ value: s.id, label: s.label }))}
+        />
+
         <div className="relative">
           <Button
             title="Selectors"
@@ -843,13 +907,6 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
             </span>
           )}
         </div>
-        <Btn
-          title="Clear orphaned flags (flags whose selector no longer exists)"
-          onClick={handleClearOrphanedFlags}
-        >
-          <Eraser size={15} />
-        </Btn>
-
         {layout !== "compact" && <Divider />}
 
         <Btn

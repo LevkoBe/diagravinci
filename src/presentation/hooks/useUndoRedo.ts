@@ -78,11 +78,10 @@ export function useUndoRedo() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isUndo = (e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey;
+      const isUndo = (e.ctrlKey || e.metaKey) && e.code === "KeyZ" && !e.shiftKey;
       const isRedo =
-        ((e.ctrlKey || e.metaKey) && e.key === "y") ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "z") ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "Z");
+        ((e.ctrlKey || e.metaKey) && e.code === "KeyY") ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === "KeyZ");
 
       if (!isUndo && !isRedo) return;
 

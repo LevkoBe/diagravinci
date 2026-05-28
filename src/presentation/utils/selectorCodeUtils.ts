@@ -1,4 +1,4 @@
-import type { Rule, Selector } from "../../domain/models/Selector";
+import type { Rule, Selector, SelectorMode } from "../../domain/models/Selector";
 
 function escapeForRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -24,7 +24,6 @@ export function generateRuleLine(rule: Rule): string {
 export function generateSelectorLine(selector: Selector): string {
   const parts = [`!selector`, `name=${quoteLabel(selector.label)}`];
   parts.push(`color=${selector.color}`);
-  parts.push(`mode=${selector.mode}`);
   if (selector.expression) {
     parts.push(`expression=${quoteIfNeeded(selector.expression)}`);
   }
@@ -71,4 +70,58 @@ export function removeSelectorFromCode(label: string, code: string): string {
     "m",
   );
   return code.replace(re, "");
+}
+
+const sessionLineRe = (sessionId: string) =>
+  new RegExp(`^(!session\\b[^\n]*\\bid=${escapeForRegex(sessionId)}\\b[^\n]*)$`, "m");
+
+export function upsertSessionModeInCode(
+  sessionId: string,
+  selectorId: string,
+  mode: SelectorMode,
+  code: string,
+): string {
+  const re = sessionLineRe(sessionId);
+  const match = code.match(re);
+  if (!match) {
+    if (mode === "off") return code;
+    const label = sessionId.charAt(0).toUpperCase() + sessionId.slice(1);
+    const quotedLabel = /[^\w-]/.test(label) ? `"${label.replace(/"/g, "'")}"` : label;
+    const newLine = `!session  id=${sessionId}  label=${quotedLabel}  selectors=${selectorId}:${mode}`;
+    const sep = code.length > 0 && !code.endsWith("\n") ? "\n" : "";
+    return code + sep + newLine + "\n";
+  }
+
+  const line = match[1];
+  const selectorsMatch = line.match(/selectors=(\S+)/);
+  const entries: [string, SelectorMode][] = [];
+  if (selectorsMatch) {
+    for (const entry of selectorsMatch[1].split(",")) {
+      const colonIdx = entry.lastIndexOf(":");
+      if (colonIdx < 0) continue;
+      entries.push([entry.slice(0, colonIdx), entry.slice(colonIdx + 1) as SelectorMode]);
+    }
+  }
+
+  const idx = entries.findIndex(([id]) => id === selectorId);
+  if (mode === "off") {
+    if (idx >= 0) entries.splice(idx, 1);
+  } else if (idx >= 0) {
+    entries[idx] = [selectorId, mode];
+  } else {
+    entries.push([selectorId, mode]);
+  }
+
+  const selectorsStr = entries.map(([id, m]) => `${id}:${m}`).join(",");
+  let newLine: string;
+  if (selectorsMatch) {
+    newLine = selectorsStr
+      ? line.replace(/selectors=\S+/, `selectors=${selectorsStr}`)
+      : line.replace(/\s+selectors=\S+/, "");
+  } else if (selectorsStr) {
+    newLine = `${line}  selectors=${selectorsStr}`;
+  } else {
+    newLine = line;
+  }
+  return code.replace(re, newLine);
 }

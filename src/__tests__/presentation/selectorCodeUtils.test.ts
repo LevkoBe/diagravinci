@@ -7,6 +7,7 @@ import {
   removeRuleFromCode,
   upsertSelectorInCode,
   removeSelectorFromCode,
+  upsertSessionModeInCode,
 } from "../../presentation/utils/selectorCodeUtils";
 
 function makeSelector(overrides: Partial<Selector> = {}): Selector {
@@ -14,7 +15,6 @@ function makeSelector(overrides: Partial<Selector> = {}): Selector {
     id: "p1",
     label: "p1",
     color: "#ff0000",
-    mode: "color",
     expression: "royals",
     ...overrides,
   };
@@ -40,12 +40,11 @@ describe("generateRuleLine", () => {
 });
 
 describe("generateSelectorLine", () => {
-  it("includes name, color, mode, and expression", () => {
+  it("includes name, color, and expression", () => {
     const line = generateSelectorLine(makeSelector());
     expect(line).toContain("!selector");
     expect(line).toContain("name=p1");
     expect(line).toContain("color=#ff0000");
-    expect(line).toContain("mode=color");
     expect(line).toContain("expression=royals");
   });
 
@@ -67,12 +66,6 @@ describe("generateSelectorLine", () => {
     const lineClean = generateSelectorLine(makeSelector({ label: "my_label" }));
     expect(lineClean).toContain("name=my_label");
     expect(lineClean).not.toContain('"');
-  });
-
-  it("supports hide, dim, and off modes", () => {
-    expect(generateSelectorLine(makeSelector({ mode: "hide" }))).toContain("mode=hide");
-    expect(generateSelectorLine(makeSelector({ mode: "dim" }))).toContain("mode=dim");
-    expect(generateSelectorLine(makeSelector({ mode: "off" }))).toContain("mode=off");
   });
 });
 
@@ -187,5 +180,55 @@ describe("removeSelectorFromCode", () => {
     const result = removeSelectorFromCode("p1", code);
     expect(result).not.toContain("name=p1");
     expect(result).toContain("name=p2");
+  });
+});
+
+describe("upsertSessionModeInCode", () => {
+  it("creates a new session line when the session does not exist", () => {
+    const result = upsertSessionModeInCode("default", "s1", "color", "a{}\n");
+    expect(result).toContain("!session");
+    expect(result).toContain("id=default");
+    expect(result).toContain("selectors=s1:color");
+  });
+
+  it("is a no-op when mode=off and session does not exist", () => {
+    const code = "a{}\n";
+    expect(upsertSessionModeInCode("default", "s1", "off", code)).toBe(code);
+  });
+
+  it("adds a new selector entry to an existing session line", () => {
+    const code = "!session  id=default  label=Default  selectors=s1:color\n";
+    const result = upsertSessionModeInCode("default", "s2", "dim", code);
+    expect(result).toContain("s1:color");
+    expect(result).toContain("s2:dim");
+  });
+
+  it("updates an existing selector entry in a session line", () => {
+    const code = "!session  id=default  label=Default  selectors=s1:color\n";
+    const result = upsertSessionModeInCode("default", "s1", "hide", code);
+    expect(result).toContain("s1:hide");
+    expect(result).not.toContain("s1:color");
+  });
+
+  it("removes a selector entry when mode=off, keeping others", () => {
+    const code = "!session  id=default  label=Default  selectors=s1:color,s2:dim\n";
+    const result = upsertSessionModeInCode("default", "s1", "off", code);
+    expect(result).not.toContain("s1:");
+    expect(result).toContain("s2:dim");
+  });
+
+  it("removes the selectors= field entirely when the last entry is turned off", () => {
+    const code = "!session  id=default  label=Default  selectors=s1:color\n";
+    const result = upsertSessionModeInCode("default", "s1", "off", code);
+    expect(result).not.toContain("selectors=");
+  });
+
+  it("only affects the matching session, not others", () => {
+    const code =
+      "!session  id=default  label=Default  selectors=s1:color\n" +
+      "!session  id=remote  label=Remote  selectors=s1:dim\n";
+    const result = upsertSessionModeInCode("default", "s1", "hide", code);
+    expect(result).toContain("s1:hide");
+    expect(result).toContain("!session  id=remote  label=Remote  selectors=s1:dim");
   });
 });

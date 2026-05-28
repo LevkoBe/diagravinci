@@ -9,7 +9,8 @@ export type InteractionMode =
   | "connect"
   | "delete"
   | "disconnect"
-  | "readonly";
+  | "readonly"
+  | "presentation";
 export type ZoomCommand = { type: "in" | "out" | "reset"; ts: number };
 export type RenderStyle = "svg" | "rect" | "polygon";
 export type RelLineStyle = "straight" | "curved" | "orthogonal";
@@ -25,6 +26,9 @@ export interface UIState {
   renderStyle: RenderStyle;
   relLineStyle: RelLineStyle;
   classDiagramMode: boolean;
+  opaqueElementBg: boolean;
+  navigationParentId: string | null;
+  activeSessionId: string | null;
 }
 
 const { ui } = AppConfig;
@@ -40,6 +44,9 @@ const initialState: UIState = {
   renderStyle: ui.DEFAULT_RENDER_STYLE,
   relLineStyle: "straight",
   classDiagramMode: true,
+  opaqueElementBg: true,
+  navigationParentId: null,
+  activeSessionId: null,
 };
 
 const uiSlice = createSlice({
@@ -49,6 +56,7 @@ const uiSlice = createSlice({
     setInteractionMode(state, action: PayloadAction<InteractionMode>) {
       state.interactionMode = action.payload;
       state.connectingFromId = null;
+      state.navigationParentId = null;
     },
     setActiveElementType(state, action: PayloadAction<ElementType>) {
       state.activeElementType = action.payload;
@@ -97,8 +105,17 @@ const uiSlice = createSlice({
     setRelLineStyle(state, action: PayloadAction<RelLineStyle>) {
       state.relLineStyle = action.payload;
     },
+    setNavigationParentId(state, action: PayloadAction<string | null>) {
+      state.navigationParentId = action.payload;
+    },
     toggleClassDiagramMode(state) {
       state.classDiagramMode = !state.classDiagramMode;
+    },
+    toggleOpaqueElementBg(state) {
+      state.opaqueElementBg = !state.opaqueElementBg;
+    },
+    setActiveSession(state, action: PayloadAction<string | null>) {
+      state.activeSessionId = action.payload;
     },
   },
 });
@@ -116,7 +133,10 @@ export const {
   sendZoomCommand,
   setRenderStyle,
   setRelLineStyle,
+  setNavigationParentId,
   toggleClassDiagramMode,
+  toggleOpaqueElementBg,
+  setActiveSession,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

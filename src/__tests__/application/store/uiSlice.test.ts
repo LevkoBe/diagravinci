@@ -10,6 +10,11 @@ import reducer, {
   clearSelection,
   sendZoomCommand,
   setRenderStyle,
+  setGroupMoveSelectorId,
+  setRelLineStyle,
+  setNavigationParentId,
+  toggleClassDiagramMode,
+  setActiveSession,
 } from "../../../application/store/uiSlice";
 
 describe("uiSlice", () => {
@@ -134,6 +139,70 @@ describe("uiSlice", () => {
     it("sets render style to polygon", () => {
       const state = reducer(undefined, setRenderStyle("polygon"));
       expect(state.renderStyle).toBe("polygon");
+    });
+  });
+
+  describe("setGroupMoveSelectorId", () => {
+    it("sets groupMoveSelectorId", () => {
+      const state = reducer(undefined, setGroupMoveSelectorId("sel-1"));
+      expect(state.groupMoveSelectorId).toBe("sel-1");
+    });
+
+    it("clears groupMoveSelectorId when null", () => {
+      const s1 = reducer(undefined, setGroupMoveSelectorId("sel-1"));
+      const s2 = reducer(s1, setGroupMoveSelectorId(null));
+      expect(s2.groupMoveSelectorId).toBeNull();
+    });
+  });
+
+  describe("setRelLineStyle", () => {
+    it("sets rel line style to curved", () => {
+      const state = reducer(undefined, setRelLineStyle("curved"));
+      expect(state.relLineStyle).toBe("curved");
+    });
+
+    it("sets rel line style to orthogonal", () => {
+      const state = reducer(undefined, setRelLineStyle("orthogonal"));
+      expect(state.relLineStyle).toBe("orthogonal");
+    });
+  });
+
+  describe("setNavigationParentId", () => {
+    it("sets navigationParentId", () => {
+      const state = reducer(undefined, setNavigationParentId("node-5"));
+      expect(state.navigationParentId).toBe("node-5");
+    });
+
+    it("is cleared by setInteractionMode", () => {
+      const s1 = reducer(undefined, setNavigationParentId("node-5"));
+      const s2 = reducer(s1, setInteractionMode("select"));
+      expect(s2.navigationParentId).toBeNull();
+    });
+  });
+
+  describe("toggleClassDiagramMode", () => {
+    it("toggles classDiagramMode from true to false", () => {
+      const state = reducer(undefined, toggleClassDiagramMode());
+      expect(state.classDiagramMode).toBe(false);
+    });
+
+    it("toggles classDiagramMode back to true", () => {
+      const s1 = reducer(undefined, toggleClassDiagramMode());
+      const s2 = reducer(s1, toggleClassDiagramMode());
+      expect(s2.classDiagramMode).toBe(true);
+    });
+  });
+
+  describe("setActiveSession", () => {
+    it("sets activeSessionId", () => {
+      const state = reducer(undefined, setActiveSession("session-1"));
+      expect(state.activeSessionId).toBe("session-1");
+    });
+
+    it("clears activeSessionId when null", () => {
+      const s1 = reducer(undefined, setActiveSession("session-1"));
+      const s2 = reducer(s1, setActiveSession(null));
+      expect(s2.activeSessionId).toBeNull();
     });
   });
 });

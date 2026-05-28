@@ -16,19 +16,17 @@ import {
 import { toggleElementFold } from "../../application/store/filterSlice";
 import { syncManager, store } from "../../application/store/store";
 import { getCSSVariable } from "../../shared/utils";
-import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 import { toSelectorId } from "../../domain/models/Selector";
-import { TAB_SESSION_ID } from "../../shared/tabSessionId";
 import { useExecution } from "../hooks/useExecution";
-import { getExecutionColorMap } from "../../application/ExecutionEngine";
+import { getExecutionColorMap, computeCloneDuplicateHiddenPaths } from "../../application/ExecutionEngine";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
 import { computeElementSizes } from "./rendering/elementSizing";
 import type { GeometryCache } from "./rendering/relationships/RelationshipRenderer";
-import { FilterResolver, matchesSelector } from "../../domain/sync/FilterResolver";
 import {
-  getSubtreeIds,
-  type DiagramModel,
-} from "../../domain/models/DiagramModel";
+  FilterResolver,
+  matchesSelector,
+} from "../../domain/sync/FilterResolver";
+import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { Element, ElementType } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
 import type { Position } from "../../domain/models/Element";
@@ -36,8 +34,9 @@ import { AppConfig } from "../../config/appConfig";
 import { VConfig } from "./visualConfig";
 import { lightStateTokens, darkStateTokens } from "../../themes";
 import { stageRegistry } from "../../shared/stageRegistry";
+import { applyReparent } from "../../application/reparent";
 
-const FIT_PADDING_FACTOR = 0.1;
+const FIT_PADDING_FACTOR = 0.2;
 
 function hexToRgba(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -50,8 +49,7 @@ function hexToRgba(hex: string, alpha: number): string {
 export function VisualCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
-  const relationshipLayerRef = useRef<Konva.Layer | null>(null);
-  const elementLayerRef = useRef<Konva.Layer | null>(null);
+  const diagramLayerRef = useRef<Konva.Layer | null>(null);
   const selectionLayerRef = useRef<Konva.Layer | null>(null);
   const prevPathsRef = useRef<Set<string>>(new Set());
   const prevElementPositionsRef = useRef<
@@ -61,9 +59,10 @@ export function VisualCanvas() {
     Record<string, { x: number; y: number }>
   >({});
   const justDraggedPathsRef = useRef<Set<string>>(new Set());
+  const dragStateRef = useRef<{ path: string | null; scales: Map<string, number> }>({ path: null, scales: new Map() });
   const geometryCacheRef = useRef<GeometryCache>(new Map());
+  const currentAnimRef = useRef<Konva.Animation | null>(null);
   const [zoom, setZoom] = useState(1);
-  const [stagePan, setStagePan] = useState(0);
   const dragSelectRef = useRef<{
     startScreen: { x: number; y: number };
     stageX: number;
@@ -115,6 +114,8 @@ export function VisualCanvas() {
     renderStyle,
     relLineStyle,
     classDiagramMode,
+    opaqueElementBg,
+    activeSessionId,
   } = useAppSelector((s) => s.ui);
 
   const modeRef = useRef(interactionMode);
@@ -148,75 +149,121 @@ export function VisualCanvas() {
     groupMoveSelIdRef.current = groupMoveSelectorId;
   }, [groupMoveSelectorId]);
 
-  const SELECTION_LABEL = `Selected_${TAB_SESSION_ID}`;
-  const SELECTION_SEL_ID = toSelectorId(SELECTION_LABEL);
-  const prevSelectedRef = useRef<string[]>([]);
-
   useEffect(() => {
-    const prev = new Set(prevSelectedRef.current);
-    const curr = new Set(selectedElementIds);
-    const same =
-      prev.size === curr.size && selectedElementIds.every((id) => prev.has(id));
-    if (same) return;
-    prevSelectedRef.current = selectedElementIds;
-
+    if (!activeSessionId) return;
     const { model: currentModel } = store.getState().diagram;
-    const selectedSet = new Set(selectedElementIds);
-
-    let flagsChanged = false;
-    const updatedElements = { ...currentModel.elements };
-    for (const [id, el] of Object.entries(currentModel.elements)) {
-      const wasSelected = (el.flags ?? []).some(
-        (f) => toSelectorId(f) === SELECTION_SEL_ID,
-      );
-      const isSelected = selectedSet.has(id);
-      if (wasSelected === isSelected) continue;
-      flagsChanged = true;
-      const filteredFlags = (el.flags ?? []).filter(
-        (f) => toSelectorId(f) !== SELECTION_SEL_ID,
-      );
-      if (isSelected) filteredFlags.push(SELECTION_LABEL);
-      updatedElements[id] = {
-        ...el,
-        flags: filteredFlags.length > 0 ? filteredFlags : undefined,
-      };
-    }
+    const selLabel = `Selection_${activeSessionId}`;
+    const selId = toSelectorId(selLabel);
+    const selColor = getCSSVariable("--color-state-selected");
 
     const existingSelectors = currentModel.selectors ?? [];
-    const existingSel = existingSelectors.find((s) => s.id === SELECTION_SEL_ID);
-    const needsSelector = !existingSel && selectedElementIds.length > 0;
+    const existingSel = existingSelectors.find((s) => s.id === selId);
 
-    if (!flagsChanged && !needsSelector) return;
+    const prevPaths = existingSel?.selectedPaths ?? [];
+    const nextPaths = selectedElementIds;
 
-    let updatedSelectors = existingSelectors;
-    if (needsSelector) {
-      const selColor = getCSSVariable("--color-state-selected");
+    const pathsChanged =
+      prevPaths.length !== nextPaths.length ||
+      prevPaths.some((p, i) => p !== nextPaths[i]);
+
+    if (!pathsChanged) return;
+
+    let updatedSelectors: typeof existingSelectors;
+    if (nextPaths.length === 0) {
+      updatedSelectors = existingSelectors.filter((s) => s.id !== selId);
+    } else if (existingSel) {
+      updatedSelectors = existingSelectors.map((s) =>
+        s.id === selId ? { ...s, selectedPaths: nextPaths } : s,
+      );
+    } else {
       updatedSelectors = [
-        {
-          id: SELECTION_SEL_ID,
-          label: SELECTION_LABEL,
-          expression: "",
-          mode: "color" as const,
-          color: selColor,
-        },
         ...existingSelectors,
+        { id: selId, label: selLabel, expression: "", color: selColor, selectedPaths: nextPaths },
       ];
     }
 
-    const updatedModel = {
-      ...currentModel,
-      elements: updatedElements,
-      selectors: updatedSelectors,
-    };
-    const newCode = new CodeGenerator(updatedModel).generate();
-    syncManager.syncFromCode(newCode, true);
-  }, [selectedElementIds]); // eslint-disable-line react-hooks/exhaustive-deps
+    const updatedSessions = (currentModel.sessions ?? []).map((session) => {
+      if (session.id !== activeSessionId) return session;
+      const already = session.selectorModes[selId];
+      if (nextPaths.length === 0) {
+        if (!already || already === "off") return session;
+        const { [selId]: _, ...rest } = session.selectorModes;
+        return { ...session, selectorModes: rest };
+      }
+      if (already === "color") return session;
+      return { ...session, selectorModes: { ...session.selectorModes, [selId]: "color" as const } };
+    });
+
+    syncManager.syncFromVis(
+      { ...currentModel, selectors: updatedSelectors, sessions: updatedSessions },
+      true,
+    );
+  }, [selectedElementIds, activeSessionId]);
+
+  useEffect(() => {
+    if (interactionMode !== "presentation") return;
+    if (selectedElementIds.length === 0) return;
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const positions = store.getState().diagram.viewState.positions;
+    const selectedSet = new Set(selectedElementIds);
+    const selectedPaths = Object.entries(positions)
+      .filter(([path]) => selectedSet.has(path))
+      .map(([, v]) => v);
+
+    if (selectedPaths.length === 0) return;
+
+    const pb = primaryBoundsRef.current;
+    const visibleW = pb.ready ? pb.width : stage.width();
+    const visibleH = pb.ready ? pb.height : stage.height();
+    const visibleX = pb.ready ? pb.x : 0;
+    const visibleY = pb.ready ? pb.y : 0;
+    const center = { x: visibleX + visibleW / 2, y: visibleY + visibleH / 2 };
+
+    const cx = selectedPaths.map((p) => p.position.x);
+    const cy = selectedPaths.map((p) => p.position.y);
+    const radii = selectedPaths.map((p) => p.size / 2);
+
+    const minWX = Math.min(...cx.map((x, i) => x - radii[i]));
+    const minWY = Math.min(...cy.map((y, i) => y - radii[i]));
+    const maxWX = Math.max(...cx.map((x, i) => x + radii[i]));
+    const maxWY = Math.max(...cy.map((y, i) => y + radii[i]));
+
+    const W = maxWX - minWX;
+    const H = maxWY - minWY;
+
+    const scaleX = (visibleW * (1 - 2 * FIT_PADDING_FACTOR)) / W;
+    const scaleY = (visibleH * (1 - 2 * FIT_PADDING_FACTOR)) / H;
+
+    const { ZOOM_MIN, ZOOM_MAX } = AppConfig.canvas;
+    const newScale = Math.max(ZOOM_MIN, Math.min(scaleX, scaleY, ZOOM_MAX));
+
+    const bboxCenterX = minWX + W / 2;
+    const bboxCenterY = minWY + H / 2;
+    const newX = center.x - bboxCenterX * newScale;
+    const newY = center.y - bboxCenterY * newScale;
+
+    new Konva.Tween({
+      node: stage,
+      scaleX: newScale,
+      scaleY: newScale,
+      x: newX,
+      y: newY,
+      duration: 0.4,
+      easing: Konva.Easings.EaseInOut,
+      onFinish: () => {
+        setZoom(newScale);
+      },
+    }).play();
+  }, [selectedElementIds, interactionMode]);
 
   useEffect(() => {
     const newLists = FilterResolver.resolve(
       filterState,
       viewState.positions,
       model,
+      activeSessionId,
     );
     const unchanged = FilterResolver.equal(newLists, {
       hiddenPaths: viewState.hiddenPaths,
@@ -228,7 +275,7 @@ export function VisualCanvas() {
       dispatch(setViewState({ ...viewState, ...newLists }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterState, viewState.positions, model]);
+  }, [filterState, viewState.positions, model, activeSessionId]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -238,18 +285,15 @@ export function VisualCanvas() {
       height: containerRef.current.getBoundingClientRect().height,
       draggable: true,
     });
-    const relationshipLayer = new Konva.Layer();
-    const elementLayer = new Konva.Layer();
+    const diagramLayer = new Konva.Layer();
     const selectionLayer = new Konva.Layer();
 
-    stage.add(relationshipLayer);
-    stage.add(elementLayer);
+    stage.add(diagramLayer);
     stage.add(selectionLayer);
 
     stageRef.current = stage;
     stageRegistry.set(stage);
-    relationshipLayerRef.current = relationshipLayer;
-    elementLayerRef.current = elementLayer;
+    diagramLayerRef.current = diagramLayer;
     selectionLayerRef.current = selectionLayer;
 
     stage.on("dragstart", () => {
@@ -259,7 +303,6 @@ export function VisualCanvas() {
     stage.on("dragend", () => {
       stage.container().style.cursor =
         modeRef.current === "select" ? "default" : "crosshair";
-      setStagePan((n) => n + 1);
     });
 
     stage.on("wheel", (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -295,7 +338,6 @@ export function VisualCanvas() {
           y: stage.y() - e.evt.deltaY,
         });
         stage.batchDraw();
-        setStagePan((n) => n + 1);
       }
     });
 
@@ -323,7 +365,10 @@ export function VisualCanvas() {
         );
       } else if (modeRef.current === "connect") {
         dispatch(setConnectingFromId(null));
-      } else if (modeRef.current === "select") {
+      } else if (
+        modeRef.current === "select" ||
+        modeRef.current === "presentation"
+      ) {
         dispatch(setSelectedElements([]));
       }
     });
@@ -331,7 +376,8 @@ export function VisualCanvas() {
     stage.on("mousedown", (e) => {
       if (e.evt.button !== 0) return;
       if (e.target !== stage) return;
-      if (modeRef.current !== "select") return;
+      if (modeRef.current !== "select" && modeRef.current !== "presentation")
+        return;
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
       stage.draggable(false);
@@ -414,23 +460,22 @@ export function VisualCanvas() {
       const x2 = Math.max(ws.x, we.x);
       const y2 = Math.max(ws.y, we.y);
       const positions = store.getState().diagram.viewState.positions;
-      const idsInRect: string[] = [];
+      const pathsInRect: string[] = [];
       for (const [path, pos] of Object.entries(positions)) {
         const { x, y } = pos.position;
         if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
-          const id = path.split(".").at(-1)!;
-          if (!idsInRect.includes(id)) idsInRect.push(id);
+          pathsInRect.push(path);
         }
       }
-      const currentIds = store.getState().ui.selectedElementIds;
-      const currentSet = new Set(currentIds);
-      const result = [...currentIds];
-      for (const id of idsInRect) {
-        if (currentSet.has(id)) {
-          const idx = result.indexOf(id);
+      const currentPaths = store.getState().ui.selectedElementIds;
+      const currentSet = new Set(currentPaths);
+      const result = [...currentPaths];
+      for (const path of pathsInRect) {
+        if (currentSet.has(path)) {
+          const idx = result.indexOf(path);
           if (idx !== -1) result.splice(idx, 1);
         } else {
-          result.push(id);
+          result.push(path);
         }
       }
       dispatch(setSelectedElements(result));
@@ -490,7 +535,6 @@ export function VisualCanvas() {
           easing: Konva.Easings.EaseInOut,
           onFinish: () => {
             setZoom(1);
-            setStagePan((n) => n + 1);
           },
         }).play();
         return;
@@ -534,7 +578,6 @@ export function VisualCanvas() {
         easing: Konva.Easings.EaseInOut,
         onFinish: () => {
           setZoom(newScale);
-          setStagePan((n) => n + 1);
         },
       }).play();
 
@@ -560,22 +603,30 @@ export function VisualCanvas() {
   useEffect(() => {
     if (!stageRef.current) return;
     stageRef.current.container().style.cursor =
-      interactionMode === "select" || interactionMode === "readonly"
+      interactionMode === "select" ||
+      interactionMode === "readonly" ||
+      interactionMode === "presentation"
         ? "default"
         : "crosshair";
   }, [interactionMode]);
 
   useEffect(() => {
     if (
-      !relationshipLayerRef.current ||
-      !elementLayerRef.current ||
+      !diagramLayerRef.current ||
       !stageRef.current
     )
       return;
+    currentAnimRef.current?.stop();
+    currentAnimRef.current = null;
+    const wrongClonePaths = computeCloneDuplicateHiddenPaths(execInstances, model);
+    const renderViewState =
+      wrongClonePaths.length > 0
+        ? { ...viewState, hiddenPaths: [...viewState.hiddenPaths, ...wrongClonePaths] }
+        : viewState;
     const renderer = new DiagramLayerRenderer(
       stageRef.current,
       model,
-      viewState,
+      renderViewState,
       connectingFromId,
       {
         ...canvasColors,
@@ -589,24 +640,36 @@ export function VisualCanvas() {
               const positions = state.diagram.viewState.positions;
               const m = state.diagram.model;
               const rules = m.rules ?? [];
-              const sel = state.filter.selectors.find((s) => s.id === groupSelId);
+              const sel = state.filter.selectors.find(
+                (s) => s.id === groupSelId,
+              );
               if (sel && matchesSelector(path, sel, m, rules)) {
                 const startPos = positions[path]?.position;
                 if (startPos) {
-                  const delta = { x: worldPos.x - startPos.x, y: worldPos.y - startPos.y };
+                  const delta = {
+                    x: worldPos.x - startPos.x,
+                    y: worldPos.y - startPos.y,
+                  };
                   for (const [gp, posEntry] of Object.entries(positions)) {
                     if (gp === path) continue;
                     if (!matchesSelector(gp, sel, m, rules)) continue;
-                    dispatch(updateElementPositionInView({
-                      id: gp,
-                      position: { x: posEntry.position.x + delta.x, y: posEntry.position.y + delta.y },
-                    }));
+                    dispatch(
+                      updateElementPositionInView({
+                        id: gp,
+                        position: {
+                          x: posEntry.position.x + delta.x,
+                          y: posEntry.position.y + delta.y,
+                        },
+                      }),
+                    );
                   }
                 }
               }
             }
             justDraggedPathsRef.current.add(path);
-            dispatch(updateElementPositionInView({ id: path, position: worldPos }));
+            dispatch(
+              updateElementPositionInView({ id: path, position: worldPos }),
+            );
           } else {
             syncManager.syncFromVis(model);
           }
@@ -629,35 +692,36 @@ export function VisualCanvas() {
           );
           syncManager.syncFromVis(updatedModel, true, { oldPrefix, newPrefix });
         },
-        onClick: (elementId, shiftKey, ctrlKey) => {
+        onClick: (elementPath, shiftKey, ctrlKey) => {
+          const leafId = elementPath.split(".").at(-1)!;
           const mode = modeRef.current;
           if (mode === "create") {
             createNewElement(
               modelRef.current,
               elementTypeRef.current,
-              elementId,
+              leafId,
               null,
               dispatch,
             );
           } else if (mode === "delete") {
             const m = modelRef.current;
             const newElements = { ...m.elements };
-            delete newElements[elementId];
+            delete newElements[leafId];
             const newRoot = {
               ...m.root,
-              childIds: m.root.childIds.filter((id) => id !== elementId),
+              childIds: m.root.childIds.filter((id) => id !== leafId),
             };
             Object.values(newElements).forEach((el) => {
-              if (el.childIds.includes(elementId)) {
+              if (el.childIds.includes(leafId)) {
                 newElements[el.id] = {
                   ...el,
-                  childIds: el.childIds.filter((id) => id !== elementId),
+                  childIds: el.childIds.filter((id) => id !== leafId),
                 };
               }
             });
             const newRelationships = Object.fromEntries(
               Object.entries(m.relationships).filter(
-                ([, r]) => r.source !== elementId && r.target !== elementId,
+                ([, r]) => r.source !== leafId && r.target !== leafId,
               ),
             );
             syncManager.syncFromVis({
@@ -666,18 +730,18 @@ export function VisualCanvas() {
               elements: newElements,
               relationships: newRelationships,
             });
-            if (connectingFromRef.current === elementId)
+            if (connectingFromRef.current === elementPath)
               dispatch(setConnectingFromId(null));
             dispatch(setSelectedElements([]));
           } else if (mode === "connect") {
             const sourceId = connectingFromRef.current;
             if (!sourceId) {
-              dispatch(setConnectingFromId(elementId));
-            } else if (sourceId !== elementId) {
+              dispatch(setConnectingFromId(elementPath));
+            } else if (sourceId !== elementPath) {
               const rel: Relationship = {
-                id: `rel_${sourceId}_${elementId}_${Date.now()}`,
+                id: `rel_${sourceId}_${elementPath}_${Date.now()}`,
                 source: sourceId,
-                target: elementId,
+                target: elementPath,
                 type: relTypeRef.current as Relationship["type"],
               };
               syncManager.syncFromVis({
@@ -692,15 +756,15 @@ export function VisualCanvas() {
           } else if (mode === "disconnect") {
             const sourceId = connectingFromRef.current;
             if (!sourceId) {
-              dispatch(setConnectingFromId(elementId));
-            } else if (sourceId !== elementId) {
+              dispatch(setConnectingFromId(elementPath));
+            } else if (sourceId !== elementPath) {
               const m = modelRef.current;
               const newRelationships = Object.fromEntries(
                 Object.entries(m.relationships).filter(
                   ([, r]) =>
                     !(
-                      (r.source === sourceId && r.target === elementId) ||
-                      (r.source === elementId && r.target === sourceId)
+                      (r.source === sourceId && r.target === elementPath) ||
+                      (r.source === elementPath && r.target === sourceId)
                     ),
                 ),
               );
@@ -712,31 +776,31 @@ export function VisualCanvas() {
             }
           } else {
             if (shiftKey) {
-              const subtreeIds = getSubtreeIds(
-                elementId,
-                modelRef.current.elements,
+              const positions = store.getState().diagram.viewState.positions;
+              const subtreePaths = Object.keys(positions).filter(
+                (p) => p === elementPath || p.startsWith(elementPath + "."),
               );
-              const currentIds = store.getState().ui.selectedElementIds;
-              const currentSet = new Set(currentIds);
-              const allSelected = subtreeIds.every((id) => currentSet.has(id));
+              const currentPaths = store.getState().ui.selectedElementIds;
+              const currentSet = new Set(currentPaths);
+              const allSelected = subtreePaths.every((p) => currentSet.has(p));
               if (allSelected) {
-                const subtreeSet = new Set(subtreeIds);
+                const subtreeSet = new Set(subtreePaths);
                 dispatch(
                   setSelectedElements(
-                    currentIds.filter((id) => !subtreeSet.has(id)),
+                    currentPaths.filter((p) => !subtreeSet.has(p)),
                   ),
                 );
               } else {
-                const combined = [...currentIds];
-                for (const id of subtreeIds) {
-                  if (!currentSet.has(id)) combined.push(id);
+                const combined = [...currentPaths];
+                for (const p of subtreePaths) {
+                  if (!currentSet.has(p)) combined.push(p);
                 }
                 dispatch(setSelectedElements(combined));
               }
             } else if (ctrlKey) {
-              dispatch(toggleSelectedElement(elementId));
+              dispatch(toggleSelectedElement(elementPath));
             } else {
-              dispatch(setSelectedElement(elementId));
+              dispatch(setSelectedElement(elementPath));
             }
           }
         },
@@ -750,7 +814,8 @@ export function VisualCanvas() {
       renderStyle,
       relLineStyle,
       interactionMode === "readonly",
-      getExecutionColorMap(execInstances, execColor),
+      interactionMode === "presentation",
+      getExecutionColorMap(execInstances, model, execColor),
       classDiagramMode,
       elementSizes,
       geometryCacheRef.current,
@@ -758,13 +823,24 @@ export function VisualCanvas() {
         selectorId: groupMoveSelIdRef.current,
         filterSelectors: store.getState().filter.selectors,
       }),
+      opaqueElementBg,
+      dragStateRef.current,
     );
 
-    const cloneIds = new Set(execInstances.flatMap((i) => i.clonedElementIds));
+    const cloneIds = new Set<string>();
+    for (const inst of execInstances) {
+      const bfsQ = [...inst.clonedElementIds];
+      let bfsQi = 0;
+      while (bfsQi < bfsQ.length) {
+        const id = bfsQ[bfsQi++];
+        cloneIds.add(id);
+        model.elements[id]?.childIds.forEach((c) => bfsQ.push(c));
+      }
+    }
     const cloneRelIds = new Set(
       execInstances.flatMap((i) => i.clonedRelationshipIds),
     );
-    renderer.render(relationshipLayerRef.current, elementLayerRef.current);
+    renderer.render(diagramLayerRef.current, diagramLayerRef.current);
     const groupMap = renderer.getGroupMap();
     const relRenderer = renderer.getRelationshipRenderer();
 
@@ -853,9 +929,7 @@ export function VisualCanvas() {
       }
 
       if (elemAnims.length > 0 || relAnims.length > 0) {
-        const layers = (
-          [elementLayerRef.current, relationshipLayerRef.current] as const
-        ).filter((l): l is Konva.Layer => l !== null);
+        const layers = [diagramLayerRef.current].filter((l): l is Konva.Layer => l !== null);
         const anim = new Konva.Animation((frame) => {
           const t = Math.min((frame?.time ?? 0) / animDurationMs, 1);
           const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
@@ -893,8 +967,12 @@ export function VisualCanvas() {
             );
           }
 
-          if (t >= 1) anim.stop();
+          if (t >= 1) {
+            anim.stop();
+            currentAnimRef.current = null;
+          }
         }, layers);
+        currentAnimRef.current = anim;
         anim.start();
       }
     }
@@ -918,10 +996,10 @@ export function VisualCanvas() {
     connectingFromId,
     canvasColors,
     zoom,
-    stagePan,
     renderStyle,
     relLineStyle,
     classDiagramMode,
+    opaqueElementBg,
     interactionMode,
     dispatch,
     execInstances,
@@ -958,10 +1036,8 @@ export function VisualCanvas() {
       });
       exportStage.position({ x: -minWX * zoom, y: -minWY * zoom });
       exportStage.scale({ x: zoom, y: zoom });
-      const relLayer = new Konva.Layer();
-      const elemLayer = new Konva.Layer();
-      exportStage.add(relLayer);
-      exportStage.add(elemLayer);
+      const diagramLayer = new Konva.Layer();
+      exportStage.add(diagramLayer);
       const { DiagramLayerRenderer } = await import("./DiagramLayerRenderer");
       const renderer = new DiagramLayerRenderer(
         exportStage,
@@ -975,12 +1051,15 @@ export function VisualCanvas() {
         renderStyle,
         relLineStyle,
         true,
+        false,
         {},
         classDiagramMode,
         elementSizes,
         geometryCacheRef.current,
+        undefined,
+        opaqueElementBg,
       );
-      renderer.render(relLayer, elemLayer);
+      renderer.render(diagramLayer, diagramLayer);
       const exportCanvas = await exportStage.toCanvas({ pixelRatio: 2 });
       const bgColor = isDark ? "#0b0d10" : "#f5e8c0";
       const out = document.createElement("canvas");
@@ -1002,6 +1081,7 @@ export function VisualCanvas() {
     renderStyle,
     relLineStyle,
     classDiagramMode,
+    opaqueElementBg,
     elementSizes,
     isDark,
   ]);
@@ -1062,41 +1142,4 @@ function createNewElement(
   if (worldPos)
     dispatch(updateElementPositionInView({ id: newId, position: worldPos }));
   dispatch(setSelectedElement(newId));
-}
-
-function applyReparent(
-  model: DiagramModel,
-  elementId: string,
-  oldParentPath: string,
-  newParentPath: string,
-): DiagramModel {
-  const movingElement = model.elements[elementId];
-  if (!movingElement) return model;
-  const elements = { ...model.elements };
-  let root = { ...model.root };
-  if (oldParentPath === model.root.id) {
-    root = { ...root, childIds: root.childIds.filter((n) => n !== elementId) };
-  } else {
-    const oldParentId = oldParentPath.split(".").at(-1)!;
-    const oldParent = elements[oldParentId];
-    if (oldParent) {
-      elements[oldParent.id] = {
-        ...oldParent,
-        childIds: oldParent.childIds.filter((n) => n !== elementId),
-      };
-    }
-  }
-  if (newParentPath === model.root.id) {
-    root = { ...root, childIds: [...root.childIds, elementId] };
-  } else {
-    const newParentId = newParentPath.split(".").at(-1)!;
-    const newParent = elements[newParentId];
-    if (newParent && !newParent.childIds.includes(elementId)) {
-      elements[newParentId] = {
-        ...newParent,
-        childIds: [...newParent.childIds, elementId],
-      };
-    }
-  }
-  return { ...model, root, elements };
 }

@@ -92,13 +92,38 @@ export class ExecuteLayout implements LayoutAlgorithm {
       if (!valid) delete positions[path];
     }
 
+    const activePaths = new Set<string>();
+    for (const rel of previousViewState.relationships) {
+      activePaths.add(rel.sourcePath);
+      activePaths.add(rel.targetPath);
+    }
+
+    const pathCountByElementId = new Map<string, number>();
+    for (const path of Object.keys(positions)) {
+      const id = path.split(".").pop()!;
+      pathCountByElementId.set(id, (pathCountByElementId.get(id) ?? 0) + 1);
+    }
+
     const addMissing = (elementId: string, parentPath: string | null): void => {
       const el = model.elements[elementId];
       if (!el || el.childIds.length === 0) return;
 
       const myPath = parentPath ? `${parentPath}.${elementId}` : elementId;
       const myEntry = positions[myPath];
-      if (!myEntry) return; // parent itself not yet placed — skip
+      if (!myEntry) return;
+
+      const hasActiveDescendant = () => {
+        const prefix = myPath + ".";
+        for (const p of activePaths) if (p.startsWith(prefix)) return true;
+        return false;
+      };
+      if (
+        activePaths.size > 0 &&
+        (pathCountByElementId.get(elementId) ?? 0) > 1 &&
+        !activePaths.has(myPath) &&
+        !hasActiveDescendant()
+      )
+        return;
 
       const containerSize = myEntry.size * CHILD_FILL;
       const children = el.childIds
@@ -120,6 +145,9 @@ export class ExecuteLayout implements LayoutAlgorithm {
       const offsets = circularChildPositions(children, model, containerSize);
       children.forEach((child, i) => {
         const childPath = `${myPath}.${child.id}`;
+        for (const p of Object.keys(positions)) {
+          if (p.startsWith(childPath + ".")) delete positions[p];
+        }
         positions[childPath] = {
           id: child.id,
           position: {
@@ -141,11 +169,10 @@ export class ExecuteLayout implements LayoutAlgorithm {
       (id) => model.elements[id] && !positions[id],
     );
     if (unpositioned.length > 0) {
-      const maxX =
-        Object.values(positions).reduce(
-          (m, e) => Math.max(m, e.position.x + e.size),
-          canvasSize.width * 0.1,
-        );
+      const maxX = Object.values(positions).reduce(
+        (m, e) => Math.max(m, e.position.x + e.size),
+        canvasSize.width * 0.1,
+      );
       const DEFAULT_SIZE = 80;
       let x = maxX + 100;
       for (const id of unpositioned) {

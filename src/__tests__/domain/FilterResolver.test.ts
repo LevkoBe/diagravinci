@@ -5,7 +5,11 @@ import type { PositionedElement } from "../../domain/models/ViewState";
 import { createEmptyDiagram } from "../../domain/models/DiagramModel";
 import { createElement } from "../../domain/models/Element";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
-import type { Selector, Rule } from "../../domain/models/Selector";
+import type {
+  Selector,
+  Rule,
+  SelectorMode,
+} from "../../domain/models/Selector";
 
 function makeFilterState(overrides: Partial<FilterState> = {}): FilterState {
   return {
@@ -33,10 +37,7 @@ function makePositions(paths: string[]): Record<string, PositionedElement> {
   );
 }
 
-function makeModel(
-  elementIds: string[],
-  rules: Rule[] = [],
-): DiagramModel {
+function makeModel(elementIds: string[], rules: Rule[] = []): DiagramModel {
   const model = createEmptyDiagram();
   model.rules = rules;
   for (const id of elementIds) {
@@ -45,17 +46,21 @@ function makeModel(
   return model;
 }
 
-function makeSelector(
-  id: string,
-  mode: "hide" | "dim" | "color",
-  expression = "r1",
-): Selector {
+function makeSelector(id: string, expression = "r1"): Selector {
+  return { id, label: id, color: "#e05c5c", expression };
+}
+
+function withSession(
+  model: DiagramModel,
+  selectorModes: Record<string, SelectorMode>,
+): { model: DiagramModel; sessionId: string } {
+  const sessionId = "test";
   return {
-    id,
-    label: id,
-    mode,
-    color: "#e05c5c",
-    expression,
+    model: {
+      ...model,
+      sessions: [{ id: sessionId, label: "Test", selectorModes }],
+    },
+    sessionId,
   };
 }
 
@@ -65,17 +70,18 @@ function ruleForSelector(pathRegex: string): Rule {
 
 function makeSelectorWithFormula(
   id: string,
-  mode: "hide" | "dim" | "color",
+  mode: SelectorMode,
   rulePatterns: { path: string }[],
   expression: string,
-): { selector: Selector; rules: Rule[] } {
+): { selector: Selector; rules: Rule[]; mode: SelectorMode } {
   const rules: Rule[] = rulePatterns.map((a, i) => ({
     id: String(i + 1),
     patterns: { all: a.path },
   }));
   return {
-    selector: { id, label: id, mode, color: "#e05c5c", expression },
+    selector: { id, label: id, color: "#e05c5c", expression },
     rules,
+    mode,
   };
 }
 
@@ -92,11 +98,17 @@ describe("FilterResolver.resolve", () => {
   });
 
   it("colors matched paths with selector color", () => {
-    const selector = { ...makeSelector("p1", "color"), color: "#ff0000" };
+    const selector = { ...makeSelector("p1"), color: "#ff0000" };
     const filterState = makeFilterState({ selectors: [selector] });
     const positions = makePositions(["a", "b"]);
-    const model = makeModel(["a", "b"], [ruleForSelector("^a$")]);
-    const result = FilterResolver.resolve(filterState, positions, model);
+    const baseModel = makeModel(["a", "b"], [ruleForSelector("^a$")]);
+    const { model, sessionId } = withSession(baseModel, { p1: "color" });
+    const result = FilterResolver.resolve(
+      filterState,
+      positions,
+      model,
+      sessionId,
+    );
     expect(result.coloredPaths["a"]).toBe("#ff0000");
     expect(result.coloredPaths["b"]).toBeUndefined();
     expect(result.hiddenPaths).toHaveLength(0);
@@ -104,31 +116,39 @@ describe("FilterResolver.resolve", () => {
   });
 
   it("hides paths not matching an active hide selector", () => {
-    const filterState = makeFilterState({
-      selectors: [makeSelector("p1", "hide")],
-    });
+    const filterState = makeFilterState({ selectors: [makeSelector("p1")] });
     const positions = makePositions(["a", "b", "c"]);
-    const model = makeModel(["a", "b", "c"], [ruleForSelector("^a$")]);
-    const result = FilterResolver.resolve(filterState, positions, model);
+    const baseModel = makeModel(["a", "b", "c"], [ruleForSelector("^a$")]);
+    const { model, sessionId } = withSession(baseModel, { p1: "hide" });
+    const result = FilterResolver.resolve(
+      filterState,
+      positions,
+      model,
+      sessionId,
+    );
     expect(result.hiddenPaths).toContain("b");
     expect(result.hiddenPaths).toContain("c");
     expect(result.hiddenPaths).not.toContain("a");
   });
 
   it("dims paths not matching an active dim selector", () => {
-    const filterState = makeFilterState({
-      selectors: [makeSelector("p1", "dim")],
-    });
+    const filterState = makeFilterState({ selectors: [makeSelector("p1")] });
     const positions = makePositions(["a", "b"]);
-    const model = makeModel(["a", "b"], [ruleForSelector("^a$")]);
-    const result = FilterResolver.resolve(filterState, positions, model);
+    const baseModel = makeModel(["a", "b"], [ruleForSelector("^a$")]);
+    const { model, sessionId } = withSession(baseModel, { p1: "dim" });
+    const result = FilterResolver.resolve(
+      filterState,
+      positions,
+      model,
+      sessionId,
+    );
     expect(result.dimmedPaths).toContain("b");
     expect(result.dimmedPaths).not.toContain("a");
   });
 
   describe("formula logic", () => {
     it("-r1: hides paths that MATCH rule r1 (inverted)", () => {
-      const { selector, rules } = makeSelectorWithFormula(
+      const { selector, rules, mode } = makeSelectorWithFormula(
         "p1",
         "hide",
         [{ path: "^a$" }],
@@ -136,53 +156,69 @@ describe("FilterResolver.resolve", () => {
       );
       const filterState = makeFilterState({ selectors: [selector] });
       const positions = makePositions(["a", "b", "c"]);
-      const model = makeModel(["a", "b", "c"], rules);
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const baseModel = makeModel(["a", "b", "c"], rules);
+      const { model, sessionId } = withSession(baseModel, { p1: mode });
+      const result = FilterResolver.resolve(
+        filterState,
+        positions,
+        model,
+        sessionId,
+      );
       expect(result.hiddenPaths).toContain("a");
       expect(result.hiddenPaths).not.toContain("b");
       expect(result.hiddenPaths).not.toContain("c");
     });
 
     it("1 & 2: hides paths matching neither rule", () => {
-      const { selector, rules } = makeSelectorWithFormula(
+      const { selector, rules, mode } = makeSelectorWithFormula(
         "p1",
         "hide",
         [{ path: "svc" }, { path: "auth" }],
         "1 & 2",
       );
       const positions = makePositions(["svc.auth", "svc.other", "other"]);
-      const model = makeModel(["auth", "other", "other"], rules);
+      const baseModel = makeModel(["auth", "other", "other"], rules);
       const filterState = makeFilterState({ selectors: [selector] });
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const { model, sessionId } = withSession(baseModel, { p1: mode });
+      const result = FilterResolver.resolve(
+        filterState,
+        positions,
+        model,
+        sessionId,
+      );
       expect(result.hiddenPaths).not.toContain("svc.auth");
       expect(result.hiddenPaths).toContain("svc.other");
       expect(result.hiddenPaths).toContain("other");
     });
 
     it("1 | 2: hides paths matching neither rule", () => {
-      const { selector, rules } = makeSelectorWithFormula(
+      const { selector, rules, mode } = makeSelectorWithFormula(
         "p1",
         "hide",
         [{ path: "^a$" }, { path: "^b$" }],
         "1 | 2",
       );
       const positions = makePositions(["a", "b", "c"]);
-      const model = makeModel(["a", "b", "c"], rules);
+      const baseModel = makeModel(["a", "b", "c"], rules);
       const filterState = makeFilterState({ selectors: [selector] });
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const { model, sessionId } = withSession(baseModel, { p1: mode });
+      const result = FilterResolver.resolve(
+        filterState,
+        positions,
+        model,
+        sessionId,
+      );
       expect(result.hiddenPaths).not.toContain("a");
       expect(result.hiddenPaths).not.toContain("b");
       expect(result.hiddenPaths).toContain("c");
     });
   });
 
-  it("ignores selectors with mode=off", () => {
-    const filterState = makeFilterState({
-      selectors: [{ ...makeSelector("p1", "hide"), mode: "off" }],
-    });
+  it("ignores selectors when no active session (all default to off)", () => {
+    const filterState = makeFilterState({ selectors: [makeSelector("p1")] });
     const positions = makePositions(["a", "b"]);
     const model = makeModel(["a", "b"]);
-    const result = FilterResolver.resolve(filterState, positions, model);
+    const result = FilterResolver.resolve(filterState, positions, model, null);
     expect(result.hiddenPaths).toHaveLength(0);
   });
 
@@ -195,7 +231,6 @@ describe("FilterResolver.resolve", () => {
         positions,
         makeModel([]),
       );
-
       expect(result.foldedPaths).toContain("a");
       expect(result.foldedPaths).toContain("b");
       expect(result.foldedPaths).not.toContain("a.child");
@@ -284,32 +319,82 @@ describe("FilterResolver.equal", () => {
   });
 
   it("returns false when hidden paths differ", () => {
-    const a = { hiddenPaths: ["x"], dimmedPaths: [], foldedPaths: [], coloredPaths: {} };
-    const b = { hiddenPaths: ["y"], dimmedPaths: [], foldedPaths: [], coloredPaths: {} };
+    const a = {
+      hiddenPaths: ["x"],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
+    const b = {
+      hiddenPaths: ["y"],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
     expect(FilterResolver.equal(a, b)).toBe(false);
   });
 
   it("returns false when dimmed paths differ", () => {
-    const a = { hiddenPaths: [], dimmedPaths: ["x"], foldedPaths: [], coloredPaths: {} };
-    const b = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: {} };
+    const a = {
+      hiddenPaths: [],
+      dimmedPaths: ["x"],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
+    const b = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
     expect(FilterResolver.equal(a, b)).toBe(false);
   });
 
   it("returns false when folded paths differ", () => {
-    const a = { hiddenPaths: [], dimmedPaths: [], foldedPaths: ["x"], coloredPaths: {} };
-    const b = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: {} };
+    const a = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: ["x"],
+      coloredPaths: {},
+    };
+    const b = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
     expect(FilterResolver.equal(a, b)).toBe(false);
   });
 
   it("returns false when colored paths differ", () => {
-    const a = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: { a: "#ff0000" } };
-    const b = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: {} };
+    const a = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: { a: "#ff0000" },
+    };
+    const b = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
     expect(FilterResolver.equal(a, b)).toBe(false);
   });
 
   it("returns true for equal colored paths regardless of insertion order", () => {
-    const a = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: { b: "#0000ff", a: "#ff0000" } };
-    const b = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: { a: "#ff0000", b: "#0000ff" } };
+    const a = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: { b: "#0000ff", a: "#ff0000" },
+    };
+    const b = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: { a: "#ff0000", b: "#0000ff" },
+    };
     expect(FilterResolver.equal(a, b)).toBe(true);
   });
 
@@ -320,179 +405,272 @@ describe("FilterResolver.equal", () => {
       foldedPaths: [],
       coloredPaths: undefined as unknown as Record<string, string>,
     };
-    const b = { hiddenPaths: [], dimmedPaths: [], foldedPaths: [], coloredPaths: {} };
+    const b = {
+      hiddenPaths: [],
+      dimmedPaths: [],
+      foldedPaths: [],
+      coloredPaths: {},
+    };
     expect(FilterResolver.equal(a, b)).toBe(true);
   });
 });
 
 describe("FilterResolver.resolve — edge cases", () => {
-  it("active hide selector with empty formula treats all paths as unmatched (hidden)", () => {
-    const filterState: FilterState = {
+  it("hide selector with empty formula treats all paths as unmatched (hidden)", () => {
+    const filterState = makeFilterState({
       selectors: [
-        { id: "empty", label: "empty", mode: "hide", color: "#f00", expression: "" },
+        { id: "empty", label: "empty", color: "#f00", expression: "" },
       ],
-      foldLevel: 1,
-      foldActive: false,
-      manuallyFolded: [],
-      manuallyUnfolded: [],
-      _rev: 0,
-    };
+    });
     const positions = makePositions(["a"]);
-    const model = makeModel(["a"]);
-    const result = FilterResolver.resolve(filterState, positions, model);
+    const baseModel = makeModel(["a"]);
+    const { model, sessionId } = withSession(baseModel, { empty: "hide" });
+    const result = FilterResolver.resolve(
+      filterState,
+      positions,
+      model,
+      sessionId,
+    );
     expect(result.hiddenPaths).toContain("a");
   });
 
-  it("dim selector with a non-matching rule dims unmatched paths", () => {
-    const filterState: FilterState = {
-      selectors: [
-        { id: "p1", label: "p1", mode: "dim", color: "#f00", expression: "" },
-      ],
-      foldLevel: 1,
-      foldActive: false,
-      manuallyFolded: [],
-      manuallyUnfolded: [],
-      _rev: 0,
-    };
+  it("dim selector with empty formula dims all paths", () => {
+    const filterState = makeFilterState({
+      selectors: [{ id: "p1", label: "p1", color: "#f00", expression: "" }],
+    });
     const positions = makePositions(["x"]);
-    const model = makeModel(["x"]);
-    const result = FilterResolver.resolve(filterState, positions, model);
+    const baseModel = makeModel(["x"]);
+    const { model, sessionId } = withSession(baseModel, { p1: "dim" });
+    const result = FilterResolver.resolve(
+      filterState,
+      positions,
+      model,
+      sessionId,
+    );
     expect(result.dimmedPaths).toContain("x");
   });
 
   it("matchesSelector handles element not in model (type defaults to empty string)", () => {
-    const filterState: FilterState = {
-      selectors: [
-        { id: "p1", label: "p1", mode: "color", color: "#aabbcc", expression: "" },
-      ],
-      foldLevel: 1,
-      foldActive: false,
-      manuallyFolded: [],
-      manuallyUnfolded: [],
-      _rev: 0,
-    };
+    const filterState = makeFilterState({
+      selectors: [{ id: "p1", label: "p1", color: "#aabbcc", expression: "" }],
+    });
     const positions = makePositions(["ghost"]);
-    const model = makeModel([]);
-    const result = FilterResolver.resolve(filterState, positions, model);
+    const baseModel = makeModel([]);
+    const { model, sessionId } = withSession(baseModel, { p1: "color" });
+    const result = FilterResolver.resolve(
+      filterState,
+      positions,
+      model,
+      sessionId,
+    );
     expect(result).toBeDefined();
-  });
-
-  describe("selectionPattern matching", () => {
-    it("colors paths matching the selectionPattern regex", () => {
-      const filterState = makeFilterState({
-        selectors: [
-          {
-            id: "_selection",
-            label: "Selection",
-            mode: "color",
-            color: "#00aaff",
-            expression: "",
-            selectionPattern: "(^|\\.)myNode$",
-          },
-        ],
-      });
-      const positions = makePositions(["myNode", "other.myNode", "other"]);
-      const model = makeModel(["myNode", "myNode", "other"]);
-      const result = FilterResolver.resolve(filterState, positions, model);
-      expect(result.coloredPaths["myNode"]).toBe("#00aaff");
-      expect(result.coloredPaths["other.myNode"]).toBe("#00aaff");
-      expect(result.coloredPaths["other"]).toBeUndefined();
-    });
-
-    it("selectionPattern with invalid regex returns false (path not colored)", () => {
-      const filterState = makeFilterState({
-        selectors: [
-          {
-            id: "_selection",
-            label: "Selection",
-            mode: "color",
-            color: "#00aaff",
-            expression: "",
-            selectionPattern: "[invalid",
-          },
-        ],
-      });
-      const positions = makePositions(["a"]);
-      const model = makeModel(["a"]);
-      const result = FilterResolver.resolve(filterState, positions, model);
-      expect(result.coloredPaths["a"]).toBeUndefined();
-    });
-
-    it("selectionPattern takes precedence over expression-based matching", () => {
-      const rule = { id: "r1", patterns: { all: ".*" } };
-      const filterState = makeFilterState({
-        selectors: [
-          {
-            id: "sel",
-            label: "sel",
-            mode: "color",
-            color: "#ff0000",
-            expression: "r1",
-            selectionPattern: "^exact$",
-          },
-        ],
-      });
-      const positions = makePositions(["exact", "other"]);
-      const model = makeModel(["exact", "other"], [rule]);
-      const result = FilterResolver.resolve(filterState, positions, model);
-      expect(result.coloredPaths["exact"]).toBe("#ff0000");
-      expect(result.coloredPaths["other"]).toBeUndefined();
-    });
   });
 
   describe("element flags matching", () => {
     it("colors a path when element has a flag matching the selector id", () => {
       const positions = makePositions(["flagged", "plain"]);
-      const model = makeModel(["flagged", "plain"]);
-      model.elements["flagged"].flags = ["mysel"];
+      const baseModel = makeModel(["flagged", "plain"]);
+      baseModel.elements["flagged"].flags = ["mysel"];
       const filterState = makeFilterState({
         selectors: [
-          { id: "mysel", label: "mysel", mode: "color", color: "#abcdef", expression: "" },
+          { id: "mysel", label: "mysel", color: "#abcdef", expression: "" },
         ],
       });
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const { model, sessionId } = withSession(baseModel, { mysel: "color" });
+      const result = FilterResolver.resolve(
+        filterState,
+        positions,
+        model,
+        sessionId,
+      );
       expect(result.coloredPaths["flagged"]).toBe("#abcdef");
       expect(result.coloredPaths["plain"]).toBeUndefined();
     });
 
     it("matches a quoted flag with spaces against the slugified selector id", () => {
       const positions = makePositions(["flagged", "plain"]);
-      const model = makeModel(["flagged", "plain"]);
-      model.elements["flagged"].flags = ["My Selector"];
+      const baseModel = makeModel(["flagged", "plain"]);
+      baseModel.elements["flagged"].flags = ["My Selector"];
       const filterState = makeFilterState({
         selectors: [
-          { id: "my_selector", label: "My Selector", mode: "color", color: "#abcdef", expression: "" },
+          {
+            id: "my_selector",
+            label: "My Selector",
+            color: "#abcdef",
+            expression: "",
+          },
         ],
       });
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const { model, sessionId } = withSession(baseModel, {
+        my_selector: "color",
+      });
+      const result = FilterResolver.resolve(
+        filterState,
+        positions,
+        model,
+        sessionId,
+      );
       expect(result.coloredPaths["flagged"]).toBe("#abcdef");
       expect(result.coloredPaths["plain"]).toBeUndefined();
     });
 
     it("flags matching takes precedence over a non-matching expression", () => {
       const positions = makePositions(["flagged"]);
-      const model = makeModel(["flagged"]);
-      model.elements["flagged"].flags = ["sel"];
+      const baseModel = makeModel(["flagged"]);
+      baseModel.elements["flagged"].flags = ["sel"];
       const filterState = makeFilterState({
         selectors: [
-          { id: "sel", label: "sel", mode: "color", color: "#123456", expression: "nonexistent_rule" },
+          {
+            id: "sel",
+            label: "sel",
+            color: "#123456",
+            expression: "nonexistent_rule",
+          },
         ],
       });
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const { model, sessionId } = withSession(baseModel, { sel: "color" });
+      const result = FilterResolver.resolve(
+        filterState,
+        positions,
+        model,
+        sessionId,
+      );
       expect(result.coloredPaths["flagged"]).toBe("#123456");
     });
 
     it("does not match when element flags do not include the selector id", () => {
       const positions = makePositions(["a"]);
-      const model = makeModel(["a"]);
-      model.elements["a"].flags = ["other_sel"];
+      const baseModel = makeModel(["a"]);
+      baseModel.elements["a"].flags = ["other_sel"];
       const filterState = makeFilterState({
         selectors: [
-          { id: "sel", label: "sel", mode: "color", color: "#ff0000", expression: "" },
+          { id: "sel", label: "sel", color: "#ff0000", expression: "" },
         ],
       });
-      const result = FilterResolver.resolve(filterState, positions, model);
+      const { model, sessionId } = withSession(baseModel, { sel: "color" });
+      const result = FilterResolver.resolve(
+        filterState,
+        positions,
+        model,
+        sessionId,
+      );
       expect(result.coloredPaths["a"]).toBeUndefined();
+    });
+  });
+
+  describe("multi-session scenario: Default vs Remote", () => {
+    const SEL_COLOR = "#3773d5";
+
+    function buildModel(): DiagramModel {
+      const model = makeModel(["fsdfs", "sfs", "fsdfsd"]);
+      model.elements["sfs"].flags = ["Selection_remote"];
+      model.elements["fsdfsd"].flags = ["Selection_default"];
+      model.selectors = [
+        {
+          id: "selection_default",
+          label: "Selection_default",
+          expression: "",
+          color: SEL_COLOR,
+        },
+        {
+          id: "selection_remote",
+          label: "Selection_remote",
+          expression: "",
+          color: SEL_COLOR,
+        },
+      ];
+      model.sessions = [
+        {
+          id: "default",
+          label: "Default",
+          selectorModes: { selection_default: "color" },
+        },
+        {
+          id: "remote",
+          label: "Remote",
+          selectorModes: {
+            selection_default: "dim",
+            selection_remote: "color",
+          },
+        },
+      ];
+      return model;
+    }
+
+    function filterState(): FilterState {
+      return makeFilterState({
+        selectors: [
+          {
+            id: "selection_default",
+            label: "Selection_default",
+            expression: "",
+            color: SEL_COLOR,
+          },
+          {
+            id: "selection_remote",
+            label: "Selection_remote",
+            expression: "",
+            color: SEL_COLOR,
+          },
+        ],
+      });
+    }
+
+    it("default session: only colors elements flagged with Selection_default", () => {
+      const model = buildModel();
+      const positions = makePositions(["fsdfs", "sfs", "fsdfsd"]);
+      const result = FilterResolver.resolve(
+        filterState(),
+        positions,
+        model,
+        "default",
+      );
+      expect(result.coloredPaths["fsdfsd"]).toBe(SEL_COLOR);
+      expect(result.coloredPaths["sfs"]).toBeUndefined();
+      expect(result.coloredPaths["fsdfs"]).toBeUndefined();
+      expect(result.dimmedPaths).toHaveLength(0);
+      expect(result.hiddenPaths).toHaveLength(0);
+    });
+
+    it("remote session: dims elements not matching selection_default", () => {
+      const model = buildModel();
+      const positions = makePositions(["fsdfs", "sfs", "fsdfsd"]);
+      const result = FilterResolver.resolve(
+        filterState(),
+        positions,
+        model,
+        "remote",
+      );
+      expect(result.dimmedPaths).toContain("fsdfs");
+      expect(result.dimmedPaths).toContain("sfs");
+      expect(result.dimmedPaths).not.toContain("fsdfsd");
+    });
+
+    it("remote session: colors elements flagged with Selection_remote", () => {
+      const model = buildModel();
+      const positions = makePositions(["fsdfs", "sfs", "fsdfsd"]);
+      const result = FilterResolver.resolve(
+        filterState(),
+        positions,
+        model,
+        "remote",
+      );
+      expect(result.coloredPaths["sfs"]).toBe(SEL_COLOR);
+      expect(result.coloredPaths["fsdfs"]).toBeUndefined();
+      expect(result.coloredPaths["fsdfsd"]).toBeUndefined();
+    });
+
+    it("remote session: element matching selection_default is neither dimmed nor colored", () => {
+      const model = buildModel();
+      const positions = makePositions(["fsdfs", "sfs", "fsdfsd"]);
+      const result = FilterResolver.resolve(
+        filterState(),
+        positions,
+        model,
+        "remote",
+      );
+      expect(result.dimmedPaths).not.toContain("fsdfsd");
+      expect(result.coloredPaths["fsdfsd"]).toBeUndefined();
     });
   });
 });

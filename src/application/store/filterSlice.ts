@@ -1,26 +1,5 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { Selector, SelectorMode } from "../../domain/models/Selector";
-import { SELECTION_SELECTOR_ID } from "../../domain/models/Selector";
-
-function escapeForRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function buildSelectionSelector(ids: string[], color: string): Selector {
-  const escaped = ids.map(escapeForRegex);
-  const pattern =
-    ids.length === 1
-      ? `(^|\\.)${escaped[0]}$`
-      : `(^|\\.)(${escaped.join("|")})$`;
-  return {
-    id: SELECTION_SELECTOR_ID,
-    label: "Selection",
-    expression: "",
-    selectionPattern: pattern,
-    mode: "color",
-    color,
-  };
-}
+import type { Selector } from "../../domain/models/Selector";
 
 interface FilterState {
   selectors: Selector[];
@@ -39,8 +18,6 @@ const initialState: FilterState = {
   manuallyUnfolded: [],
   _rev: 0,
 };
-
-const MODE_CYCLE: SelectorMode[] = ["color", "dim", "hide", "off"];
 
 function swapSelectors(state: FilterState, id: string, dir: 1 | -1): void {
   const idx = state.selectors.findIndex((s) => s.id === id);
@@ -69,16 +46,6 @@ const filterSlice = createSlice({
     },
     removeSelector(state, { payload: id }: PayloadAction<string>) {
       state.selectors = state.selectors.filter((s) => s.id !== id);
-      state._rev++;
-    },
-    setSelectorMode(
-      state,
-      {
-        payload: { id, mode },
-      }: PayloadAction<{ id: string; mode: SelectorMode }>,
-    ) {
-      const sel = state.selectors.find((s) => s.id === id);
-      if (sel) sel.mode = mode;
       state._rev++;
     },
     setSelectorColor(
@@ -137,31 +104,8 @@ const filterSlice = createSlice({
     moveSelectorDown(state, { payload: id }: PayloadAction<string>) {
       swapSelectors(state, id, 1);
     },
-    cycleSelector(state, { payload: id }: PayloadAction<string>) {
-      const sel = state.selectors.find((s) => s.id === id);
-      if (!sel) return;
-      const idx = MODE_CYCLE.indexOf(sel.mode);
-      sel.mode = MODE_CYCLE[(idx + 1) % MODE_CYCLE.length];
-      state._rev++;
-    },
-
     syncSelectorsFromTab(state, { payload }: PayloadAction<Selector[]>) {
       state.selectors = payload;
-      state._rev++;
-    },
-
-    setSelectionSelector(
-      state,
-      {
-        payload: { ids, color },
-      }: PayloadAction<{ ids: string[]; color: string }>,
-    ) {
-      state.selectors = state.selectors.filter(
-        (s) => s.id !== SELECTION_SELECTOR_ID,
-      );
-      if (ids.length > 0) {
-        state.selectors.push(buildSelectionSelector(ids, color));
-      }
       state._rev++;
     },
 
@@ -222,7 +166,6 @@ export const {
   addSelector,
   updateSelector,
   removeSelector,
-  setSelectorMode,
   setSelectorColor,
   setFoldLevel,
   setFoldActive,
@@ -231,10 +174,8 @@ export const {
   clearFoldOverrides,
   moveSelectorUp,
   moveSelectorDown,
-  cycleSelector,
   syncSelectorsFromTab,
   restoreFilterState,
-  setSelectionSelector,
   syncSelectorsFromCode,
 } = filterSlice.actions;
 

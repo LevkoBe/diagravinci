@@ -6,6 +6,11 @@ import type { TokenInstance } from "./store/executionSlice";
 
 export type { TokenInstance };
 
+export interface RemovedTemplate {
+  rootId: string;
+  parentId: string;
+}
+
 export interface ExecutionStepDelta {
   addElements: Array<{
     element: Element;
@@ -29,26 +34,59 @@ export interface ExecutionStepDelta {
     toPath: string;
     newPosition: { x: number; y: number };
   }>;
+  hideFromParent: Array<{
+    elementId: string;
+    parentElementId: string;
+  }>;
 }
 
 export interface StepResult {
   delta: ExecutionStepDelta;
   nextInstances: TokenInstance[];
   nextInstanceId: number;
+  addSettledIds: string[];
+  removeSettledIds: string[];
+  addRemovedTemplates: RemovedTemplate[];
 }
 
 function isFlowRelationship(type: string): boolean {
   return type.includes(">") && !type.includes("|>");
 }
 
-function buildOutgoingMap(model: DiagramModel): Record<string, string[]> {
+type EffectiveRel = {
+  sourcePath: string;
+  targetPath: string;
+  type: string;
+  label?: string;
+};
+
+function buildOutgoingMap(rels: EffectiveRel[]): Record<string, string[]> {
   const outgoing: Record<string, string[]> = {};
-  for (const rel of Object.values(model.relationships)) {
+  for (const rel of rels) {
     if (!isFlowRelationship(rel.type)) continue;
-    if (!outgoing[rel.source]) outgoing[rel.source] = [];
-    outgoing[rel.source].push(rel.target);
+    if (!outgoing[rel.sourcePath]) outgoing[rel.sourcePath] = [];
+    outgoing[rel.sourcePath].push(rel.targetPath);
   }
   return outgoing;
+}
+
+function effectiveRels(
+  viewState: ViewState,
+  model: DiagramModel,
+): EffectiveRel[] {
+  if (viewState.relationships.length > 0) return viewState.relationships;
+  return Object.values(model.relationships).map((r) => ({
+    sourcePath: findElementPath(
+      viewState,
+      r.source.includes(".") ? r.source : leafId(r.source),
+    ),
+    targetPath: findElementPath(
+      viewState,
+      r.target.includes(".") ? r.target : leafId(r.target),
+    ),
+    type: r.type,
+    label: r.label,
+  }));
 }
 
 function findElementPath(viewState: ViewState, elementId: string): string {
@@ -160,7 +198,11 @@ function collectSubtreeRemoves(
   parentId: string,
   rootPath: string,
 ): Array<{ elementId: string; parentElementId: string; path: string }> {
-  const result: Array<{ elementId: string; parentElementId: string; path: string }> = [];
+  const result: Array<{
+    elementId: string;
+    parentElementId: string;
+    path: string;
+  }> = [];
   const queue: Array<{ id: string; parentId: string; path: string }> = [
     { id: rootId, parentId, path: rootPath },
   ];
@@ -182,7 +224,9 @@ function baseName(id: string): string {
 }
 
 function isGen(el: Element): boolean {
-  return el.type === "function" && (el.id === "gen" || el.id.startsWith("gen_"));
+  return (
+    el.type === "function" && (el.id === "gen" || el.id.startsWith("gen_"))
+  );
 }
 
 function isRoundRobin(el: Element): boolean {
@@ -248,8 +292,14 @@ export function computeExecutionStep(
   tickCount: number,
   nextInstanceId: number,
   executionColor: string,
+  settledCloneIds: string[] = [],
+  removedTemplates: RemovedTemplate[] = [],
 ): StepResult {
   void executionColor;
+
+  const addSettledIds: string[] = [];
+  const removeSettledIds: string[] = [];
+  const addRemovedTemplates: RemovedTemplate[] = [];
 
   const delta: ExecutionStepDelta = {
     addElements: [],
@@ -257,11 +307,13 @@ export function computeExecutionStep(
     removeElements: [],
     removeRelationshipIds: [],
     moveElements: [],
+    hideFromParent: [],
   };
   const nextInstances: TokenInstance[] = [];
   let idCounter = nextInstanceId;
 
-  const outgoing = buildOutgoingMap(model);
+  const allRels = effectiveRels(viewState, model);
+  const outgoing = buildOutgoingMap(allRels);
 
   function instanceRoundRobinIdx(instanceId: string): number {
     const m = instanceId.match(/(\d+)$/);
@@ -269,29 +321,23 @@ export function computeExecutionStep(
   }
 
   const allCloneIds = new Set<string>();
-  for (const inst of instances) {
-    for (const topId of inst.clonedElementIds) {
-      const bfsQ = [topId];
-      let bfsQi = 0;
-      while (bfsQi < bfsQ.length) {
-        const id = bfsQ[bfsQi++];
-        allCloneIds.add(id);
-        model.elements[id]?.childIds.forEach((c) => bfsQ.push(c));
-      }
+  for (const topId of [
+    ...settledCloneIds,
+    ...instances.flatMap((i) => i.clonedElementIds),
+  ]) {
+    const bfsQ = [topId];
+    let bfsQi = 0;
+    while (bfsQi < bfsQ.length) {
+      const id = bfsQ[bfsQi++];
+      allCloneIds.add(id);
+      model.elements[id]?.childIds.forEach((c) => bfsQ.push(c));
     }
   }
 
   function templateChildren(el: Element): string[] {
-    return el.childIds.filter((id) => !allCloneIds.has(id) && model.elements[id]);
-  }
-
-  const templateChildTypesCache = new Map<string, Set<string>>();
-  function templateChildTypes(el: Element): Set<string> {
-    const cached = templateChildTypesCache.get(el.id);
-    if (cached) return cached;
-    const types = new Set(templateChildren(el).map((id) => model.elements[id]!.type));
-    templateChildTypesCache.set(el.id, types);
-    return types;
+    return el.childIds.filter(
+      (id) => !allCloneIds.has(id) && model.elements[id],
+    );
   }
 
   const connectorSkipIds = new Set<string>();
@@ -304,9 +350,12 @@ export function computeExecutionStep(
       connectorGroups.set(instance.currentElementId, group);
     }
   }
-  for (const [elementId, group] of connectorGroups) {
+  for (const [, group] of connectorGroups) {
     for (const inst of group) connectorSkipIds.add(inst.id);
-    const targets = (outgoing[elementId] ?? []).filter((t) => model.elements[t]);
+    const connectorPath = group[0].currentPath;
+    const targets = (outgoing[connectorPath] ?? []).filter(
+      (t) => viewState.positions[t] !== undefined,
+    );
     const merged: TokenInstance = {
       id: group[0].id,
       currentElementId: group[0].currentElementId,
@@ -317,7 +366,14 @@ export function computeExecutionStep(
     if (targets.length === 0) {
       for (const inst of group) {
         for (const cloneId of inst.clonedElementIds)
-          delta.removeElements.push(...collectSubtreeRemoves(model, cloneId, inst.currentElementId, `${inst.currentPath}.${cloneId}`));
+          delta.removeElements.push(
+            ...collectSubtreeRemoves(
+              model,
+              cloneId,
+              inst.currentElementId,
+              `${inst.currentPath}.${cloneId}`,
+            ),
+          );
         for (const relId of inst.clonedRelationshipIds)
           delta.removeRelationshipIds.push(relId);
       }
@@ -329,21 +385,41 @@ export function computeExecutionStep(
         const from = allIds[ci];
         const to = allIds[(ci + 1) % allIds.length];
         const relId = `conn_${from}_to_${to}`;
-        delta.addRelationships.push({ id: relId, source: from, target: to, type: "-->" });
+        delta.addRelationships.push({
+          id: relId,
+          source: from,
+          target: to,
+          type: "-->",
+        });
         merged.clonedRelationshipIds.push(relId);
       }
     }
-    const nextTargetId = targets[0];
-    const nextTargetPath = findElementPath(viewState, nextTargetId);
-    const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
-    forwardInstance(merged, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+    const nextTargetPath = targets[0];
+    const nextTargetId =
+      viewState.positions[nextTargetPath]?.id ?? nextTargetPath;
+    const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? {
+      x: 0,
+      y: 0,
+    };
+    forwardInstance(
+      merged,
+      nextTargetId,
+      nextTargetPath,
+      nextTargetPos,
+      delta,
+      nextInstances,
+    );
   }
 
   const deduplicatorSeen = new Map<string, Set<string>>();
 
-  for (const instance of instances) {
+  for (let instance of instances) {
     if (connectorSkipIds.has(instance.id)) continue;
-    const currentEl = model.elements[instance.currentElementId];
+    const currentEl =
+      model.elements[
+        viewState.positions[instance.currentPath]?.id ??
+          instance.currentElementId
+      ];
 
     const removeInstanceClones = () => {
       for (const cloneId of instance.clonedElementIds) {
@@ -362,51 +438,195 @@ export function computeExecutionStep(
     };
 
     if (currentEl?.type === "object") {
-      for (const incomingId of instance.clonedElementIds) {
+      const anyHasSlot = instance.clonedElementIds.some((incomingId) => {
         const inBase = baseName(incomingId);
-        for (const childId of [...currentEl.childIds]) {
-          if (childId !== incomingId && baseName(childId) === inBase) {
+        return (
+          currentEl.childIds.some(
+            (cid) => !allCloneIds.has(cid) && baseName(cid) === inBase,
+          ) ||
+          removedTemplates.some(
+            (rt) =>
+              rt.parentId === currentEl.id && baseName(rt.rootId) === inBase,
+          )
+        );
+      });
+
+      if (anyHasSlot) {
+        for (const incomingId of instance.clonedElementIds) {
+          const inBase = baseName(incomingId);
+          const hasSlot =
+            currentEl.childIds.some(
+              (cid) => !allCloneIds.has(cid) && baseName(cid) === inBase,
+            ) ||
+            removedTemplates.some(
+              (rt) =>
+                rt.parentId === currentEl.id && baseName(rt.rootId) === inBase,
+            );
+          if (!hasSlot) {
             delta.removeElements.push(
               ...collectSubtreeRemoves(
+                model,
+                incomingId,
+                currentEl.id,
+                `${instance.currentPath}.${incomingId}`,
+              ),
+            );
+            continue;
+          }
+          for (const childId of [...currentEl.childIds]) {
+            if (childId === incomingId || baseName(childId) !== inBase)
+              continue;
+            if (allCloneIds.has(childId)) {
+              const removes = collectSubtreeRemoves(
                 model,
                 childId,
                 currentEl.id,
                 `${instance.currentPath}.${childId}`,
-              ),
-            );
+              );
+              delta.removeElements.push(...removes);
+              for (const { elementId } of removes)
+                removeSettledIds.push(elementId);
+            } else {
+              delta.hideFromParent.push({
+                elementId: childId,
+                parentElementId: currentEl.id,
+              });
+              addRemovedTemplates.push({
+                rootId: childId,
+                parentId: currentEl.id,
+              });
+            }
           }
+          addSettledIds.push(incomingId);
         }
+        for (const relId of instance.clonedRelationshipIds) {
+          delta.removeRelationshipIds.push(relId);
+        }
+        continue;
       }
-      for (const relId of instance.clonedRelationshipIds) {
-        delta.removeRelationshipIds.push(relId);
-      }
-      continue;
     }
 
-    const targets = (outgoing[instance.currentElementId] ?? []).filter(
-      (tid) => model.elements[tid] !== undefined,
+    const currentPath = instance.currentPath;
+    const targets = (outgoing[currentPath] ?? []).filter(
+      (t) => viewState.positions[t] !== undefined,
     );
+
+    if (currentEl?.type === "flow") {
+      const flowChildren = templateChildren(currentEl);
+      if (
+        flowChildren.length > 0 &&
+        (targets.length > 0 || (instance.pendingExits?.length ?? 0) > 0)
+      ) {
+        removeInstanceClones();
+        const suffix = String(idCounter++);
+        const { all: clonedItems, relationships: clonedRels } = cloneSubtree(
+          model,
+          flowChildren,
+          suffix,
+        );
+        const flowPos =
+          viewState.positions[currentPath]?.position ?? { x: 0, y: 0 };
+        const flowSize = viewState.positions[currentPath]?.size ?? 40;
+        for (const { element: el, parentCloneId } of clonedItems) {
+          const parentElementId = parentCloneId ?? currentEl.id;
+          const parentPath = parentCloneId
+            ? `${currentPath}.${parentCloneId}`
+            : currentPath;
+          delta.addElements.push({
+            element: el,
+            parentElementId,
+            path: `${parentPath}.${el.id}`,
+            posEntry: {
+              id: el.id,
+              position: flowPos,
+              size: Math.round(flowSize * 0.5),
+              value: 1,
+            },
+            spawnOriginId: currentEl.id,
+          });
+        }
+        for (const rel of clonedRels) delta.addRelationships.push(rel);
+        const topLevelCloneIds = clonedItems
+          .filter((c) => c.parentCloneId === null)
+          .map((c) => c.element.id);
+        instance = {
+          ...instance,
+          clonedElementIds: topLevelCloneIds,
+          clonedRelationshipIds: clonedRels.map((r) => r.id),
+        };
+      }
+    }
 
     if (targets.length === 0) {
       if (currentEl?.type === "collection" || currentEl?.type === "state") {
-        nextInstances.push(instance); // accumulate indefinitely
+        nextInstances.push(instance);
       } else {
-        removeInstanceClones();
-      }
-      continue;
-    }
-
-    if (currentEl?.type === "flow") {
-      const allowed = templateChildTypes(currentEl);
-      if (allowed.size > 0) {
-        const hasMatch = instance.clonedElementIds.some(
-          (cid) => allowed.has(model.elements[cid]?.type ?? ""),
+        let handled = false;
+        const deChildSrcs = Object.keys(outgoing).filter((k) =>
+          k.startsWith(currentPath + "."),
         );
-        if (!hasMatch) {
-          removeInstanceClones();
-          continue;
+        if (deChildSrcs.length > 0) {
+          const deChildDsts = new Set(
+            deChildSrcs.flatMap((k) =>
+              outgoing[k].filter((t) => t.startsWith(currentPath + ".")),
+            ),
+          );
+          const deChainEntry = deChildSrcs.find((s) => !deChildDsts.has(s));
+          if (deChainEntry && deChildDsts.size > 0) {
+            const firstSeg = deChainEntry
+              .slice(currentPath.length + 1)
+              .split(".")[0];
+            const effectiveDeEntry = `${currentPath}.${firstSeg}`;
+            const pushed = {
+              ...instance,
+              pendingExits: [
+                ...(instance.pendingExits ?? []),
+                { enteredAt: currentPath, exitTargets: [] as string[] },
+              ],
+            };
+            forwardInstance(
+              pushed,
+              viewState.positions[effectiveDeEntry]?.id ?? effectiveDeEntry,
+              effectiveDeEntry,
+              viewState.positions[effectiveDeEntry]?.position ?? {
+                x: 0,
+                y: 0,
+              },
+              delta,
+              nextInstances,
+            );
+            handled = true;
+          }
+        }
+        if (!handled) {
+          let cascaded = instance;
+          let forwarded = false;
+          while (cascaded.pendingExits?.length && !forwarded) {
+            const topExit =
+              cascaded.pendingExits[cascaded.pendingExits.length - 1];
+            const exitPath = topExit.exitTargets[0];
+            const popped = {
+              ...cascaded,
+              pendingExits: cascaded.pendingExits.slice(0, -1),
+            };
+            if (exitPath) {
+              forwardInstance(
+                popped,
+                viewState.positions[exitPath]?.id ?? exitPath,
+                exitPath,
+                viewState.positions[exitPath]?.position ?? { x: 0, y: 0 },
+                delta,
+                nextInstances,
+              );
+              forwarded = true;
+            } else {
+              cascaded = popped;
+            }
+          }
+          if (!forwarded) removeInstanceClones();
         }
       }
+      continue;
     }
 
     if (currentEl?.type === "choice" && targets.length > 1) {
@@ -417,7 +637,16 @@ export function computeExecutionStep(
 
       const compiledSelectors = selectors.map((s) => ({
         ...s,
-        regex: s.pattern === null ? null : (() => { try { return new RegExp(s.pattern!); } catch { return null; } })(),
+        regex:
+          s.pattern === null
+            ? null
+            : (() => {
+                try {
+                  return new RegExp(s.pattern!);
+                } catch {
+                  return null;
+                }
+              })(),
       }));
       const conditionMet =
         selectors.length === 0 ||
@@ -426,25 +655,38 @@ export function computeExecutionStep(
           return compiledSelectors.some((s) => {
             if (cloneEl?.type !== s.type) return false;
             if (s.pattern === null) return true;
-            return s.regex ? s.regex.test(baseName(cid)) : s.pattern === baseName(cid);
+            return s.regex
+              ? s.regex.test(baseName(cid))
+              : s.pattern === baseName(cid);
           });
         });
 
-      const choiceRels = Object.values(model.relationships).filter(
-        (r) => isFlowRelationship(r.type) && r.source === currentEl.id,
+      const choiceRels = allRels.filter(
+        (r) => isFlowRelationship(r.type) && r.sourcePath === currentPath,
       );
       const yesTarget =
-        choiceRels.find((r) => r.label?.toLowerCase() === "yes")?.target ??
+        choiceRels.find((r) => r.label?.toLowerCase() === "yes")?.targetPath ??
         targets[0];
       const noTarget =
-        choiceRels.find((r) => r.label?.toLowerCase() === "no")?.target ??
+        choiceRels.find((r) => r.label?.toLowerCase() === "no")?.targetPath ??
         targets[1] ??
         targets[0];
 
-      const nextTargetId = conditionMet ? yesTarget : noTarget;
-      const nextTargetPath = findElementPath(viewState, nextTargetId);
-      const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
-      forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+      const nextTargetPath = conditionMet ? yesTarget : noTarget;
+      const nextTargetId =
+        viewState.positions[nextTargetPath]?.id ?? nextTargetPath;
+      const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? {
+        x: 0,
+        y: 0,
+      };
+      forwardInstance(
+        instance,
+        nextTargetId,
+        nextTargetPath,
+        nextTargetPos,
+        delta,
+        nextInstances,
+      );
       continue;
     }
 
@@ -455,68 +697,137 @@ export function computeExecutionStep(
       }
 
       if (isRoundRobin(currentEl)) {
-        const nextTargetId = targets[instanceRoundRobinIdx(instance.id) % targets.length];
-        const nextTargetPath = findElementPath(viewState, nextTargetId);
-        const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
-        forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+        const nextTargetPath =
+          targets[instanceRoundRobinIdx(instance.id) % targets.length];
+        const nextTargetId =
+          viewState.positions[nextTargetPath]?.id ?? nextTargetPath;
+        const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? {
+          x: 0,
+          y: 0,
+        };
+        forwardInstance(
+          instance,
+          nextTargetId,
+          nextTargetPath,
+          nextTargetPos,
+          delta,
+          nextInstances,
+        );
         continue;
       }
 
       if (isMultiplier(currentEl)) {
         const n = multiplierCount(currentEl);
-        const nextTargetId = targets[0];
-        const nextTargetPath = findElementPath(viewState, nextTargetId);
-        const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
+        const nextTargetPath = targets[0];
+        const nextTargetId =
+          viewState.positions[nextTargetPath]?.id ?? nextTargetPath;
+        const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? {
+          x: 0,
+          y: 0,
+        };
         const nextTargetSize = viewState.positions[nextTargetPath]?.size ?? 40;
-        forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+        forwardInstance(
+          instance,
+          nextTargetId,
+          nextTargetPath,
+          nextTargetPos,
+          delta,
+          nextInstances,
+        );
         for (let i = 1; i < n; i++) {
           const suffix = String(idCounter++);
           const { all: clonedItems, relationships: clonedRels } = cloneSubtree(
-            model, instance.clonedElementIds, suffix,
+            model,
+            instance.clonedElementIds,
+            suffix,
           );
           for (const { element: el, parentCloneId } of clonedItems) {
             const parentElementId = parentCloneId ?? nextTargetId;
-            const parentPath = parentCloneId ? `${nextTargetPath}.${parentCloneId}` : nextTargetPath;
+            const parentPath = parentCloneId
+              ? `${nextTargetPath}.${parentCloneId}`
+              : nextTargetPath;
             delta.addElements.push({
-              element: el, parentElementId,
+              element: el,
+              parentElementId,
               path: `${parentPath}.${el.id}`,
-              posEntry: { id: el.id, position: { x: nextTargetPos.x + i * 6, y: nextTargetPos.y + i * 6 }, size: Math.round(nextTargetSize * 0.5), value: 1 },
+              posEntry: {
+                id: el.id,
+                position: {
+                  x: nextTargetPos.x + i * 6,
+                  y: nextTargetPos.y + i * 6,
+                },
+                size: Math.round(nextTargetSize * 0.5),
+                value: 1,
+              },
               spawnOriginId: instance.currentElementId,
             });
           }
           for (const rel of clonedRels) delta.addRelationships.push(rel);
-          const topLevelCloneIds = clonedItems.filter(c => c.parentCloneId === null).map(c => c.element.id);
-          nextInstances.push({ id: `inst_${idCounter++}`, currentElementId: nextTargetId, currentPath: nextTargetPath, clonedElementIds: topLevelCloneIds, clonedRelationshipIds: clonedRels.map(r => r.id) });
+          const topLevelCloneIds = clonedItems
+            .filter((c) => c.parentCloneId === null)
+            .map((c) => c.element.id);
+          nextInstances.push({
+            id: `inst_${idCounter++}`,
+            currentElementId: nextTargetId,
+            currentPath: nextTargetPath,
+            clonedElementIds: topLevelCloneIds,
+            clonedRelationshipIds: clonedRels.map((r) => r.id),
+          });
         }
         continue;
       }
 
       if (isDuplicator(currentEl)) {
         for (let ti = 0; ti < targets.length; ti++) {
-          const targetId = targets[ti];
-          const targetPath = findElementPath(viewState, targetId);
-          const targetPos = viewState.positions[targetPath]?.position ?? { x: 0, y: 0 };
+          const targetPath = targets[ti];
+          const targetId = viewState.positions[targetPath]?.id ?? targetPath;
+          const targetPos = viewState.positions[targetPath]?.position ?? {
+            x: 0,
+            y: 0,
+          };
           const targetSize = viewState.positions[targetPath]?.size ?? 40;
           if (ti === 0) {
-            forwardInstance(instance, targetId, targetPath, targetPos, delta, nextInstances);
+            forwardInstance(
+              instance,
+              targetId,
+              targetPath,
+              targetPos,
+              delta,
+              nextInstances,
+            );
           } else {
             const suffix = String(idCounter++);
-            const { all: clonedItems, relationships: clonedRels } = cloneSubtree(
-              model, instance.clonedElementIds, suffix,
-            );
+            const { all: clonedItems, relationships: clonedRels } =
+              cloneSubtree(model, instance.clonedElementIds, suffix);
             for (const { element: el, parentCloneId } of clonedItems) {
               const parentElementId = parentCloneId ?? targetId;
-              const parentPath = parentCloneId ? `${targetPath}.${parentCloneId}` : targetPath;
+              const parentPath = parentCloneId
+                ? `${targetPath}.${parentCloneId}`
+                : targetPath;
               delta.addElements.push({
-                element: el, parentElementId,
+                element: el,
+                parentElementId,
                 path: `${parentPath}.${el.id}`,
-                posEntry: { id: el.id, position: targetPos, size: Math.round(targetSize * 0.5), value: 1 },
+                posEntry: {
+                  id: el.id,
+                  position: targetPos,
+                  size: Math.round(targetSize * 0.5),
+                  value: 1,
+                },
                 spawnOriginId: instance.currentElementId,
               });
             }
             for (const rel of clonedRels) delta.addRelationships.push(rel);
-            const topLevelCloneIds = clonedItems.filter(c => c.parentCloneId === null).map(c => c.element.id);
-            nextInstances.push({ id: `inst_${idCounter++}`, currentElementId: targetId, currentPath: targetPath, clonedElementIds: topLevelCloneIds, clonedRelationshipIds: clonedRels.map(r => r.id) });
+            const topLevelCloneIds = clonedItems
+              .filter((c) => c.parentCloneId === null)
+              .map((c) => c.element.id);
+            nextInstances.push({
+              id: `inst_${idCounter++}`,
+              currentElementId: targetId,
+              currentPath: targetPath,
+              clonedElementIds: topLevelCloneIds,
+              clonedRelationshipIds: clonedRels.map((r) => r.id),
+            });
           }
         }
         continue;
@@ -530,10 +841,19 @@ export function computeExecutionStep(
           removeInstanceClones();
         } else {
           seen.add(tokenBase);
-          const nextTargetId = targets[0];
-          const nextTargetPath = findElementPath(viewState, nextTargetId);
-          const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
-          forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+          const nextTargetPath = targets[0];
+          const nextTargetId =
+            viewState.positions[nextTargetPath]?.id ?? nextTargetPath;
+          const nextTargetPos = viewState.positions[nextTargetPath]
+            ?.position ?? { x: 0, y: 0 };
+          forwardInstance(
+            instance,
+            nextTargetId,
+            nextTargetPath,
+            nextTargetPos,
+            delta,
+            nextInstances,
+          );
         }
         continue;
       }
@@ -541,11 +861,22 @@ export function computeExecutionStep(
       if (isDisconnector(currentEl)) {
         for (const relId of instance.clonedRelationshipIds)
           delta.removeRelationshipIds.push(relId);
-        const nextTargetId = targets[0];
-        const nextTargetPath = findElementPath(viewState, nextTargetId);
-        const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
+        const nextTargetPath = targets[0];
+        const nextTargetId =
+          viewState.positions[nextTargetPath]?.id ?? nextTargetPath;
+        const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? {
+          x: 0,
+          y: 0,
+        };
         if (instance.clonedElementIds.length <= 1) {
-          forwardInstance({ ...instance, clonedRelationshipIds: [] }, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+          forwardInstance(
+            { ...instance, clonedRelationshipIds: [] },
+            nextTargetId,
+            nextTargetPath,
+            nextTargetPos,
+            delta,
+            nextInstances,
+          );
         } else {
           for (const cloneId of instance.clonedElementIds) {
             delta.moveElements.push({
@@ -573,37 +904,140 @@ export function computeExecutionStep(
         if (tickCount % n !== 0) {
           removeInstanceClones();
         } else {
-          const nextTargetId = targets[0];
-          const nextTargetPath = findElementPath(viewState, nextTargetId);
-          const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
-          forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+          const nextTargetPath = targets[0];
+          const nextTargetId =
+            viewState.positions[nextTargetPath]?.id ?? nextTargetPath;
+          const nextTargetPos = viewState.positions[nextTargetPath]
+            ?.position ?? { x: 0, y: 0 };
+          forwardInstance(
+            instance,
+            nextTargetId,
+            nextTargetPath,
+            nextTargetPos,
+            delta,
+            nextInstances,
+          );
         }
         continue;
       }
 
-      const nextTargetId = targets[0];
-      const nextTargetPath = findElementPath(viewState, nextTargetId);
-      const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
-      forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+      const topExit = instance.pendingExits?.[instance.pendingExits.length - 1];
+      if (topExit) {
+        const scopedNext = (outgoing[currentPath] ?? []).find((t) =>
+          t.startsWith(topExit.enteredAt + "."),
+        );
+        if (scopedNext) {
+          forwardInstance(
+            instance,
+            viewState.positions[scopedNext]?.id ?? scopedNext,
+            scopedNext,
+            viewState.positions[scopedNext]?.position ?? { x: 0, y: 0 },
+            delta,
+            nextInstances,
+          );
+          continue;
+        }
+        const exitPath = topExit.exitTargets[0];
+        const popped = {
+          ...instance,
+          pendingExits: instance.pendingExits!.slice(0, -1),
+        };
+        if (exitPath) {
+          forwardInstance(
+            popped,
+            viewState.positions[exitPath]?.id ?? exitPath,
+            exitPath,
+            viewState.positions[exitPath]?.position ?? { x: 0, y: 0 },
+            delta,
+            nextInstances,
+          );
+        } else {
+          removeInstanceClones();
+        }
+        continue;
+      }
+
+      const childSrcs = Object.keys(outgoing).filter((k) =>
+        k.startsWith(currentPath + "."),
+      );
+      if (childSrcs.length > 0 && targets.length > 0) {
+        const childDsts = new Set(
+          childSrcs.flatMap((k) =>
+            outgoing[k].filter((t) => t.startsWith(currentPath + ".")),
+          ),
+        );
+        const chainEntry = childSrcs.find((s) => !childDsts.has(s));
+        if (chainEntry && childDsts.size > 0) {
+          const firstSeg = chainEntry
+            .slice(currentPath.length + 1)
+            .split(".")[0];
+          const effectiveEntry = `${currentPath}.${firstSeg}`;
+          const pushed = {
+            ...instance,
+            pendingExits: [
+              ...(instance.pendingExits ?? []),
+              { enteredAt: currentPath, exitTargets: targets },
+            ],
+          };
+          forwardInstance(
+            pushed,
+            viewState.positions[effectiveEntry]?.id ?? effectiveEntry,
+            effectiveEntry,
+            viewState.positions[effectiveEntry]?.position ?? { x: 0, y: 0 },
+            delta,
+            nextInstances,
+          );
+          continue;
+        }
+      }
+
+      const nextTargetPath = targets[0];
+      const nextTargetId =
+        viewState.positions[nextTargetPath]?.id ?? nextTargetPath;
+      const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? {
+        x: 0,
+        y: 0,
+      };
+      forwardInstance(
+        instance,
+        nextTargetId,
+        nextTargetPath,
+        nextTargetPos,
+        delta,
+        nextInstances,
+      );
       continue;
     }
 
-    const nextTargetId = targets[0];
-    const nextTargetPath = findElementPath(viewState, nextTargetId);
-    const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? { x: 0, y: 0 };
-    forwardInstance(instance, nextTargetId, nextTargetPath, nextTargetPos, delta, nextInstances);
+    const nextTargetPath = targets[0];
+    const nextTargetId =
+      viewState.positions[nextTargetPath]?.id ?? nextTargetPath;
+    const nextTargetPos = viewState.positions[nextTargetPath]?.position ?? {
+      x: 0,
+      y: 0,
+    };
+    forwardInstance(
+      instance,
+      nextTargetId,
+      nextTargetPath,
+      nextTargetPos,
+      delta,
+      nextInstances,
+    );
   }
 
   for (const element of Object.values(model.elements)) {
     if (!isGen(element)) continue;
 
-    const targets = outgoing[element.id] ?? [];
+    const genPath = findElementPath(viewState, element.id);
+    const targets = outgoing[genPath] ?? [];
     if (targets.length === 0) continue;
 
     let tmplChildIds = templateChildren(element);
     if (tmplChildIds.length === 0) {
-      const firstTarget = model.elements[targets[0]];
-      if (firstTarget) tmplChildIds = templateChildren(firstTarget);
+      const firstTargetEl =
+        model.elements[viewState.positions[targets[0]]?.id ?? targets[0]];
+      if (firstTargetEl) tmplChildIds = templateChildren(firstTargetEl);
     }
     if (tmplChildIds.length === 0) continue;
 
@@ -616,9 +1050,12 @@ export function computeExecutionStep(
       );
 
       const targetIdx = parseInt(suffix, 10) % targets.length;
-      const targetId = targets[targetIdx];
-      const targetPath = findElementPath(viewState, targetId);
-      const targetPos = viewState.positions[targetPath]?.position ?? { x: 0, y: 0 };
+      const targetPath = targets[targetIdx];
+      const targetId = viewState.positions[targetPath]?.id ?? targetPath;
+      const targetPos = viewState.positions[targetPath]?.position ?? {
+        x: 0,
+        y: 0,
+      };
       const targetSize = viewState.positions[targetPath]?.size ?? 40;
 
       const idx = parseInt(suffix, 10);
@@ -662,17 +1099,67 @@ export function computeExecutionStep(
     }
   }
 
-  return { delta, nextInstances, nextInstanceId: idCounter };
+  return {
+    delta,
+    nextInstances,
+    nextInstanceId: idCounter,
+    addSettledIds,
+    removeSettledIds,
+    addRemovedTemplates,
+  };
+}
+
+export function computeCloneDuplicateHiddenPaths(
+  instances: TokenInstance[],
+  model: DiagramModel,
+): string[] {
+  if (instances.length === 0) return [];
+
+  const allPaths = new Map<string, string[]>();
+  function collectPaths(
+    elementId: string,
+    path: string,
+    visited: Set<string>,
+  ): void {
+    if (visited.has(elementId)) return;
+    const existing = allPaths.get(elementId);
+    if (existing) existing.push(path);
+    else allPaths.set(elementId, [path]);
+    const el = model.elements[elementId];
+    if (!el) return;
+    visited.add(elementId);
+    for (const childId of el.childIds) {
+      collectPaths(childId, `${path}.${childId}`, visited);
+    }
+    visited.delete(elementId);
+  }
+  for (const id of model.root.childIds) collectPaths(id, id, new Set());
+
+  const hidden: string[] = [];
+  for (const inst of instances) {
+    for (const cloneId of inst.clonedElementIds) {
+      const correctPath = `${inst.currentPath}.${cloneId}`;
+      for (const clonePath of allPaths.get(cloneId) ?? []) {
+        if (clonePath !== correctPath) hidden.push(clonePath);
+      }
+    }
+  }
+  return hidden;
 }
 
 export function getExecutionColorMap(
   instances: TokenInstance[],
+  model: DiagramModel,
   color: string,
 ): Record<string, string> {
   const map: Record<string, string> = {};
   for (const inst of instances) {
-    for (const id of inst.clonedElementIds) {
+    const bfsQ = [...inst.clonedElementIds];
+    let bfsQi = 0;
+    while (bfsQi < bfsQ.length) {
+      const id = bfsQ[bfsQi++];
       map[id] = color;
+      model.elements[id]?.childIds.forEach((c) => bfsQ.push(c));
     }
   }
   return map;
@@ -724,12 +1211,20 @@ export function applyDeltaToModel(
     }
   }
 
+  for (const { elementId, parentElementId } of delta.hideFromParent) {
+    const parent = elements[parentElementId];
+    if (parent) {
+      parent.childIds = parent.childIds.filter((c) => c !== elementId);
+    }
+  }
+
   return { ...model, root, elements, relationships };
 }
 
 export function buildCleanedModel(
   model: DiagramModel,
   instances: TokenInstance[],
+  removedTemplates: RemovedTemplate[] = [],
 ): DiagramModel {
   const elements: Record<string, Element> = {};
   for (const [id, el] of Object.entries(model.elements)) {
@@ -738,12 +1233,26 @@ export function buildCleanedModel(
   const relationships = { ...model.relationships };
   const root = { ...model.root, childIds: [...model.root.childIds] };
 
+  for (const { rootId, parentId } of removedTemplates) {
+    const parent = elements[parentId];
+    if (parent && !parent.childIds.includes(rootId)) {
+      parent.childIds = [...parent.childIds, rootId];
+    }
+  }
+
   for (const instance of instances) {
     for (const cloneId of instance.clonedElementIds) {
-      delete elements[cloneId];
-      const parent = elements[instance.currentElementId];
-      if (parent) {
-        parent.childIds = parent.childIds.filter((c) => c !== cloneId);
+      const removes = collectSubtreeRemoves(
+        { ...model, elements } as DiagramModel,
+        cloneId,
+        instance.currentElementId,
+        cloneId,
+      );
+      for (const { elementId, parentElementId } of removes) {
+        delete elements[elementId];
+        const parent = elements[parentElementId];
+        if (parent)
+          parent.childIds = parent.childIds.filter((c) => c !== elementId);
       }
     }
     for (const relId of instance.clonedRelationshipIds) {

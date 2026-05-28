@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toSelectorId, FOLD_SELECTOR_ID, SELECTION_SELECTOR_ID } from "../../domain/models/Selector";
+import { toSelectorId, FOLD_SELECTOR_ID } from "../../domain/models/Selector";
 
 describe("toSelectorId", () => {
   it("converts a plain label to lowercase slug", () => {
@@ -41,12 +41,8 @@ describe("selector constants", () => {
     expect(FOLD_SELECTOR_ID.length).toBeGreaterThan(0);
   });
 
-  it("SELECTION_SELECTOR_ID is a non-empty string", () => {
-    expect(typeof SELECTION_SELECTOR_ID).toBe("string");
-    expect(SELECTION_SELECTOR_ID.length).toBeGreaterThan(0);
-  });
-
-  it("FOLD_SELECTOR_ID and SELECTION_SELECTOR_ID are distinct", () => {
-    expect(FOLD_SELECTOR_ID).not.toBe(SELECTION_SELECTOR_ID);
+  it("FOLD_SELECTOR_ID is a non-empty string", () => {
+    expect(typeof FOLD_SELECTOR_ID).toBe("string");
+    expect(FOLD_SELECTOR_ID.length).toBeGreaterThan(0);
   });
 });

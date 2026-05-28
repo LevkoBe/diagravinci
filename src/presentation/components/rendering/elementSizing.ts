@@ -42,7 +42,7 @@ export function computeElementSizes(
       viewState.positions[path]?.size ?? syntheticWorldSize;
     const screenSize = actualVisibleSize * zoom;
 
-    if (screenSize < MIN_SCREEN_PX && path.includes(".")) {
+    if (screenSize < MIN_SCREEN_PX) {
       zoomHidden.add(path);
       return;
     }

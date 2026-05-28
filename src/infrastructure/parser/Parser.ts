@@ -26,6 +26,7 @@ import type {
   Rule,
   Selector,
   SelectorMode,
+  Session,
 } from "../../domain/models/Selector";
 import { toSelectorId } from "../../domain/models/Selector";
 
@@ -83,7 +84,7 @@ export class Parser {
   private validationErrors: string[] = [];
 
   constructor(tokens: Token[]) {
-    this.tokens = tokens.filter((t) => t.type !== "NEWLINE");
+    this.tokens = tokens;
     this.model = createEmptyDiagram();
   }
 
@@ -111,9 +112,22 @@ export class Parser {
     let lastElWasWrapped = false;
 
     while (this.peek() && this.peek()!.type !== WRAPPERS[wrapper].close) {
+      if (this.peek()!.type === "NEWLINE") {
+        this.next();
+        if (lastRel) {
+          const src = this.model.elements[lastRel.source];
+          if (src?.type === "flow") {
+            this.cancelRelationship(lastRel.id);
+            lastRel = null;
+          }
+        }
+        lastElWasWrapped = false;
+        continue;
+      }
       switch (this.peek()?.kind) {
-        case "}":
-          if (this.peek()?.type === "|") {
+        case "}": {
+          const peekType = this.peek()?.type;
+          if (peekType === "|") {
             lastEl = this.parseOpeningWrapper(
               parent,
               parentPath,
@@ -121,20 +135,21 @@ export class Parser {
               lastEl,
               depth,
               "|",
+              lastElWasWrapped,
             );
-            lastPath = lastEl.id;
+            lastPath = parentPath ? `${parentPath}.${lastEl.id}` : lastEl.id;
             lastRel = null;
             lastElWasWrapped = true;
             break;
           }
-          if (this.peek()?.type !== ">") {
+          if (peekType !== ">") {
             this.next();
             lastEl = null;
             lastPath = null;
             lastElWasWrapped = false;
             break;
           }
-          if (lastEl !== null && lastRel === null && !lastElWasWrapped) {
+          if (lastEl !== null && lastRel === null && !lastElWasWrapped && (lastEl.type === "object" || lastEl.type === "flow")) {
             lastEl = this.parseOpeningWrapper(
               parent,
               parentPath,
@@ -143,8 +158,8 @@ export class Parser {
               depth,
               ">",
             );
-            lastPath = lastEl.id;
-            lastRel = null;
+            lastPath = parentPath ? `${parentPath}.${lastEl.id}` : lastEl.id;
+            lastRel = this.createRelationship(lastPath, "..>");
             lastElWasWrapped = true;
           } else if (lastRel === null && lastPath === null) {
             lastEl = this.parseOpeningWrapper(
@@ -155,11 +170,11 @@ export class Parser {
               depth,
               ">",
             );
-            lastPath = lastEl.id;
-            lastRel = this.createRelationship(lastEl.id);
+            lastPath = parentPath ? `${parentPath}.${lastEl.id}` : lastEl.id;
+            lastRel = this.createRelationship(lastPath, "..>");
             lastElWasWrapped = true;
           } else {
-            lastRel = lastRel ?? this.createRelationship(lastPath ?? parent.id);
+            lastRel = lastRel ?? this.createRelationship(lastPath ?? parent.id, "..>");
             lastEl = this.parseOpeningWrapper(
               parent,
               parentPath,
@@ -168,11 +183,12 @@ export class Parser {
               depth,
               ">",
             );
-            lastPath = lastEl.id;
-            lastRel = this.createRelationship(lastEl.id);
+            lastPath = parentPath ? `${parentPath}.${lastEl.id}` : lastEl.id;
+            lastRel = this.createRelationship(lastPath, "..>");
             lastElWasWrapped = true;
           }
           break;
+        }
         case "{": {
           lastEl = this.parseOpeningWrapper(
             parent,
@@ -180,15 +196,18 @@ export class Parser {
             lastRel,
             lastEl,
             depth,
+            undefined,
+            lastElWasWrapped,
           );
-          lastPath = lastEl.id;
+          lastPath = parentPath ? `${parentPath}.${lastEl.id}` : lastEl.id;
           lastRel = null;
           lastElWasWrapped = true;
           break;
         }
         case "-":
         case ">": {
-          lastRel = this.parseRelationship(lastPath ?? parent.id, lastRel);
+          const scope = wrapper === "(" ? parent.id : undefined;
+          lastRel = this.parseRelationship(lastPath ?? parent.id, lastRel, scope);
           lastEl = null;
           lastPath = null;
           lastElWasWrapped = false;
@@ -228,8 +247,10 @@ export class Parser {
                 );
               }
               lastRel = null;
-              lastEl = null;
-              lastPath = null;
+              lastPath = resolved ?? null;
+              lastEl = resolved
+                ? (this.model.elements[resolved.split(".").pop()!] ?? null)
+                : null;
               lastElWasWrapped = false;
             } else {
               lastPath = resolved;
@@ -244,15 +265,24 @@ export class Parser {
           } else {
             const existedBefore = !!this.model.elements[tokenValue];
             lastEl = this.parseElement(WRAPPERS[wrapper].defaultChildType);
+            const localPath: string = parentPath
+              ? `${parentPath}.${lastEl.id}`
+              : lastEl.id;
+            if (
+              !lastRel &&
+              lastPath !== null &&
+              lastPath !== lastEl.id &&
+              this.peek()?.type === ">"
+            ) {
+              const implRel = this.createRelationship(lastPath, "..>");
+              this.updateRelationship(implRel.id, localPath);
+            }
             const isRelSource =
               !lastRel &&
               (this.peek()?.kind === "-" || this.peek()?.kind === ">");
             const isRelTarget = !!lastRel;
             const inRelContext = isRelSource || isRelTarget;
 
-            const localPath = parentPath
-              ? `${parentPath}.${lastEl.id}`
-              : lastEl.id;
             lastPath = inRelContext && !existedBefore ? localPath : lastEl.id;
 
             if (isRelTarget) {
@@ -260,7 +290,7 @@ export class Parser {
               lastRel = null;
             }
 
-            if (!inRelContext || !existedBefore) {
+            if (!inRelContext || !existedBefore || (isRelSource && parentPath === "")) {
               if (!parent.childIds.includes(lastEl.id))
                 parent.childIds.push(lastEl.id);
             }
@@ -273,7 +303,9 @@ export class Parser {
           break;
       }
     }
-    if (lastRel) this.updateRelationship(lastRel.id, parent.id);
+    if (lastRel) {
+      this.updateRelationship(lastRel.id, "_");
+    }
     this.next();
   }
 
@@ -284,15 +316,16 @@ export class Parser {
     lastEl: Element | null,
     depth: number,
     nextToken?: OpeningWrapper,
+    preserveType = false,
   ): Element {
     const next = this.next();
     nextToken = nextToken ?? defaultOpeningWrapper(next?.type);
 
-    if (!lastEl) lastEl = this.createElement(this.genId(parent, "anon"));
-    if (lastRel) this.updateRelationship(lastRel.id, lastEl.id);
-    lastEl.type = WRAPPERS[nextToken].type;
-
+    if (!lastEl) lastEl = this.createElement(this.genId());
+    if (!preserveType) lastEl.type = WRAPPERS[nextToken].type;
     const childPath = parentPath ? `${parentPath}.${lastEl.id}` : lastEl.id;
+    if (lastRel) this.updateRelationship(lastRel.id, childPath);
+
     this.parseContents(lastEl, childPath, nextToken, depth + 1);
     if (!parent.childIds.includes(lastEl.id)) parent.childIds.push(lastEl.id);
     return lastEl;
@@ -311,6 +344,7 @@ export class Parser {
   private parseRelationship = (
     sourcePath: string,
     lastRel: Relationship | null,
+    parentScope?: string,
   ): Relationship => {
     let label: string | undefined = undefined;
     let relType: TokenType | undefined = undefined;
@@ -337,6 +371,7 @@ export class Parser {
       defaultRelationshipType(relType),
       sourcePath,
       label,
+      parentScope,
     );
   };
 
@@ -386,6 +421,7 @@ export class Parser {
     const type = parts[0];
     if (type === "atom" || type === "rule") this.parseRuleDirective(parts);
     else if (type === "selector") this.parseSelectorDirective(parts);
+    else if (type === "session") this.parseSessionDirective(parts);
   }
 
   private parseRuleDirective(parts: string[]): void {
@@ -407,22 +443,46 @@ export class Parser {
     const name = kvs["name"];
     if (!name) return;
 
-    const rawMode = kvs["mode"];
-    const mode: SelectorMode = (VALID_MODES as string[]).includes(rawMode ?? "")
-      ? (rawMode as SelectorMode)
-      : "color";
-
     const id = toSelectorId(name);
     const selector: Selector = {
       id,
       label: name,
       expression: kvs["expression"] ?? kvs["formula"] ?? kvs["combiner"] ?? "",
-      mode,
       color: kvs["color"] ?? "#888888",
     };
 
     if (!(this.model.selectors ?? []).some((s) => s.id === id)) {
       (this.model.selectors ??= []).push(selector);
+    }
+  }
+
+  private parseSessionDirective(parts: string[]): void {
+    const kvs = parseKVs(parts, 1);
+    const id = kvs["id"];
+    if (!id) return;
+
+    const label = kvs["label"] ?? id;
+    const selectorModes: Record<string, SelectorMode> = {};
+
+    const selectorsRaw = kvs["selectors"] ?? "";
+    if (selectorsRaw) {
+      for (const entry of selectorsRaw.split(",")) {
+        const colonIdx = entry.lastIndexOf(":");
+        if (colonIdx < 0) continue;
+        const selectorId = entry.slice(0, colonIdx).trim();
+        const rawMode = entry.slice(colonIdx + 1).trim();
+        if (selectorId && (VALID_MODES as string[]).includes(rawMode)) {
+          selectorModes[selectorId] = rawMode as SelectorMode;
+        }
+      }
+    }
+
+    const session: Session = { id, label, selectorModes };
+    const existingIdx = (this.model.sessions ?? []).findIndex((s) => s.id === id);
+    if (existingIdx >= 0) {
+      this.model.sessions![existingIdx] = session;
+    } else {
+      (this.model.sessions ??= []).push(session);
     }
   }
 
@@ -463,13 +523,15 @@ export class Parser {
     type: RelationshipType = "-->",
     target: string = "",
     label: string = "",
+    parentScope?: string,
   ): Relationship {
     const rel = createRelationship(
-      this.genId(null, "rel"),
+      this.genId("rel"),
       source,
       target,
       type,
       label,
+      parentScope,
     );
     this.model.relationships[rel.id] = rel;
     return rel;
@@ -481,8 +543,6 @@ export class Parser {
   private nextLike = (pattern: string) =>
     pattern.split("").every((k, i) => this.peek(i)?.kind === k);
 
-  private genId = (parent: Element | null, prefix: string = "anon") =>
-    parent
-      ? `${prefix}_${parent.childIds.length + 1}`
-      : `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  private idCount = 0;
+  private genId = (prefix = "anon") => `${prefix}_${++this.idCount}`;
 }

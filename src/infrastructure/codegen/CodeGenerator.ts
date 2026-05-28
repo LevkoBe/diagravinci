@@ -1,5 +1,6 @@
 import type { DiagramModel } from "../../domain/models/DiagramModel";
-import type { Rule, Selector } from "../../domain/models/Selector";
+import { DEFAULT_SESSION_ID } from "../../domain/models/DiagramModel";
+import type { Rule, Selector, Session } from "../../domain/models/Selector";
 import {
   createElement,
   type Element,
@@ -36,25 +37,35 @@ export class CodeGenerator {
     for (const selector of this.model.selectors ?? [])
       lines.push(this.generateSelector(selector));
 
+    const sessionsToEmit = (this.model.sessions ?? []).filter(
+      (s) =>
+        s.id !== DEFAULT_SESSION_ID || Object.keys(s.selectorModes).length > 0,
+    );
+    for (const session of sessionsToEmit)
+      lines.push(this.generateSession(session));
+
     if (
       (this.model.rules ?? []).length > 0 ||
-      (this.model.selectors ?? []).length > 0
+      (this.model.selectors ?? []).length > 0 ||
+      sessionsToEmit.length > 0
     )
       lines.push("");
 
-    const rootIdSet = new Set(this.model.root.childIds);
-    const rootElements = Object.values(this.model.elements).filter((e) =>
-      rootIdSet.has(e.id),
-    );
+    const rootElements = this.model.root.childIds
+      .map((id) => this.model.elements[id])
+      .filter(Boolean);
 
+    const fullyEmitted = new Set<string>();
     for (const element of rootElements)
-      lines.push(this.generateElement(element, 0, new AncestryTracker()));
+      lines.push(
+        this.generateElement(element, 0, new AncestryTracker(), fullyEmitted),
+      );
     lines.push("");
     for (const relationship of Object.values(this.model.relationships)) {
       lines.push(this.generateRelationship(relationship));
     }
 
-    return lines.join("\n");
+    return lines.join("\n") + "\n";
   }
 
   private static quoteId(id: string): string {
@@ -80,13 +91,30 @@ export class CodeGenerator {
   }
 
   private generateSelector(selector: Selector): string {
-    const parts = [`!selector`, `name=${CodeGenerator.quoteLabel(selector.label)}`];
+    const parts = [
+      `!selector`,
+      `name=${CodeGenerator.quoteLabel(selector.label)}`,
+    ];
     parts.push(`color=${selector.color}`);
-    parts.push(`mode=${selector.mode}`);
     if (selector.expression) {
-      const v = /\s/.test(selector.expression) ? `"${selector.expression}"` : selector.expression;
+      const v = /\s/.test(selector.expression)
+        ? `"${selector.expression}"`
+        : selector.expression;
       parts.push(`expression=${v}`);
     }
+    return parts.join("  ");
+  }
+
+  private generateSession(session: Session): string {
+    const parts = [
+      `!session`,
+      `id=${session.id}`,
+      `label=${CodeGenerator.quoteLabel(session.label)}`,
+    ];
+    const modes = Object.entries(session.selectorModes)
+      .map(([id, mode]) => `${id}:${mode}`)
+      .join(",");
+    if (modes) parts.push(`selectors=${modes}`);
     return parts.join("  ");
   }
 
@@ -99,6 +127,7 @@ export class CodeGenerator {
     element: Element,
     indent: number,
     ancestry: AncestryTracker,
+    fullyEmitted: Set<string>,
   ): string {
     const indentation = this.getIndentation(indent);
     const wrapper = this.getWrapperFromType(element.type);
@@ -106,12 +135,15 @@ export class CodeGenerator {
     const closing = wrapper[1];
     const nameOut = CodeGenerator.quoteId(element.id);
     const flagSuffix = element.flags
-      ? element.flags.map((f) => /\s/.test(f) ? `:"${f}"` : `:${f}`).join("")
+      ? element.flags.map((f) => (/\s/.test(f) ? `:"${f}"` : `:${f}`)).join("")
       : "";
 
     const hasContent = element.childIds.length > 0;
 
     if (!hasContent)
+      return `${indentation}${nameOut}${flagSuffix}${opening}${closing}`;
+
+    if (fullyEmitted.has(element.id))
       return `${indentation}${nameOut}${flagSuffix}${opening}${closing}`;
 
     const newAncestry = ancestry.tryAdd(element.id);
@@ -123,18 +155,26 @@ export class CodeGenerator {
 
     for (const id of element.childIds) {
       lines.push(
-        this.generateElement(this.getElementById(id), indent + 1, newAncestry),
+        this.generateElement(
+          this.getElementById(id),
+          indent + 1,
+          newAncestry,
+          fullyEmitted,
+        ),
       );
     }
     lines.push(`${indentation}${closing}`);
 
+    fullyEmitted.add(element.id);
     return lines.join("\n");
   }
 
   private generateRelationship(relationship: Relationship): string {
     const arrow = relationship.type;
     const src = CodeGenerator.quotePath(relationship.source);
-    const tgt = CodeGenerator.quotePath(relationship.target);
+    const tgt = relationship.target
+      ? CodeGenerator.quotePath(relationship.target)
+      : "_";
     return relationship.label
       ? `${src} --${CodeGenerator.quoteId(relationship.label)}${arrow} ${tgt}`
       : `${src} ${arrow} ${tgt}`;
@@ -151,7 +191,7 @@ export class CodeGenerator {
       case "function":
         return ["(", ")"];
       case "flow":
-        return ["", ">>"];
+        return [">", ">"];
       case "choice":
         return ["<", ">"];
       default:

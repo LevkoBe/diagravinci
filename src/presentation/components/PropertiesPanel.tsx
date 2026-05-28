@@ -16,8 +16,11 @@ export function PropertiesPanel() {
   const model = useAppSelector((s) => s.diagram.model);
   const viewState = useAppSelector((s) => s.diagram.viewState);
   const selectedIds = useAppSelector((s) => s.ui.selectedElementIds);
+  const [inspectIndex, setInspectIndex] = useState(0);
 
-  const selectedId = selectedIds.at(-1) ?? null;
+  const clampedIndex =
+    selectedIds.length > 0 ? Math.min(inspectIndex, selectedIds.length - 1) : 0;
+  const selectedId = selectedIds[clampedIndex]?.split(".").at(-1) ?? null;
 
   if (!selectedId) {
     return (
@@ -40,6 +43,8 @@ export function PropertiesPanel() {
       key={selectedId}
       selectedId={selectedId}
       selectedIds={selectedIds}
+      inspectIndex={clampedIndex}
+      onSelectIndex={setInspectIndex}
       model={model}
       viewState={viewState}
       dispatch={dispatch}
@@ -50,12 +55,16 @@ export function PropertiesPanel() {
 function PropertiesPanelContent({
   selectedId,
   selectedIds,
+  inspectIndex,
+  onSelectIndex,
   model,
   viewState,
   dispatch,
 }: {
   selectedId: string;
   selectedIds: string[];
+  inspectIndex: number;
+  onSelectIndex: (i: number) => void;
   model: DiagramModel;
   viewState: ViewState;
   dispatch: ReturnType<
@@ -66,17 +75,49 @@ function PropertiesPanelContent({
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(selectedId);
 
+  const hiddenSet = new Set(viewState.hiddenPaths);
+  const dimmedSet = new Set(viewState.dimmedPaths);
+
+  const getPathsForId = (id: string) =>
+    Object.keys(viewState.positions).filter(
+      (p) => p === id || p.endsWith(`.${id}`),
+    );
+
+  const isElementHidden = (id: string): boolean => {
+    const paths = getPathsForId(id);
+    return paths.length > 0 && paths.every((p) => hiddenSet.has(p));
+  };
+
+  const isElementDimmed = (id: string): boolean => {
+    const paths = getPathsForId(id);
+    return paths.length > 0 && paths.every((p) => dimmedSet.has(p));
+  };
+
+  const getElementColor = (id: string): string | null => {
+    const paths = getPathsForId(id);
+    for (const p of paths) {
+      if (viewState.coloredPaths[p]) return viewState.coloredPaths[p];
+    }
+    return viewState.coloredPaths[id] ?? null;
+  };
+
   const paths = Object.keys(viewState.positions).filter(
     (p) => p === selectedId || p.endsWith(`.${selectedId}`),
   );
   const primaryPos = viewState.positions[paths[0]];
   const pathSet = new Set(paths);
-  const outgoing = Object.values(model.relationships).filter(
-    (r) => r.source === selectedId || pathSet.has(r.source),
-  );
-  const incoming = Object.values(model.relationships).filter(
-    (r) => r.target === selectedId || pathSet.has(r.target),
-  );
+
+  const currentColor = getElementColor(selectedId);
+
+  const sortByColorMatch = (peerId: string) =>
+    currentColor !== null && getElementColor(peerId) === currentColor ? 0 : 1;
+
+  const outgoing = Object.values(model.relationships)
+    .filter((r) => r.source === selectedId || pathSet.has(r.source))
+    .sort((a, b) => sortByColorMatch(a.target.split(".").pop()!) - sortByColorMatch(b.target.split(".").pop()!));
+  const incoming = Object.values(model.relationships)
+    .filter((r) => r.target === selectedId || pathSet.has(r.target))
+    .sort((a, b) => sortByColorMatch(a.source.split(".").pop()!) - sortByColorMatch(b.source.split(".").pop()!));
 
   const handleDelete = () => {
     const newElements = { ...model.elements };
@@ -110,27 +151,48 @@ function PropertiesPanelContent({
   const commitRename = (newName: string) => {
     setEditingName(false);
     const trimmed = newName.trim();
-    if (!trimmed || trimmed === selectedId) return;
-    if (model.elements[trimmed]) return;
+    const selectedPath = selectedIds[inspectIndex];
+    if (!trimmed || !selectedPath) return;
+    const leafId = selectedPath.split(".").at(-1)!;
+    if (trimmed === leafId) return;
 
-    const renamedModel = renameElement(model, selectedId, trimmed);
+    const renamedModel = renameElementAtPath(model, selectedPath, trimmed);
 
     const renamedPositions: typeof viewState.positions = {};
     for (const [path, val] of Object.entries(viewState.positions)) {
-      const newPath = renamePath(path, selectedId, trimmed);
-      renamedPositions[newPath] = val;
+      renamedPositions[renamePathAtContext(path, selectedPath, trimmed)] = val;
     }
     dispatch(setViewState({ ...viewState, positions: renamedPositions }));
     syncManager.syncFromVis(renamedModel);
 
-    const newSelectedIds = selectedIds.map((id) =>
-      id === selectedId ? trimmed : id,
+    dispatch(
+      setSelectedElements(
+        selectedIds.map((path) => renamePathAtContext(path, selectedPath, trimmed)),
+      ),
     );
-    dispatch(setSelectedElements(newSelectedIds));
   };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {selectedIds.length > 1 && (
+        <div className="px-3 py-1.5 border-b border-border/40 flex gap-1 flex-wrap shrink-0 max-h-20 overflow-y-auto">
+          {selectedIds.map((id, i) => (
+            <button
+              key={id}
+              title={id}
+              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors whitespace-nowrap ${
+                i === inspectIndex
+                  ? "bg-accent/20 text-accent border-accent/40"
+                  : "border-border/30 text-fg-muted hover:border-accent/30 hover:text-fg-primary"
+              }`}
+              onClick={() => onSelectIndex(i)}
+            >
+              {id}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="px-4 py-3 border-b border-border/40 flex items-start justify-between gap-2 shrink-0">
         <div className="min-w-0 flex-1">
           {editingName ? (
@@ -183,12 +245,6 @@ function PropertiesPanelContent({
           <Trash2 size={13} />
         </DangerIconBtn>
       </div>
-
-      {selectedIds.length > 1 && (
-        <div className="px-4 py-1.5 bg-accent/10 border-b border-accent/20 text-[11px] text-accent">
-          {selectedIds.length} selected · showing last
-        </div>
-      )}
 
       <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-4">
         <div className="flex flex-wrap gap-1.5">
@@ -255,30 +311,38 @@ function PropertiesPanelContent({
 
         {(outgoing.length > 0 || incoming.length > 0) && (
           <PanelSection label="Relationships">
-            {outgoing.map((r) => (
-              <RelRow
-                key={r.id}
-                dir="out"
-                peerId={r.target.split(".").pop()!}
-                type={r.type}
-                label={r.label}
-                onNavigate={() => {
-                  dispatch(setSelectedElement(r.target.split(".").pop()!));
-                }}
-              />
-            ))}
-            {incoming.map((r) => (
-              <RelRow
-                key={r.id}
-                dir="in"
-                peerId={r.source.split(".").pop()!}
-                type={r.type}
-                label={r.label}
-                onNavigate={() => {
-                  dispatch(setSelectedElement(r.source.split(".").pop()!));
-                }}
-              />
-            ))}
+            {outgoing.map((r) => {
+              const peerId = r.target.split(".").pop()!;
+              return (
+                <RelRow
+                  key={r.id}
+                  dir="out"
+                  peerId={peerId}
+                  type={r.type}
+                  label={r.label}
+                  isHidden={isElementHidden(peerId)}
+                  isDimmed={isElementDimmed(peerId)}
+                  color={getElementColor(peerId)}
+                  onNavigate={() => dispatch(setSelectedElement(peerId))}
+                />
+              );
+            })}
+            {incoming.map((r) => {
+              const peerId = r.source.split(".").pop()!;
+              return (
+                <RelRow
+                  key={r.id}
+                  dir="in"
+                  peerId={peerId}
+                  type={r.type}
+                  label={r.label}
+                  isHidden={isElementHidden(peerId)}
+                  isDimmed={isElementDimmed(peerId)}
+                  color={getElementColor(peerId)}
+                  onNavigate={() => dispatch(setSelectedElement(peerId))}
+                />
+              );
+            })}
           </PanelSection>
         )}
       </div>
@@ -286,38 +350,55 @@ function PropertiesPanelContent({
   );
 }
 
-function renamePath(path: string, oldId: string, newId: string): string {
-  return path
-    .split(".")
-    .map((seg) => (seg === oldId ? newId : seg))
-    .join(".");
+function renamePathAtContext(path: string, oldPath: string, newLeafId: string): string {
+  if (path === oldPath) {
+    return [...oldPath.split(".").slice(0, -1), newLeafId].join(".");
+  }
+  if (path.startsWith(oldPath + ".")) {
+    const newPrefix = [...oldPath.split(".").slice(0, -1), newLeafId].join(".");
+    return newPrefix + path.slice(oldPath.length);
+  }
+  return path;
 }
 
-function renameElement(
+function renameElementAtPath(
   model: DiagramModel,
-  oldId: string,
-  newId: string,
+  oldPath: string,
+  newLeafId: string,
 ): DiagramModel {
+  const parts = oldPath.split(".");
+  const oldLeafId = parts.at(-1)!;
+  const parentId = parts.length > 1 ? parts[parts.length - 2] : null;
+
   const elements = { ...model.elements };
 
-  const el = elements[oldId];
-  delete elements[oldId];
-  elements[newId] = { ...el, id: newId };
+  if (!elements[newLeafId]) {
+    const el = elements[oldLeafId];
+    if (el) elements[newLeafId] = { ...el, id: newLeafId };
+  }
 
   let root = model.root;
-  if (root.childIds.includes(oldId)) {
+  if (parentId === null) {
     root = {
       ...root,
-      childIds: root.childIds.map((id) => (id === oldId ? newId : id)),
+      childIds: root.childIds.map((id) => (id === oldLeafId ? newLeafId : id)),
+    };
+  } else if (elements[parentId]) {
+    elements[parentId] = {
+      ...elements[parentId],
+      childIds: elements[parentId].childIds.map((id) =>
+        id === oldLeafId ? newLeafId : id,
+      ),
     };
   }
-  for (const [id, elem] of Object.entries(elements)) {
-    if (elem.childIds.includes(oldId)) {
-      elements[id] = {
-        ...elem,
-        childIds: elem.childIds.map((cid) => (cid === oldId ? newId : cid)),
-      };
-    }
+
+  const isStillReferenced =
+    root.childIds.includes(oldLeafId) ||
+    Object.values(elements).some(
+      (el) => el.id !== oldLeafId && el.childIds.includes(oldLeafId),
+    );
+  if (!isStillReferenced) {
+    delete elements[oldLeafId];
   }
 
   const relationships = Object.fromEntries(
@@ -325,8 +406,8 @@ function renameElement(
       rid,
       {
         ...r,
-        source: r.source === oldId ? newId : r.source,
-        target: r.target === oldId ? newId : r.target,
+        source: renamePathAtContext(r.source, oldPath, newLeafId),
+        target: renamePathAtContext(r.target, oldPath, newLeafId),
       },
     ]),
   );
@@ -365,25 +446,37 @@ function RelRow({
   peerId,
   type,
   label,
+  isHidden,
+  isDimmed,
+  color,
   onNavigate,
 }: {
   dir: "in" | "out";
   peerId: string;
   type: string;
   label?: string;
+  isHidden?: boolean;
+  isDimmed?: boolean;
+  color?: string | null;
   onNavigate: () => void;
 }) {
   return (
     <button
-      className="w-full flex items-center gap-2 px-2 py-1.5 rounded bg-bg-overlay/40 hover:bg-accent/10 hover:text-accent text-left transition-colors"
-      onClick={onNavigate}
+      disabled={isHidden}
+      onClick={isHidden ? undefined : onNavigate}
+      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded bg-bg-overlay/40 text-left transition-colors ${
+        isHidden ? "cursor-not-allowed" : "hover:bg-accent/10 hover:text-accent"
+      }`}
+      style={{ opacity: isHidden ? 0.25 : isDimmed ? 0.45 : undefined }}
     >
       <span
         className={`text-[10px] font-mono shrink-0 ${dir === "out" ? "text-accent" : "text-fg-muted"}`}
       >
         {dir === "out" ? "→" : "←"}
       </span>
-      <span className="text-xs truncate">{peerId}</span>
+      <span className="text-xs truncate" style={{ color: color ?? undefined }}>
+        {peerId}
+      </span>
       <span className="text-[10px] text-fg-disabled shrink-0 ml-auto">
         {type}
         {label ? ` · ${label}` : ""}

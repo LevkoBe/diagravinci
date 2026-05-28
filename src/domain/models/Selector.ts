@@ -17,13 +17,17 @@ export interface Selector {
   id: string;
   label: string;
   expression: string;
-  mode: SelectorMode;
   color: string;
-  selectionPattern?: string;
+  selectedPaths?: string[];
+}
+
+export interface Session {
+  id: string;
+  label: string;
+  selectorModes: Record<string, SelectorMode>;
 }
 
 export const FOLD_SELECTOR_ID = "__fold__";
-export const SELECTION_SELECTOR_ID = "_selection";
 
 export function toSelectorId(label: string): string {
   const slug = label.trim().toLowerCase()

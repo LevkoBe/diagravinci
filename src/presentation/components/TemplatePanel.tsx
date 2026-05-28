@@ -418,7 +418,8 @@ function CollectionView({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const subCollections = collection.collections ?? [];
-  const filtered = collection.templates.filter((t) => {
+  const searchPool = query ? getAllTemplates(collection) : collection.templates;
+  const filtered = searchPool.filter((t) => {
     if (!query) return true;
     const q = query.toLowerCase();
     return (
@@ -526,7 +527,7 @@ function CollectionView({
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-2 flex flex-col gap-2 min-h-0">
-        {subCollections.map((sub) => (
+        {!query && subCollections.map((sub) => (
           <CollectionCard
             key={sub.id}
             collection={sub}
@@ -535,17 +536,13 @@ function CollectionView({
           />
         ))}
 
-        {subCollections.length > 0 && filtered.length > 0 && (
+        {!query && subCollections.length > 0 && filtered.length > 0 && (
           <div className="border-t border-border/20 mt-1 pt-1" />
         )}
 
-        {filtered.length === 0 && subCollections.length === 0 ? (
+        {filtered.length === 0 ? (
           <p className="text-xs text-fg-disabled text-center py-4">
             {query ? `No templates match "${query}"` : "No templates yet."}
-          </p>
-        ) : filtered.length === 0 && query ? (
-          <p className="text-xs text-fg-disabled text-center py-4">
-            No templates match &ldquo;{query}&rdquo;
           </p>
         ) : (
           filtered.map((t) => (

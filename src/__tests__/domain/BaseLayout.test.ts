@@ -221,6 +221,97 @@ describe("resolveRelationships", () => {
     const model = makeModel([{ id: "a" }], ["a"]);
     expect(resolveRelationships(model, { a: pe("a") })).toEqual([]);
   });
+
+  describe("element shared between root and a container — a b c(a b)", () => {
+    function sharedModel() {
+      const model = makeModel(
+        [{ id: "a" }, { id: "b" }, { id: "c", children: ["a", "b"] }],
+        ["a", "b", "c"],
+      );
+      return model;
+    }
+
+    const sharedPositions = {
+      a: pe("a", 10, 10),
+      b: pe("b", 50, 10),
+      c: pe("c", 30, 50),
+      "c.a": pe("a", 28, 48),
+      "c.b": pe("b", 32, 48),
+    };
+
+    it("code-connect: resolves c.a and c.b paths to their nested positions", () => {
+      const model = sharedModel();
+      model.relationships["r1"] = createRelationship("r1", "c.a", "c.b", "-->");
+
+      const rels = resolveRelationships(model, sharedPositions);
+      expect(rels).toHaveLength(1);
+      expect(rels[0].sourcePath).toBe("c.a");
+      expect(rels[0].targetPath).toBe("c.b");
+    });
+
+    it("visual-connect bug: leaf-id relationship resolves to root level, not nested", () => {
+      const model = sharedModel();
+      model.relationships["r1"] = createRelationship("r1", "a", "b", "-->");
+
+      const rels = resolveRelationships(model, sharedPositions);
+      expect(rels).toHaveLength(1);
+
+      expect(rels[0].sourcePath).toBe("a");
+      expect(rels[0].targetPath).toBe("b");
+    });
+  });
+
+  describe("c(a >> anon >> x) shared in d{c} and e{c} — flow chain renders in all contexts", () => {
+    function flowModel() {
+      const model = makeModel(
+        [
+          { id: "a", type: "function" },
+          { id: "anon_1", type: "flow" },
+          { id: "x" },
+          { id: "c", type: "function", children: ["a", "anon_1", "x"] },
+          { id: "d", children: ["c"] },
+          { id: "e", children: ["c"] },
+        ],
+        ["c", "d", "e"],
+      );
+      model.relationships["a..>anon_1"] = createRelationship("a..>anon_1", "a", "anon_1", "..>");
+      model.relationships["anon_1..>c.x"] = createRelationship("anon_1..>c.x", "anon_1", "c.x", "..>");
+      return model;
+    }
+
+    const flowPositions = {
+      c: pe("c"),
+      "c.a": pe("a"),
+      "c.anon_1": pe("anon_1"),
+      "c.x": pe("x"),
+      d: pe("d"),
+      "d.c": pe("c"),
+      "d.c.a": pe("a"),
+      "d.c.anon_1": pe("anon_1"),
+      "d.c.x": pe("x"),
+      e: pe("e"),
+      "e.c": pe("c"),
+      "e.c.a": pe("a"),
+      "e.c.anon_1": pe("anon_1"),
+      "e.c.x": pe("x"),
+    };
+
+    it("renders a->anon_1 arrow in all three contexts (c, d.c, e.c)", () => {
+      const rels = resolveRelationships(flowModel(), flowPositions);
+      const aToAnon = rels.filter(r => r.targetPath.endsWith(".anon_1") || r.targetPath === "anon_1");
+      expect(aToAnon).toHaveLength(3);
+      const paths = aToAnon.map(r => r.sourcePath).sort();
+      expect(paths).toEqual(["c.a", "d.c.a", "e.c.a"]);
+    });
+
+    it("renders anon_1->x arrow in all three contexts (c, d.c, e.c)", () => {
+      const rels = resolveRelationships(flowModel(), flowPositions);
+      const anonToX = rels.filter(r => r.sourcePath.endsWith(".anon_1") || r.sourcePath === "anon_1");
+      expect(anonToX).toHaveLength(3);
+      const paths = anonToX.map(r => r.targetPath).sort();
+      expect(paths).toEqual(["c.x", "d.c.x", "e.c.x"]);
+    });
+  });
 });
 
 describe("BaseLayout.apply (via CircularLayout)", () => {

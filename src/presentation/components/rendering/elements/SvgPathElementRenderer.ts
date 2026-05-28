@@ -26,6 +26,7 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
     zoom: number,
     colorOverride: string | null = null,
     maxScreenPx = 320,
+    opaqueElementBg = true,
     elementSvgs: Record<
       string,
       { data: string; viewBoxWidth: number; viewBoxHeight: number }
@@ -43,6 +44,7 @@ export class SvgPathElementRenderer extends BaseElementRenderer {
       zoom,
       colorOverride,
       maxScreenPx,
+      opaqueElementBg,
     );
     this.elementSvgs = elementSvgs;
   }

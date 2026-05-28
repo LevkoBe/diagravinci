@@ -70,9 +70,14 @@ describe("CodeGenerator", () => {
       expect(code).toContain("x()");
     });
 
-    it("uses >> for flow type (anonymous — id dropped for round-trip correctness)", () => {
-      const code = generate(modelWithElement("x", "flow"));
-      expect(code).toContain(">>");
+    it("named leaf flow emits name>>", () => {
+      const code = generate(modelWithElement("pipe", "flow"));
+      expect(code).toContain("pipe>>");
+    });
+
+    it("anonymous leaf flow (anon_N id) emits its id as name so it can be re-identified on re-parse", () => {
+      const code = generate(modelWithElement("anon_1", "flow"));
+      expect(code).toContain("anon_1>>");
     });
 
     it("uses <> for choice type", () => {
@@ -176,10 +181,47 @@ describe("CodeGenerator", () => {
   });
 
   describe("empty model", () => {
-    it("generates only a newline for empty model", () => {
+    it("generates no directives for an empty model with empty default session", () => {
       const model = parse("");
       const code = generate(model);
-      expect(code.trim()).toBe("");
+      expect(code).not.toContain("!session");
+      expect(code).not.toContain("!rule");
+      expect(code).not.toContain("!selector");
+    });
+
+    it("emits the default session when it has selector modes", () => {
+      const model = parse("!session  id=default  label=Default  selectors=foo:color");
+      const code = generate(model);
+      expect(code).toContain("!session");
+      expect(code).toContain("id=default");
+      expect(code).toContain("selectors=foo:color");
+    });
+  });
+
+  describe("session emission", () => {
+    it("suppresses the default session when its selectorModes is empty", () => {
+      const model = createEmptyDiagram();
+      const code = generate(model);
+      expect(code).not.toContain("!session");
+    });
+
+    it("emits the default session when it has selector modes", () => {
+      const model = createEmptyDiagram();
+      model.sessions = [{ id: "default", label: "Default", selectorModes: { s1: "color" } }];
+      const code = generate(model);
+      expect(code).toContain("!session  id=default");
+      expect(code).toContain("selectors=s1:color");
+    });
+
+    it("always emits non-default sessions even when selectorModes is empty", () => {
+      const model = createEmptyDiagram();
+      model.sessions = [
+        { id: "default", label: "Default", selectorModes: {} },
+        { id: "remote", label: "Remote", selectorModes: {} },
+      ];
+      const code = generate(model);
+      expect(code).toContain("!session  id=remote");
+      expect(code).not.toContain("!session  id=default");
     });
   });
 
@@ -286,20 +328,18 @@ describe("CodeGenerator", () => {
         id: "ok",
         label: "ok",
         color: "#123456",
-        mode: "color",
         expression: "fn",
         ...overrides,
       };
     }
 
-    it("generates !selector line with name, color, mode, expression", () => {
+    it("generates !selector line with name, color, and expression", () => {
       const model = createEmptyDiagram();
       model.selectors = [makeSelector()];
       const code = generate(model);
       expect(code).toContain("!selector");
       expect(code).toContain("name=ok");
       expect(code).toContain("color=#123456");
-      expect(code).toContain("mode=color");
       expect(code).toContain("expression=fn");
     });
 
@@ -316,26 +356,13 @@ describe("CodeGenerator", () => {
       const code = generate(model);
       expect(code).toContain('expression="a b"');
     });
-
-    it("generates hide, dim, and off modes correctly", () => {
-      const model = createEmptyDiagram();
-      model.selectors = [
-        makeSelector({ id: "h", mode: "hide" }),
-        makeSelector({ id: "d", mode: "dim" }),
-        makeSelector({ id: "o", mode: "off" }),
-      ];
-      const code = generate(model);
-      expect(code).toContain("mode=hide");
-      expect(code).toContain("mode=dim");
-      expect(code).toContain("mode=off");
-    });
   });
 
   describe("rules/selectors blank-line separator", () => {
     it("inserts a blank line between directives and elements", () => {
       const model = createEmptyDiagram();
       model.selectors = [
-        { id: "p", label: "p", color: "#fff", mode: "color", expression: "" },
+        { id: "p", label: "p", color: "#fff", expression: "" },
       ];
       model.elements["a"] = createElement("a", "object");
       model.root.childIds.push("a");
@@ -418,6 +445,20 @@ describe("CodeGenerator", () => {
       }
     });
 
+    it("named flow with children round-trips correctly", () => {
+      const { first, regenerated } = roundTrip("player >emeralds> shop");
+      expect(Object.keys(regenerated.elements).length).toBe(Object.keys(first.elements).length);
+      expect(Object.keys(regenerated.relationships).length).toBe(Object.keys(first.relationships).length);
+      expect(regenerated.elements["player"]?.type).toBe("flow");
+      expect(regenerated.elements["player"]?.childIds).toContain("emeralds");
+    });
+
+    it("named flow with children preserves type through round-trip", () => {
+      const { regenerated } = roundTrip("queue>Token> handler()");
+      expect(regenerated.elements["queue"]?.type).toBe("flow");
+      expect(regenerated.elements["queue"]?.childIds).toContain("Token");
+    });
+
     it("round-trips all EXECUTION_TEMPLATES without losing elements or relationships", () => {
       for (const { id, code } of EXECUTION_TEMPLATES) {
         const { first, regenerated } = roundTrip(code);
@@ -463,6 +504,126 @@ describe("CodeGenerator", () => {
           ).toEqual(first.elements[id].childIds);
         }
       }
+    });
+
+    it("flow chain inside container stores positional (qualified) relationship paths", () => {
+      const m = parse("c(a() >> x)");
+      const rels = Object.values(m.relationships);
+      expect(rels).toHaveLength(2);
+      const [r1, r2] = rels.sort((a, b) => a.source.localeCompare(b.source));
+      expect(r1.source).toMatch(/^c\./);
+      expect(r1.target).toMatch(/^c\./);
+      expect(r2.source).toMatch(/^c\./);
+      expect(r2.target).toMatch(/^c\./);
+      const code = generate(m);
+      const relLines = code.split("\n").filter(l => l.includes("..>"));
+      expect(relLines.every(l => l.startsWith("c."))).toBe(true);
+    });
+
+    it("shared element with anonymous flow does not accumulate extra flows across round-trips", () => {
+      const code = "c(a() >> x)\nd{c} e{c}";
+      const m1 = parse(code);
+      const m2 = parse(generate(m1));
+      const m3 = parse(generate(m2));
+
+      const flowCount = (model: ReturnType<typeof parse>) =>
+        Object.values(model.elements).filter((e) => e.type === "flow").length;
+
+      expect(flowCount(m2), "flow count after first re-parse").toBe(flowCount(m1));
+      expect(flowCount(m3), "flow count after second re-parse").toBe(flowCount(m1));
+
+      expect(m2.elements["c"]?.childIds, "c.childIds after first re-parse").toEqual(
+        m1.elements["c"]?.childIds,
+      );
+      expect(m3.elements["c"]?.childIds, "c.childIds after second re-parse").toEqual(
+        m1.elements["c"]?.childIds,
+      );
+    });
+
+    it("snapshot-v1-core.dg: round-trip preserves all named element structure", () => {
+      const SNAPSHOT = `PresentationLayer{
+  CodeEditor{
+    Store
+    SyncManager
+  }
+  VisualCanvas{
+    Store
+    SyncManager
+    ExecutionEngine
+  }
+}
+ApplicationLayer{
+  Store{
+    uiSlice
+    diagramSlice
+  }
+  SyncManager{
+    Parser
+    Lexer
+    CodeGenerator
+    Store
+    syncFromCode()
+    syncFromVis()
+  }
+  ExecutionEngine
+}
+
+DomainLayer{
+  DiagramModel{
+    elements
+    relationships
+    metadata
+  }
+  ViewState{
+    positionedElements
+    positionedRelationships
+  }
+}
+
+InfrastructureLayer{
+  Lexer{
+    tokenize(code)>token[]>
+  }
+  Parser{
+    parse(code)>DiagramModel>
+  }
+  CodeGenerator{
+    generate(model)>code>
+  }
+}
+
+Store.diagramSlice --> DiagramModel
+Store.diagramSlice --> ViewState
+SyncManager --> DiagramModel
+SyncManager --> ViewState
+`;
+
+      const isAnon = (id: string) => /(?:^|\.)anon_\d+$/.test(id);
+      const namedIds = (model: ReturnType<typeof parse>) =>
+        Object.keys(model.elements).filter((id) => !isAnon(id)).sort();
+      const namedChildIds = (model: ReturnType<typeof parse>, id: string) =>
+        (model.elements[id]?.childIds ?? []).filter((c) => !isAnon(c));
+      const namedRels = (model: ReturnType<typeof parse>) =>
+        Object.values(model.relationships)
+          .filter((r) => !isAnon(r.source) && !isAnon(r.target))
+          .map((r) => `${r.source}${r.type}${r.target}`)
+          .sort();
+
+      const m1 = parse(SNAPSHOT);
+      const m2 = parse(generate(m1));
+
+      expect(namedIds(m2), "element set").toEqual(namedIds(m1));
+      expect(m2.root.childIds, "root.childIds order").toEqual(m1.root.childIds);
+
+      for (const id of namedIds(m1)) {
+        expect(
+          namedChildIds(m2, id),
+          `${id}.childIds`,
+        ).toEqual(namedChildIds(m1, id));
+        expect(m2.elements[id]?.type, `${id}.type`).toBe(m1.elements[id]?.type);
+      }
+
+      expect(namedRels(m2), "relationships").toEqual(namedRels(m1));
     });
   });
 });
