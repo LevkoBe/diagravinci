@@ -17,6 +17,7 @@
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
 - [Testing](#testing)
+- [User Tutorial](#user-tutorial)
 - [CI/CD](#cicd)
 - [License](#license)
 
@@ -432,6 +433,16 @@ npm run test:coverage  # run with v8 coverage report
 ```
 
 Test suites covering domain models, layout algorithms, parser/lexer, filter resolution, execution engine, Redux slices, and React components. Tests run automatically on every pull request via GitHub Actions before merge.
+
+---
+
+## User Tutorial
+
+A step-by-step guide for first-time users: eight tasks covering visual editing, code editing, layout switching, templates, execution simulation, filtering, persistence, and AI generation.
+
+See [`user_testing/USER_TESTING.md`](user_testing/USER_TESTING.md).
+
+No account, no install — all tasks run in the browser at the [live demo](https://levkobe.github.io/diagravinci/).
 
 ---
 

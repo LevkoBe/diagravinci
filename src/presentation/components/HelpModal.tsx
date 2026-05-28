@@ -10,31 +10,33 @@ const ELEMENTS = [
 ];
 
 const RELATIONSHIPS = [
-  { syntax: "a --> b", label: "Association" },
-  { syntax: "a ..> b", label: "Dependency" },
-  { syntax: "a --|> b", label: "Inheritance" },
-  { syntax: "..|>", label: "Realization" },
-  { syntax: "a o-- b", label: "Aggregation" },
-  { syntax: "a *-- b", label: "Composition" },
-  { syntax: "a --label--> b", label: "Labeled" },
+  { syntax: "a --> b", label: "Association", note: "directed dependency" },
+  { syntax: "a ..> b", label: "Flow", note: "data / execution flow, dashed" },
+  { syntax: "a --|> b", label: "Inheritance", note: "IS-A, extends" },
+  { syntax: "a ..|> b", label: "Realization", note: "implements" },
+  { syntax: "a o-- b", label: "Aggregation", note: "has-a, weak ownership" },
+  { syntax: "a *-- b", label: "Composition", note: "part-of, strong ownership" },
+  { syntax: "a --label--> b", label: "Labeled", note: "any type can carry a label" },
+];
+
+const DIRECTIVES = [
+  { syntax: "!rule id=r all_name=regex", note: "name match rule (also: all_level=N, all=path-regex; prefix all with a type to restrict)" },
+  { syntax: "!selector name=S expression=r color=#hex", note: "visual preset — mode set at runtime or via session" },
+  { syntax: '!session id=v label="View" selectors=s:color,t:hide', note: "named preset combining selector:mode pairs" },
 ];
 
 const SHORTCUTS: { keys: string; action: string; group?: string }[] = [
   { keys: "Ctrl+Z", action: "Undo", group: "History" },
   { keys: "Ctrl+Y / Ctrl+Shift+Z", action: "Redo", group: "History" },
-  { keys: "Ctrl+S", action: "Save", group: "File" },
-  { keys: "Ctrl+O", action: "Open", group: "File" },
-  { keys: "1–6", action: "Switch mode", group: "Modes" },
-  { keys: "Q–Y  (create)", action: "Element subtype", group: "Modes" },
-  { keys: "Q–Y  (connect)", action: "Relationship subtype", group: "Modes" },
-  { keys: "W / E", action: "Zoom in / out", group: "Canvas" },
-  { keys: "R", action: "Reset view", group: "Canvas" },
-  { keys: "Y", action: "Toggle class mode", group: "Canvas" },
-  { keys: "Ctrl+Scroll", action: "Zoom", group: "Canvas" },
-  { keys: "Shift+Scroll", action: "Pan", group: "Canvas" },
-  { keys: "Right-click", action: "Fold / accept diff", group: "Canvas" },
-  { keys: "F5", action: "Enter / exit execute", group: "Execute" },
-  { keys: "Space", action: "Run / Pause", group: "Execute" },
+  { keys: "Ctrl+C / Ctrl+X / Ctrl+V", action: "Copy / Cut / Paste", group: "Edit" },
+  { keys: "Ctrl+D", action: "Duplicate selected", group: "Edit" },
+  { keys: "Ctrl+A", action: "Select all", group: "Edit" },
+  { keys: "Delete / Backspace", action: "Delete selected", group: "Edit" },
+  { keys: "Ctrl+Shift+K", action: "Comment / uncomment lines", group: "Code editor" },
+  { keys: "Ctrl+Scroll / Cmd+Scroll", action: "Zoom in / out", group: "Canvas" },
+  { keys: "Shift+Scroll", action: "Pan horizontally / vertically", group: "Canvas" },
+  { keys: "Right-click (normal)", action: "Toggle fold on element", group: "Canvas" },
+  { keys: "Right-click (diff mode)", action: "Accept individual change", group: "Canvas" },
 ];
 
 function Section({
@@ -80,12 +82,12 @@ export function HelpModal({
             <p className="text-xs text-fg-muted">
               Edit code on the left, draw on the canvas — both stay in sync.{" "}
               <a
-                href="https://levkobe.github.io/diagravinci/"
+                href="https://github.com/LevkoBe/diagravinci"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-accent underline underline-offset-2"
               >
-                Open app ↗
+                Full docs ↗
               </a>
             </p>
           </div>
@@ -102,19 +104,39 @@ export function HelpModal({
                 </div>
               ))}
             </div>
-            <div className="mt-2 text-xs text-fg-muted">
-              Nesting: <CodeChip>{"system{ frontend{} backend{} }"}</CodeChip>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-muted">
+              <span>Nesting: <CodeChip>{"system{ frontend{} backend{} }"}</CodeChip></span>
+              <span>Flags: <CodeChip>name:flag</CodeChip></span>
+              <span>Dot-ref: <CodeChip>system.api.auth</CodeChip></span>
             </div>
           </Section>
 
           <Section title="Relationship types">
-            <div className="grid grid-cols-2 gap-1">
-              {RELATIONSHIPS.map(({ syntax, label }) => (
-                <div key={label} className="flex items-center gap-2 text-xs">
+            <div className="grid grid-cols-1 gap-1">
+              {RELATIONSHIPS.map(({ syntax, label, note }) => (
+                <div key={label} className="flex items-center gap-3 text-xs">
                   <CodeChip>{syntax}</CodeChip>
-                  <span className="text-fg-muted">{label}</span>
+                  <span className="font-medium text-fg-primary w-24 shrink-0">{label}</span>
+                  <span className="text-fg-muted">{note}</span>
                 </div>
               ))}
+            </div>
+            <div className="mt-1 text-xs text-fg-muted">
+              All types have mirror forms: <CodeChip>{"<--"}</CodeChip> <CodeChip>{"<.."}</CodeChip> <CodeChip>{"<|--"}</CodeChip> <CodeChip>{"<|.."}</CodeChip> <CodeChip>{"--o"}</CodeChip> <CodeChip>{"--*"}</CodeChip>
+            </div>
+          </Section>
+
+          <Section title="Directives — rules, selectors, sessions">
+            <div className="grid grid-cols-1 gap-2">
+              {DIRECTIVES.map(({ syntax, note }) => (
+                <div key={syntax} className="flex flex-col gap-0.5 text-xs">
+                  <CodeChip>{syntax}</CodeChip>
+                  <span className="text-fg-muted pl-1">{note}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-1 text-xs text-fg-muted">
+              Selector modes: <CodeChip>color</CodeChip> highlights matched · <CodeChip>dim</CodeChip> fades unmatched · <CodeChip>hide</CodeChip> removes unmatched · <CodeChip>off</CodeChip> disabled
             </div>
           </Section>
 
@@ -126,7 +148,7 @@ export function HelpModal({
               </div>
               <div>
                 <span className="text-fg-primary font-medium">Mode</span> —
-                select / connect / delete / pan
+                select / connect / delete / disconnect / pan / present
               </div>
               <div>
                 <span className="text-fg-primary font-medium">Rel</span> —
@@ -134,7 +156,7 @@ export function HelpModal({
               </div>
               <div>
                 <span className="text-fg-primary font-medium">Layout</span> —
-                switch between Circular / Hierarchical / Timeline / Pipeline
+                Hierarchical · Radial · Circular · Timeline · Pipeline · Execute · Force · Basic
               </div>
               <div>
                 <span className="text-fg-primary font-medium">Select</span> —
@@ -142,7 +164,7 @@ export function HelpModal({
               </div>
               <div>
                 <span className="text-fg-primary font-medium">Run</span> —
-                execute mode with token simulation
+                play / pause / step / reset token simulation
               </div>
               <div>
                 <span className="text-fg-primary font-medium">Project</span> —
@@ -182,19 +204,12 @@ export function HelpModal({
           <Section title="Tips">
             <ul className="text-xs text-fg-muted space-y-1 list-disc list-inside">
               <li>Drag on empty canvas to box-select multiple elements</li>
-              <li>Ctrl+Scroll to zoom; Shift+Scroll to pan</li>
-              <li>Same name in two places = same element (cross-reference)</li>
-              <li>
-                AI panel: describe a system in plain English to generate a
-                diagram
-              </li>
-              <li>
-                Templates panel: start from built-in architectural patterns
-              </li>
-              <li>
-                State persists automatically in your browser — no need to save
-                manually
-              </li>
+              <li>Same name in two places = same element (cross-reference with dot-notation)</li>
+              <li>Right-click any element to fold / unfold it individually</li>
+              <li>Define <CodeChip>!rule</CodeChip> <CodeChip>!selector</CodeChip> <CodeChip>!session</CodeChip> directly in diagram code — loaded automatically on parse</li>
+              <li>AI panel: describe a system in plain English to generate or extend a diagram</li>
+              <li>Templates panel: start from built-in architectural patterns</li>
+              <li>State persists automatically in your browser — no need to save manually</li>
             </ul>
           </Section>
         </div>

@@ -110,9 +110,9 @@ export const CollectionRepository = {
     return [
       ARCHITECTURE_COLLECTION,
       PRODUCT_PROCESS_COLLECTION,
-      DIAGRAVINCI_COLLECTION,
       // DEVELOPER_TESTING_COLLECTION,
       EXPLORATION_SHOWCASES_COLLECTION,
+      DIAGRAVINCI_COLLECTION,
       ...loadUserCollections(),
     ];
   },
