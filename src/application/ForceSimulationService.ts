@@ -2,13 +2,16 @@ import type { AppStore } from "./store/store";
 import type { PositionedElement } from "../domain/models/ViewState";
 import { batchUpdatePositions } from "./store/diagramSlice";
 
-const REPULSION = 1.5;       // k * ri * rj / d² (node-pair repulsion)
-const SPRING_K = 0.004;      // spring constant for connected nodes
-const IDEAL_SLACK = 80;      // extra px gap beyond summed radii for edge rest length
-const GRAVITY = 0.002;       // pull toward canvas center
-const DAMPING = 0.85;        // velocity retention per frame
-const MAX_VELOCITY = 30;     // px/frame cap to prevent explosions
-const CONVERGENCE_KE = 0.08; // stop simulation when total KE drops below this
+export const forceConfig = {
+  repulsion: 1.5, // k * ri * rj / d^2 (node-pair repulsion)
+  linkDistance: 80, // extra px gap beyond summed radii for edge rest length
+  gravity: 0.002, // pull toward canvas center
+};
+
+const SPRING_K = 0.004;
+const DAMPING = 0.85;
+const MAX_VELOCITY = 30;
+const CONVERGENCE_KE = 0.08;
 
 export class ForceSimulationService {
   private rafId: number | null = null;
@@ -64,7 +67,9 @@ export class ForceSimulationService {
     return this.active;
   }
 
-  private initFromPositions(positions: Record<string, PositionedElement>): void {
+  private initFromPositions(
+    positions: Record<string, PositionedElement>,
+  ): void {
     for (const [path, pe] of Object.entries(positions)) {
       if (path.includes(".")) continue;
       this.simPositions[path] = { ...pe.position };
@@ -127,7 +132,7 @@ export class ForceSimulationService {
         const d = Math.sqrt(d2);
         const ra = (viewState.positions[a]?.size ?? 50) / 2;
         const rb = (viewState.positions[b]?.size ?? 50) / 2;
-        const f = (REPULSION * ra * rb) / d2;
+        const f = (forceConfig.repulsion * ra * rb) / d2;
         const fx = (f * dx) / d;
         const fy = (f * dy) / d;
         forces[a].x += fx;
@@ -153,7 +158,7 @@ export class ForceSimulationService {
       const d = Math.sqrt(dx * dx + dy * dy) + 0.01;
       const rs = (viewState.positions[src]?.size ?? 50) / 2;
       const rt = (viewState.positions[tgt]?.size ?? 50) / 2;
-      const ideal = rs + rt + IDEAL_SLACK;
+      const ideal = rs + rt + forceConfig.linkDistance;
       const sf = SPRING_K * (d - ideal);
       const fx = (sf * dx) / d;
       const fy = (sf * dy) / d;
@@ -165,8 +170,8 @@ export class ForceSimulationService {
 
     // Gravity toward canvas center
     for (const p of nodes) {
-      forces[p].x += GRAVITY * (cx - this.simPositions[p].x);
-      forces[p].y += GRAVITY * (cy - this.simPositions[p].y);
+      forces[p].x += forceConfig.gravity * (cx - this.simPositions[p].x);
+      forces[p].y += forceConfig.gravity * (cy - this.simPositions[p].y);
     }
 
     // Integrate velocities and positions

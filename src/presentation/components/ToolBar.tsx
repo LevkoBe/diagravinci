@@ -57,6 +57,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
   Modal,
+  Slider,
+  Label,
 } from "@levkobe/c7one";
 import { HelpModal } from "./HelpModal";
 import { SelectorsPanel } from "./SelectorModal";
@@ -111,6 +113,32 @@ import type { ViewState } from "../../domain/models/ViewState";
 import { useUndoRedo } from "../hooks/useUndoRedo";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { store, syncManager } from "../../application/store/store";
+import { forceConfig } from "../../application/ForceSimulationService";
+
+function ForceSettings() {
+  const [rep, setRep] = useState(forceConfig.repulsion);
+  const [dist, setDist] = useState(forceConfig.linkDistance);
+  const [grav, setGrav] = useState(forceConfig.gravity);
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-xs text-fg-muted mb-1.5 block">Repulsion — {rep.toFixed(1)}</Label>
+        <Slider min={0.1} max={5} step={0.1} value={[rep]}
+          onValueChange={([v]) => { forceConfig.repulsion = v; setRep(v); }} />
+      </div>
+      <div>
+        <Label className="text-xs text-fg-muted mb-1.5 block">Link distance — {dist}px</Label>
+        <Slider min={20} max={300} step={5} value={[dist]}
+          onValueChange={([v]) => { forceConfig.linkDistance = v; setDist(v); }} />
+      </div>
+      <div>
+        <Label className="text-xs text-fg-muted mb-1.5 block">Gravity — {grav.toFixed(3)}</Label>
+        <Slider min={0} max={0.02} step={0.001} value={[grav]}
+          onValueChange={([v]) => { forceConfig.gravity = v; setGrav(v); }} />
+      </div>
+    </div>
+  );
+}
 
 const REL_TYPES: {
   type: RelationshipType;
@@ -990,6 +1018,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
             "--transition-speed",
             "--shadow-intensity",
           ]}
+          renderAppSettings={() => <ForceSettings />}
           label="Open settings"
           buttonClassName="w-9 h-9 p-0 rounded-full btn-icon"
         />
