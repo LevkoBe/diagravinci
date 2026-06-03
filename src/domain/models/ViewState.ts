@@ -7,6 +7,8 @@ export interface PositionedElement {
   size: number;
   value: number;
   isRecursive?: boolean;
+  width?: number;
+  height?: number;
 }
 
 export interface PositionedRelationship {

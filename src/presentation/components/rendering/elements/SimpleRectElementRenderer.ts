@@ -6,15 +6,23 @@ const { DIM_OPACITY } = VConfig.elements;
 const es = VConfig.elementShapes;
 
 export class SimpleRectElementRenderer extends BaseElementRenderer {
+  private get w(): number {
+    return this.viewState.positions[this.path]?.width ?? this.size;
+  }
+  private get h(): number {
+    return this.viewState.positions[this.path]?.height ?? this.size;
+  }
+
   protected override addBackground(group: Konva.Group): void {
-    const { size } = this;
+    const w = this.w;
+    const h = this.h;
     if (this.opaqueElementBg) {
       group.add(
         new Konva.Rect({
-          width: size,
-          height: size,
-          x: -size / 2,
-          y: -size / 2,
+          width: w,
+          height: h,
+          x: -w / 2,
+          y: -h / 2,
           fill: this.colors.bgSecondary,
           cornerRadius: es.CORNER_RADIUS,
           listening: false,
@@ -23,10 +31,10 @@ export class SimpleRectElementRenderer extends BaseElementRenderer {
     }
     group.add(
       new Konva.Rect({
-        width: size,
-        height: size,
-        x: -size / 2,
-        y: -size / 2,
+        width: w,
+        height: h,
+        x: -w / 2,
+        y: -h / 2,
         fill: this.resolveStroke(),
         opacity: 0.15,
         cornerRadius: es.CORNER_RADIUS,
@@ -36,7 +44,8 @@ export class SimpleRectElementRenderer extends BaseElementRenderer {
   }
 
   protected addElementShape(group: Konva.Group): Konva.Rect {
-    const { size } = this;
+    const w = this.w;
+    const h = this.h;
 
     const strokeWidth = 2 / Math.max(this.zoom, 0.1);
     let dash: number[] | undefined;
@@ -65,14 +74,14 @@ export class SimpleRectElementRenderer extends BaseElementRenderer {
     }
 
     const rectNode = new Konva.Rect({
-      width: size,
-      height: size,
+      width: w,
+      height: h,
       stroke: this.resolveStroke(),
       strokeWidth,
       dash,
       cornerRadius: es.CORNER_RADIUS,
-      x: -size / 2,
-      y: -size / 2,
+      x: -w / 2,
+      y: -h / 2,
       opacity: this.isDimmed ? DIM_OPACITY : 1,
     });
 

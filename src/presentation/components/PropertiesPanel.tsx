@@ -7,7 +7,7 @@ import {
   setSelectedElement,
   setSelectedElements,
 } from "../../application/store/uiSlice";
-import { setViewState } from "../../application/store/diagramSlice";
+import { setViewState, updateElementDimensions } from "../../application/store/diagramSlice";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { ViewState } from "../../domain/models/ViewState";
 
@@ -269,6 +269,27 @@ function PropertiesPanelContent({
           </PanelSection>
         )}
 
+        {paths.length > 0 && primaryPos && (
+          <PanelSection label="Dimensions">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+              <DimInput
+                label="W"
+                value={primaryPos.width ?? primaryPos.size}
+                onCommit={(v) =>
+                  dispatch(updateElementDimensions({ path: paths[0], width: v }))
+                }
+              />
+              <DimInput
+                label="H"
+                value={primaryPos.height ?? primaryPos.size}
+                onCommit={(v) =>
+                  dispatch(updateElementDimensions({ path: paths[0], height: v }))
+                }
+              />
+            </div>
+          </PanelSection>
+        )}
+
         {paths.length > 0 && (
           <PanelSection label="Path">
             {paths.map((p) => (
@@ -437,6 +458,42 @@ function DataRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between">
       <span className="text-[11px] text-fg-muted">{label}</span>
       <span className="text-[11px] font-mono text-fg-primary">{value}</span>
+    </div>
+  );
+}
+
+function DimInput({
+  label,
+  value,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  onCommit: (v: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const commit = (raw: string) => {
+    const n = parseFloat(raw);
+    if (!Number.isNaN(n) && n > 0) onCommit(Math.round(n));
+    setDraft(null);
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[11px] text-fg-muted w-3 shrink-0">{label}</span>
+      <input
+        type="number"
+        min={1}
+        className="w-full text-[11px] font-mono bg-bg-elevated border border-border/40 rounded px-1.5 py-0.5 text-fg-primary outline-none focus:border-accent/60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        value={draft ?? value}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={(e) => commit(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit((e.target as HTMLInputElement).value);
+          if (e.key === "Escape") setDraft(null);
+        }}
+      />
     </div>
   );
 }

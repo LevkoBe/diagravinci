@@ -55,6 +55,16 @@ const diagramSlice = createSlice({
         state.viewState.positions[id].position = position;
       }
     },
+    updateElementDimensions: (
+      state,
+      action: PayloadAction<{ path: string; width?: number; height?: number }>,
+    ) => {
+      const { path, width, height } = action.payload;
+      if (state.viewState.positions[path]) {
+        if (width !== undefined) state.viewState.positions[path].width = width;
+        if (height !== undefined) state.viewState.positions[path].height = height;
+      }
+    },
     batchUpdatePositions: (
       state,
       action: PayloadAction<Record<string, Position>>,
@@ -118,6 +128,7 @@ export const {
   setCode,
   setCanvasSize,
   updateElementPositionInView,
+  updateElementDimensions,
   batchUpdatePositions,
   upsertElement,
   removeElement,
