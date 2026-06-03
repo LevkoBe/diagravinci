@@ -87,7 +87,7 @@ import {
   setCode,
   setViewMode,
 } from "../../application/store/diagramSlice";
-import { toSelectorId, FOLD_SELECTOR_ID } from "../../domain/models/Selector";
+import { toSelectorId, FOLD_SELECTOR_ID, type Session } from "../../domain/models/Selector";
 import {
   startExecution,
   pauseExecution,
@@ -395,9 +395,15 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
           else if (obj.type === "code") parsedCode = obj.value;
           else if (obj.type === "viewState") parsedViewState = obj.data;
         }
+        let sessions: Session[] = [{ id: "default", label: "Default", selectorModes: {} }];
+        if (parsedCode !== null) {
+          try {
+            sessions = new Parser(new Lexer(parsedCode).tokenize()).parse().sessions ?? sessions;
+          } catch { /* keep fallback session */ }
+        }
         if (root)
           dispatch(
-            setModel({ elements, relationships, root } as Parameters<
+            setModel({ elements, relationships, root, sessions } as Parameters<
               typeof setModel
             >[0]),
           );
@@ -406,6 +412,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
             setViewState(parsedViewState as Parameters<typeof setViewState>[0]),
           );
         if (parsedCode !== null) dispatch(setCode(parsedCode));
+        dispatch(setActiveSession(sessions[0].id));
       } catch {
         console.error("Invalid diagram file");
       }
