@@ -133,8 +133,11 @@ describe("Lexer", () => {
   });
 
   it("should not tokenize unknown characters (silently skipped)", () => {
+    // '*' is now a QUANTIFIER token when not part of '*--'; other chars are still skipped
     const tokens = new Lexer("@$%^&*+").tokenize();
-    expect(tokens.length).toBe(0);
+    expect(tokens.length).toBe(1);
+    expect(tokens[0].type).toBe("QUANTIFIER");
+    expect(tokens[0].value).toBe("*");
   });
 
   it("should tokenize gibberish", () => {
@@ -148,9 +151,11 @@ describe("Lexer", () => {
     expect(tokens.some((t) => t.type === "o--")).toBe(true);
   });
 
-  it("silently skips standalone numbers (not valid identifiers)", () => {
+  it("emits QUANTIFIER token for standalone numbers (ERD cardinality syntax)", () => {
     const tokens = new Lexer("42").tokenize();
-    expect(tokens).toHaveLength(0);
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].type).toBe("QUANTIFIER");
+    expect(tokens[0].value).toBe("42");
   });
 
   it("still tokenizes alphanumeric identifiers with leading letter", () => {

@@ -7,6 +7,8 @@ export interface Relationship {
   type: RelationshipType;
   label?: string;
   parentScope?: string;
+  sourceQuantifier?: string;
+  targetQuantifier?: string;
 }
 
 export function createRelationship(
@@ -16,6 +18,8 @@ export function createRelationship(
   type: RelationshipType,
   label?: string,
   parentScope?: string,
+  sourceQuantifier?: string,
+  targetQuantifier?: string,
 ): Relationship {
   return {
     id,
@@ -24,5 +28,7 @@ export function createRelationship(
     type,
     label,
     parentScope,
+    sourceQuantifier,
+    targetQuantifier,
   };
 }

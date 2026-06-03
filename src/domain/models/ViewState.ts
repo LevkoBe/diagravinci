@@ -17,6 +17,8 @@ export interface PositionedRelationship {
   targetPath: string;
   type: RelationshipType;
   label?: string;
+  sourceQuantifier?: string;
+  targetQuantifier?: string;
 }
 
 export interface ViewState {

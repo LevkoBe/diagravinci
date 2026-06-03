@@ -42,14 +42,15 @@ export type RelationshipType =
 export type OpeningWrapper = (typeof OPENING_WRAPPERS)[number];
 export type ClosingWrapper = (typeof CLOSING_WRAPPERS)[number];
 export type NameType = "IDENTIFIER";
-export type TokenKind = "-" | ">" | "{" | "}" | "x" | "!";
+export type TokenKind = "-" | ">" | "{" | "}" | "x" | "!" | "q";
 
 export type TokenType =
   | (typeof TOKEN_LITERALS)[number]
   | NameType
   | "NEWLINE"
   | "FLAG"
-  | "DIRECTIVE";
+  | "DIRECTIVE"
+  | "QUANTIFIER";
 
 export interface Token {
   type: TokenType;
@@ -62,15 +63,17 @@ export interface Token {
 const getKindByType = (type: TokenType): TokenKind =>
   type === "DIRECTIVE"
     ? "!"
-    : /^(\.\.|--)$/.test(type)
-      ? "-"
-      : /\.\.|--/.test(type)
-        ? ">"
-        : /[[{(<]/.test(type)
-          ? "{"
-          : /[\]})>|]/.test(type)
-            ? "}"
-            : "x";
+    : type === "QUANTIFIER"
+      ? "q"
+      : /^(\.\.|--)$/.test(type)
+        ? "-"
+        : /\.\.|--/.test(type)
+          ? ">"
+          : /[[{(<]/.test(type)
+            ? "{"
+            : /[\]})>|]/.test(type)
+              ? "}"
+              : "x";
 
 export function isRelationshipType(value?: unknown): value is RelationshipType {
   return (

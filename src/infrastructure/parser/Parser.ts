@@ -110,10 +110,12 @@ export class Parser {
     let lastPath: string | null = null;
     let lastRel: Relationship | null = null;
     let lastElWasWrapped = false;
+    let pendingSourceQuantifier: string | undefined = undefined;
 
     while (this.peek() && this.peek()!.type !== WRAPPERS[wrapper].close) {
       if (this.peek()!.type === "NEWLINE") {
         this.next();
+        pendingSourceQuantifier = undefined;
         if (lastRel) {
           const src = this.model.elements[lastRel.source];
           if (src?.type === "flow") {
@@ -204,10 +206,15 @@ export class Parser {
           lastElWasWrapped = true;
           break;
         }
+        case "q": {
+          pendingSourceQuantifier = this.next()!.value;
+          break;
+        }
         case "-":
         case ">": {
           const scope = wrapper === "(" ? parent.id : undefined;
-          lastRel = this.parseRelationship(lastPath ?? parent.id, lastRel, scope);
+          lastRel = this.parseRelationship(lastPath ?? parent.id, lastRel, scope, pendingSourceQuantifier);
+          pendingSourceQuantifier = undefined;
           lastEl = null;
           lastPath = null;
           lastElWasWrapped = false;
@@ -218,6 +225,13 @@ export class Parser {
           break;
         }
         case "x": {
+          if (
+            this.peek()?.value === "N" &&
+            (this.peek(1)?.kind === "-" || this.peek(1)?.kind === ">")
+          ) {
+            pendingSourceQuantifier = this.next()!.value;
+            break;
+          }
           if (this.peek()?.value === "_") {
             this.next();
             while (this.peek()?.type === "FLAG") this.next();
@@ -345,6 +359,7 @@ export class Parser {
     sourcePath: string,
     lastRel: Relationship | null,
     parentScope?: string,
+    sourceQuantifier?: string,
   ): Relationship => {
     let label: string | undefined = undefined;
     let relType: TokenType | undefined = undefined;
@@ -361,9 +376,23 @@ export class Parser {
       relType = this.next()?.type;
     }
 
+    let targetQuantifier: string | undefined = undefined;
+    const nextTok = this.peek();
+    if (nextTok?.kind === "q") {
+      targetQuantifier = this.next()!.value;
+    } else if (
+      nextTok?.kind === "x" &&
+      nextTok.value === "N" &&
+      this.peek(1)?.kind === "x"
+    ) {
+      targetQuantifier = this.next()!.value;
+    }
+
     if (lastRel) {
       lastRel.label = label ?? lastRel.label;
       lastRel.type = defaultRelationshipType(relType) ?? lastRel.type;
+      lastRel.sourceQuantifier = sourceQuantifier ?? lastRel.sourceQuantifier;
+      lastRel.targetQuantifier = targetQuantifier ?? lastRel.targetQuantifier;
       return lastRel;
     }
     return this.createRelationship(
@@ -372,6 +401,8 @@ export class Parser {
       sourcePath,
       label,
       parentScope,
+      sourceQuantifier,
+      targetQuantifier,
     );
   };
 
@@ -524,6 +555,8 @@ export class Parser {
     target: string = "",
     label: string = "",
     parentScope?: string,
+    sourceQuantifier?: string,
+    targetQuantifier?: string,
   ): Relationship {
     const rel = createRelationship(
       this.genId("rel"),
@@ -532,6 +565,8 @@ export class Parser {
       type,
       label,
       parentScope,
+      sourceQuantifier,
+      targetQuantifier,
     );
     this.model.relationships[rel.id] = rel;
     return rel;
