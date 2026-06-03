@@ -17,6 +17,7 @@ const RELATIONSHIPS = [
   { syntax: "a o-- b", label: "Aggregation", note: "has-a, weak ownership" },
   { syntax: "a *-- b", label: "Composition", note: "part-of, strong ownership" },
   { syntax: "a --label--> b", label: "Labeled", note: "any type can carry a label" },
+  { syntax: "a 1-->N b", label: "Quantified", note: "ERD cardinality — digits, N, or * (target only) on either side of any arrow" },
 ];
 
 const DIRECTIVES = [
@@ -122,7 +123,7 @@ export function HelpModal({
               ))}
             </div>
             <div className="mt-1 text-xs text-fg-muted">
-              All types have mirror forms: <CodeChip>{"<--"}</CodeChip> <CodeChip>{"<.."}</CodeChip> <CodeChip>{"<|--"}</CodeChip> <CodeChip>{"<|.."}</CodeChip> <CodeChip>{"--o"}</CodeChip> <CodeChip>{"--*"}</CodeChip>
+              Mirror forms: <CodeChip>{"<--"}</CodeChip> <CodeChip>{"<.."}</CodeChip> <CodeChip>{"<|--"}</CodeChip> <CodeChip>{"<|.."}</CodeChip> <CodeChip>{"--o"}</CodeChip> <CodeChip>{"--*"}</CodeChip> · Quantifiers: <CodeChip>1</CodeChip> <CodeChip>N</CodeChip> <CodeChip>*</CodeChip> (target only)
             </div>
           </Section>
 

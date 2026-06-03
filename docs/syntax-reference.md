@@ -85,6 +85,30 @@ All six types have mirror forms (`<--`, `<..`, `<|--`, `<|..`, `--o`, `--*`) tha
 
 ---
 
+## ERD Quantifiers
+
+Any relationship can carry optional cardinality markers — a source quantifier before the arrow and a target quantifier after it. Both are rendered as small labels near the respective endpoint on the canvas.
+
+```
+a 1-->1 b       # one-to-one directed
+a 1-->* b       # one-to-many directed
+a 1--N b        # one-to-many plain line  (N = "many")
+a N--N b        # many-to-many plain line
+a 1-->1 b       # works with any relationship type
+```
+
+Supported quantifier values:
+
+| Value | Where | Notes |
+|-------|-------|-------|
+| Digit sequence (`1`, `10`, …) | source or target | Unambiguous — digits can never be element names |
+| `N` | source or target | Treated as a quantifier only when it appears immediately adjacent to a relationship token; use a different name for an element you want to call `N` |
+| `*` | **target only** | A standalone `*` before `--` conflicts with the `*--` composition token and is not supported as a source quantifier |
+
+Quantifiers are **independent of the relationship type** — the label and the arrow style are unchanged; the quantifier is additive.
+
+---
+
 ## Labels
 
 A label attaches a word or quoted string to a relationship. It must sit between two arrow fragments:
