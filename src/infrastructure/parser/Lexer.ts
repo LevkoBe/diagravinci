@@ -72,6 +72,13 @@ export class Lexer {
         tokens.push(this.createCurrentToken(literal, literal));
         this.advance(literal.length);
         continue;
+      } else if (/[0-9]/.test(char)) {
+        tokens.push(this.readQuantifier());
+        continue;
+      } else if (char === "*" && !this.input.startsWith("*--", this.i)) {
+        tokens.push(this.createCurrentToken("QUANTIFIER", "*"));
+        this.advance();
+        continue;
       } else if (/[a-zA-Z_]/.test(char)) {
         tokens.push(this.readIdentifier());
         continue;
@@ -138,6 +145,16 @@ export class Lexer {
     }
 
     return createToken("IDENTIFIER", chars.join(""), start.row, start.col);
+  }
+
+  private readQuantifier(): Token {
+    const start = { row: this.row, col: this.col };
+    const chars: string[] = [];
+    while (/[0-9]/.test(this.peek())) {
+      chars.push(this.peek());
+      this.advance();
+    }
+    return createToken("QUANTIFIER", chars.join(""), start.row, start.col);
   }
 
   private readRelativeIdentifier(): Token {

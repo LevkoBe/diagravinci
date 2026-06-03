@@ -94,6 +94,8 @@ export function resolveRelationships(
       targetPath: tp,
       type: rel.type,
       label: rel.label,
+      sourceQuantifier: rel.sourceQuantifier,
+      targetQuantifier: rel.targetQuantifier,
     });
   };
 

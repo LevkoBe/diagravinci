@@ -97,6 +97,8 @@ export class RelationshipRenderer {
     tgtSize: number,
     relType: RelationshipType,
     label: string | undefined,
+    sourceQuantifier?: string,
+    targetQuantifier?: string,
   ): void {
     const group = this.relGroups.get(relId);
     if (!group) return;
@@ -104,7 +106,7 @@ export class RelationshipRenderer {
     group.destroyChildren();
     const result = computeRelPoints(srcX, srcY, srcSize, tgtX, tgtY, tgtSize, relType, this.zoom);
     if (!result.points) return;
-    this.populateRelGroup(group, result as RelPoints, relType, label, opacity);
+    this.populateRelGroup(group, result as RelPoints, relType, label, opacity, sourceQuantifier, targetQuantifier);
   }
 
   private populateRelGroup(
@@ -113,6 +115,8 @@ export class RelationshipRenderer {
     relType: RelationshipType,
     label: string | undefined,
     opacity: number,
+    sourceQuantifier?: string,
+    targetQuantifier?: string,
   ): void {
     const stroke = this.colors.relationship;
     const spec = parseEndSpec(relType);
@@ -293,9 +297,42 @@ export class RelationshipRenderer {
         ),
       );
     }
+
+    const qFont  = RC.REL_QUANTIFIER_FONT   / zoom;
+    const qAlong = RC.REL_QUANTIFIER_OFFSET / zoom;
+    const qPerp  = RC.REL_QUANTIFIER_PERP   / zoom;
+
+    if (sourceQuantifier) {
+      group.add(
+        new Konva.Text({
+          x: ex1 - srcNx * qAlong + ny * qPerp,
+          y: ey1 - srcNy * qAlong - nx * qPerp,
+          text: sourceQuantifier,
+          fontSize: qFont,
+          fontFamily: "system-ui, sans-serif",
+          fill: stroke,
+          opacity,
+          offsetY: qFont / 2,
+        }),
+      );
+    }
+    if (targetQuantifier) {
+      group.add(
+        new Konva.Text({
+          x: ex2 - tgtNx * qAlong + ny * qPerp,
+          y: ey2 - tgtNy * qAlong - nx * qPerp,
+          text: targetQuantifier,
+          fontSize: qFont,
+          fontFamily: "system-ui, sans-serif",
+          fill: stroke,
+          opacity,
+          offsetY: qFont / 2,
+        }),
+      );
+    }
   }
 
-  private tryBuildRelGroup(rel: { id: string; sourcePath: string; targetPath: string; type: RelationshipType; label?: string }): Konva.Group | null {
+  private tryBuildRelGroup(rel: { id: string; sourcePath: string; targetPath: string; type: RelationshipType; label?: string; sourceQuantifier?: string; targetQuantifier?: string }): Konva.Group | null {
     const { sourcePath, targetPath } = rel;
     if (this.isHidden(sourcePath) || this.isHidden(targetPath)) return null;
 
@@ -329,7 +366,7 @@ export class RelationshipRenderer {
 
     const group = new Konva.Group({ opacity });
     this.relGroups.set(rel.id, group);
-    this.populateRelGroup(group, result as RelPoints, rel.type, rel.label, opacity);
+    this.populateRelGroup(group, result as RelPoints, rel.type, rel.label, opacity, rel.sourceQuantifier, rel.targetQuantifier);
     return group;
   }
 
@@ -401,6 +438,8 @@ export class RelationshipRenderer {
         rel.type,
         rel.label,
         opacity,
+        rel.sourceQuantifier,
+        rel.targetQuantifier,
       );
       group.getLayer()?.batchDraw();
     });
