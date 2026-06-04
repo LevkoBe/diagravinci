@@ -87,7 +87,7 @@ import {
   setCode,
   setViewMode,
 } from "../../application/store/diagramSlice";
-import { toSelectorId, FOLD_SELECTOR_ID, type Session } from "../../domain/models/Selector";
+import { toSelectorId, FOLD_SELECTOR_ID, type Session, type Selector } from "../../domain/models/Selector";
 import {
   startExecution,
   pauseExecution,
@@ -98,6 +98,7 @@ import {
 import {
   setFoldLevel,
   toggleFoldActive,
+  syncSelectorsFromCode,
 } from "../../application/store/filterSlice";
 import {
   computeExecutionStep,
@@ -396,11 +397,15 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
           else if (obj.type === "viewState") parsedViewState = obj.data;
         }
         let sessions: Session[] = [{ id: "default", label: "Default", selectorModes: {} }];
+        let newModelSelectors: Selector[] = [];
         if (parsedCode !== null) {
           try {
-            sessions = new Parser(new Lexer(parsedCode).tokenize()).parse().sessions ?? sessions;
+            const parsed = new Parser(new Lexer(parsedCode).tokenize()).parse();
+            sessions = parsed.sessions ?? sessions;
+            newModelSelectors = parsed.selectors ?? [];
           } catch { /* keep fallback session */ }
         }
+        const prevModelSelectorIds = (store.getState().diagram.model.selectors ?? []).map((s) => s.id);
         if (root)
           dispatch(
             setModel({ elements, relationships, root, sessions } as Parameters<
@@ -412,6 +417,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
             setViewState(parsedViewState as Parameters<typeof setViewState>[0]),
           );
         if (parsedCode !== null) dispatch(setCode(parsedCode));
+        dispatch(syncSelectorsFromCode({ modelSelectors: newModelSelectors, prevModelSelectorIds }));
         dispatch(setActiveSession(sessions[0].id));
       } catch {
         console.error("Invalid diagram file");
