@@ -1,8 +1,9 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { Selector } from "../../domain/models/Selector";
+import type { Selector, Group } from "../../domain/models/Selector";
 
 interface FilterState {
   selectors: Selector[];
+  groups: Group[];
   foldLevel: number;
   foldActive: boolean;
   manuallyFolded: string[];
@@ -12,6 +13,7 @@ interface FilterState {
 
 const initialState: FilterState = {
   selectors: [],
+  groups: [],
   foldLevel: 1,
   foldActive: false,
   manuallyFolded: [],
@@ -54,6 +56,28 @@ const filterSlice = createSlice({
     ) {
       const sel = state.selectors.find((s) => s.id === id);
       if (sel) sel.color = color;
+      state._rev++;
+    },
+
+    addGroup(state, { payload }: PayloadAction<Group>) {
+      state.groups.push(payload);
+      state._rev++;
+    },
+    updateGroup(state, { payload }: PayloadAction<Group>) {
+      const idx = state.groups.findIndex((g) => g.id === payload.id);
+      if (idx !== -1) state.groups[idx] = payload;
+      state._rev++;
+    },
+    removeGroup(state, { payload: id }: PayloadAction<string>) {
+      state.groups = state.groups.filter((g) => g.id !== id);
+      state._rev++;
+    },
+    setGroupColor(
+      state,
+      { payload: { id, color } }: PayloadAction<{ id: string; color: string }>,
+    ) {
+      const grp = state.groups.find((g) => g.id === id);
+      if (grp) grp.color = color;
       state._rev++;
     },
 
@@ -108,6 +132,10 @@ const filterSlice = createSlice({
       state.selectors = payload;
       state._rev++;
     },
+    syncGroupsFromTab(state, { payload }: PayloadAction<Group[]>) {
+      state.groups = payload;
+      state._rev++;
+    },
 
     restoreFilterState(
       state,
@@ -115,6 +143,7 @@ const filterSlice = createSlice({
         payload,
       }: PayloadAction<{
         selectors: Selector[];
+        groups?: Group[];
         foldLevel: number;
         foldActive: boolean;
         manuallyFolded: string[];
@@ -122,6 +151,7 @@ const filterSlice = createSlice({
       }>,
     ) {
       state.selectors = payload.selectors;
+      state.groups = payload.groups ?? [];
       state.foldLevel = payload.foldLevel;
       state.foldActive = payload.foldActive;
       state.manuallyFolded = payload.manuallyFolded;
@@ -159,6 +189,37 @@ const filterSlice = createSlice({
 
       state._rev++;
     },
+
+    syncGroupsFromCode(
+      state,
+      {
+        payload: { modelGroups, prevModelGroupIds },
+      }: PayloadAction<{
+        modelGroups: Group[];
+        prevModelGroupIds: string[];
+      }>,
+    ) {
+      const prevCodeIds = new Set(prevModelGroupIds);
+      const newCodeIds = new Set(modelGroups.map((g) => g.id));
+
+      state.groups = state.groups.filter(
+        (g) => !prevCodeIds.has(g.id) || newCodeIds.has(g.id),
+      );
+
+      for (const modelGroup of modelGroups) {
+        const idx = state.groups.findIndex((g) => g.id === modelGroup.id);
+        if (idx !== -1) {
+          state.groups[idx] = {
+            ...modelGroup,
+            label: state.groups[idx].label,
+          };
+        } else {
+          state.groups.push(modelGroup);
+        }
+      }
+
+      state._rev++;
+    },
   },
 });
 
@@ -167,6 +228,10 @@ export const {
   updateSelector,
   removeSelector,
   setSelectorColor,
+  addGroup,
+  updateGroup,
+  removeGroup,
+  setGroupColor,
   setFoldLevel,
   setFoldActive,
   toggleFoldActive,
@@ -175,8 +240,10 @@ export const {
   moveSelectorUp,
   moveSelectorDown,
   syncSelectorsFromTab,
+  syncGroupsFromTab,
   restoreFilterState,
   syncSelectorsFromCode,
+  syncGroupsFromCode,
 } = filterSlice.actions;
 
 export default filterSlice.reducer;

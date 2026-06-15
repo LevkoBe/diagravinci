@@ -127,70 +127,103 @@ Labels must be a single identifier or a quoted string. No element wrappers are p
 
 ## Flags
 
-Elements accept one or more named flags, used for selector targeting:
+Elements accept one or more named flags, used for group targeting:
 
 ```
 knight:fine
 knight:fine:current
 ```
 
+A flag whose slugified form matches a group id causes that element to always be included in the group, regardless of the group's expression.
+
 ---
 
 ## Directives
 
-Lines beginning with `!` are directives. They configure rules, selectors, and sessions. Directive key-value pairs are whitespace-separated. Any value that contains spaces must be wrapped in double quotes; quotes are consumed and the interior is treated as a single token.
+Lines beginning with `!` are directives. They configure groups and sessions. Directive key-value pairs are whitespace-separated. Any value that contains spaces must be wrapped in double quotes; quotes are consumed and the interior is treated as a single token.
 
 ```
-!rule     id=fn        all_name=.*
-!selector name=myFn    expression=fn      color=#ff6b35
-!selector name=complex expression="ruleA | ruleB"  color=#ff6b35
-!session  id=focused   label="My View"   selectors=myFn:color,complex:hide
+!group   id=services  rule='.*Service'{}  color=#2196f3
+!group   id=shallow   rule=$services&$level=2-4  color=#ff9800  label="Shallow services"
+!session id=focused   label="Focused View"  groups=services:color,shallow:dim
 ```
 
-### Rules
+### Groups
 
-Rules give a reusable id to a match pattern. The key determines what is matched and how:
+A group pairs a match expression with a display color. The `id` is used to reference the group from sessions and from other group expressions via `$id`.
 
-| Key pattern        | Matches against   | Value is a…              |
-| ------------------ | ----------------- | ------------------------ |
-| `all_name=…`       | element name      | regex (last path segment)|
-| `all_level=N` or `all_level=N-M` | nesting depth | integer or range |
-| `all=…`            | full element path | regex                    |
-| `{type}_name=…`    | name, only for elements of that type | regex |
-| `{type}_level=…`   | level, only for elements of that type | integer or range |
-| `{type}=…`         | full path, only for elements of that type | regex |
+| Key      | Required | Description                                                    |
+| -------- | -------- | -------------------------------------------------------------- |
+| `id=`    | yes      | Unique identifier (slugified: spaces → `_`)                    |
+| `rule=`  | yes      | Group expression (see below). Quote if it contains spaces.     |
+| `color=` | no       | Hex color used in `color` mode (default `#888888`)             |
+| `label=` | no       | Display name shown in the UI (defaults to `id`)                |
 
-`{type}` is one of `object`, `state`, `collection`, `function`, `flow`, `choice`, or `all`.
+Group mode is **not** set in the directive — it is controlled via `!session` or the UI toggle.
+
+### Group expression syntax
+
+A group expression is a boolean combination of **element patterns**. No spaces are allowed inside an expression (use `$id` references to split complex rules across multiple groups).
+
+**Element pattern** — `name type children`, all three optional, no spaces between them:
+
+| Part | Forms | Meaning |
+| ---- | ----- | ------- |
+| name | bare identifier | literal match against the element's name (last path segment) |
+| name | `'regex'` (single-quoted) | regex match against the name |
+| name | `?` | any name |
+| name | omitted | any name |
+| type | `{}` `[]` `()` `\|\|` `<>` `>>` | object / collection / function / state / choice / flow |
+| type | `?` | any type |
+| type | omitted | defaults to object |
+| children | patterns inside the wrapper | all listed children must be present (AND); omit for no constraint |
+
+A bare identifier with no wrapper (`user`) is shorthand for `user{}`.
+
+**`?` wildcards one position** — the name or the type, never both at once. Two adjacent `?` tokens (`??`) are simply name-wildcard followed by type-wildcard:
+
+| Pattern   | Matches |
+| --------- | ------- |
+| `?{}`     | any-name object |
+| `user?`   | element named `user` of any type |
+| `??`      | any name, any type |
+| `x{??}`   | object `x` with at least one child of any name and type |
+
+**Boolean operators** — evaluated left to right, precedence `-` > `&` > `/`:
+
+| Operator | Meaning | Precedence |
+| -------- | ------- | ---------- |
+| `-x`     | NOT x   | highest    |
+| `x&y`    | AND     |            |
+| `x/y`    | OR      | lowest     |
+
+No parentheses — use `$id` references to group sub-expressions:
 
 ```
-!rule id=my_rule  all_name=Parser|Lexer
-!rule id=deep     all_level=4-10
-!rule id=subtree  all=^Domain\.Layouts
+!group id=svc      rule='.*Service'{}
+!group id=shallow  rule=$svc&$level=2-4
 ```
 
-### Selectors
+**Built-in references:**
 
-Selectors apply a visual effect to elements matched by a rule expression.
+| Token          | Meaning |
+| -------------- | ------- |
+| `$id`          | resolves to the expression of the group with that id |
+| `$level=N`     | matches elements at nesting depth N (1 = root) |
+| `$level=N-M`   | matches elements at depth N through M inclusive |
 
-| Key          | Required | Description                                          |
-| ------------ | -------- | ---------------------------------------------------- |
-| `name=`      | yes      | Display label; also determines the selector's id (slugified) |
-| `expression=`| yes      | Boolean formula over rule ids (see below)            |
-| `color=`     | no       | Hex color used in `color` mode (default `#888888`)   |
+**Examples:**
 
-Selector mode is **not** set here — it is controlled at runtime via `!session` directives or the UI toggle.
+```
+!group id=services    rule='.*Service'{}            color=#2196f3
+!group id=repos       rule='.*Repository'{}         color=#9c27b0
+!group id=data_layer  rule=$services/$repos         color=#ff9800
+!group id=top_svc     rule=$services&$level=1-2     color=#4caf50
+!group id=containers  rule=?{??}                    color=#607d8b
+!group id=not_fn      rule=-{}                      color=#888888
+```
 
-**Expression operators** — evaluated left to right with standard precedence:
-
-| Operator | Meaning |
-| -------- | ------- |
-| `ruleId` | true if this element matches the rule |
-| `-x`     | NOT x  |
-| `x & y`  | AND    |
-| `x \| y` or `x + y` | OR |
-| `(…)`    | grouping |
-
-**Mode semantics:**
+### Mode semantics
 
 | Mode    | Effect on matching elements | Effect on non-matching elements |
 | ------- | --------------------------- | ------------------------------- |
@@ -199,27 +232,24 @@ Selector mode is **not** set here — it is controlled at runtime via `!session`
 | `hide`  | unchanged (visible)          | hidden                          |
 | `off`   | no effect                    | no effect                       |
 
-`dim` and `hide` use *inverse* matching: the expression identifies what to **keep**, and everything else is dimmed or hidden. Wrap compound expressions in quotes if they contain spaces:
-
-```
-!selector name=Focus_Infra  expression=infra_layer           color=#fdba74
-!selector name=No_AI        expression="-(ai_app|ai_infra)"  color=#888888
-```
+`dim` and `hide` use *inverse* matching: the expression identifies what to **keep**, and everything else is dimmed or hidden. Multiple active groups are composited — a path hidden by one group and colored by another ends up hidden.
 
 ### Sessions
 
-A session defines a named preset that sets specific modes for a group of selectors at once. Selector ids in the `selectors=` value are the slugified selector names (spaces and non-alphanumeric characters replaced with `_`). No spaces are allowed around commas unless the whole value is quoted.
+A session defines a named preset that assigns a mode to each group at once. Group ids in the `groups=` value are the slugified group ids. No spaces are allowed around commas.
 
-| Key         | Required | Description                                              |
-| ----------- | -------- | -------------------------------------------------------- |
-| `id=`       | yes      | Unique identifier for the session                        |
-| `label=`    | no       | Display name (quote if it contains spaces)               |
-| `selectors=`| no       | Comma-separated `selectorId:mode` pairs                  |
+| Key       | Required | Description                                         |
+| --------- | -------- | --------------------------------------------------- |
+| `id=`     | yes      | Unique identifier for the session                   |
+| `label=`  | no       | Display name (quote if it contains spaces)          |
+| `groups=` | no       | Comma-separated `groupId:mode` pairs                |
 
 ```
-!session id=cd_view  label="Code Change Flow"  selectors=cd_flow:color,vis_flow:off
-!session id=clean    label="Clean View"        selectors=no_embed:hide,no_ai:hide
+!session id=dev    label="Dev View"    groups=services:color,containers:dim
+!session id=clean  label="Clean View"  groups=not_fn:hide
 ```
+
+**Backward compatibility:** old `!rule` and `!selector` directives are accepted and silently migrated to `!group` at parse time. The first save after loading an old file rewrites them in the new syntax. Old `selectors=` in `!session` is accepted as an alias for `groups=`.
 
 ---
 

@@ -23,12 +23,11 @@ import {
   createRelationship,
 } from "../../domain/models/Relationship";
 import type {
-  Rule,
-  Selector,
+  Group,
   SelectorMode,
   Session,
 } from "../../domain/models/Selector";
-import { toSelectorId } from "../../domain/models/Selector";
+import { toGroupId } from "../../domain/models/Selector";
 
 const WRAPPERS: Record<
   OpeningWrapper,
@@ -450,9 +449,29 @@ export class Parser {
   private parseDirective(raw: string): void {
     const parts = splitDirective(raw.trim());
     const type = parts[0];
-    if (type === "atom" || type === "rule") this.parseRuleDirective(parts);
+    if (type === "group") this.parseGroupDirective(parts);
+    else if (type === "atom" || type === "rule") this.parseRuleDirective(parts);
     else if (type === "selector") this.parseSelectorDirective(parts);
     else if (type === "session") this.parseSessionDirective(parts);
+  }
+
+  private parseGroupDirective(parts: string[]): void {
+    const kvs = parseKVs(parts, 1);
+    const rawId = kvs["id"];
+    if (!rawId) return;
+
+    const label = kvs["label"] ?? rawId;
+    const id = toGroupId(rawId);
+    const group: Group = {
+      id,
+      label,
+      rule: kvs["rule"] ?? "",
+      color: kvs["color"] ?? "#888888",
+    };
+
+    if (!(this.model.groups ?? []).some((g) => g.id === id)) {
+      (this.model.groups ??= []).push(group);
+    }
   }
 
   private parseRuleDirective(parts: string[]): void {
@@ -460,12 +479,13 @@ export class Parser {
     const rawId = kvs["id"];
     if (!rawId) return;
 
-    const id = kvs["name"] ?? rawId;
-    const { id: _id, name: _name, ...patternKvs } = kvs;
-    const rule: Rule = { id, patterns: patternKvs };
+    const id = toGroupId(rawId);
+    const namePattern = kvs["all_name"] ?? kvs["name"] ?? kvs["all"] ?? "";
+    const rule = namePattern ? `'${namePattern}'?` : "";
+    const group: Group = { id, label: rawId, rule, color: "#888888" };
 
-    if (!(this.model.rules ?? []).some((r) => r.id === id)) {
-      (this.model.rules ??= []).push(rule);
+    if (!(this.model.groups ?? []).some((g) => g.id === id)) {
+      (this.model.groups ??= []).push(group);
     }
   }
 
@@ -474,16 +494,16 @@ export class Parser {
     const name = kvs["name"];
     if (!name) return;
 
-    const id = toSelectorId(name);
-    const selector: Selector = {
+    const id = toGroupId(name);
+    const group: Group = {
       id,
       label: name,
-      expression: kvs["expression"] ?? kvs["formula"] ?? kvs["combiner"] ?? "",
+      rule: kvs["expression"] ?? kvs["formula"] ?? kvs["combiner"] ?? "",
       color: kvs["color"] ?? "#888888",
     };
 
-    if (!(this.model.selectors ?? []).some((s) => s.id === id)) {
-      (this.model.selectors ??= []).push(selector);
+    if (!(this.model.groups ?? []).some((g) => g.id === id)) {
+      (this.model.groups ??= []).push(group);
     }
   }
 
@@ -493,22 +513,22 @@ export class Parser {
     if (!id) return;
 
     const label = kvs["label"] ?? id;
-    const selectorModes: Record<string, SelectorMode> = {};
+    const groupModes: Record<string, SelectorMode> = {};
 
-    const selectorsRaw = kvs["selectors"] ?? "";
-    if (selectorsRaw) {
-      for (const entry of selectorsRaw.split(",")) {
+    const modesRaw = kvs["groups"] ?? kvs["selectors"] ?? ""; // selectors= for backward compat
+    if (modesRaw) {
+      for (const entry of modesRaw.split(",")) {
         const colonIdx = entry.lastIndexOf(":");
         if (colonIdx < 0) continue;
-        const selectorId = entry.slice(0, colonIdx).trim();
+        const entityId = entry.slice(0, colonIdx).trim();
         const rawMode = entry.slice(colonIdx + 1).trim();
-        if (selectorId && (VALID_MODES as string[]).includes(rawMode)) {
-          selectorModes[selectorId] = rawMode as SelectorMode;
+        if (entityId && (VALID_MODES as string[]).includes(rawMode)) {
+          groupModes[entityId] = rawMode as SelectorMode;
         }
       }
     }
 
-    const session: Session = { id, label, selectorModes };
+    const session: Session = { id, label, groupModes };
     const existingIdx = (this.model.sessions ?? []).findIndex((s) => s.id === id);
     if (existingIdx >= 0) {
       this.model.sessions![existingIdx] = session;

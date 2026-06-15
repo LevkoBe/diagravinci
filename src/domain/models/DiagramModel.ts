@@ -1,6 +1,6 @@
 import { createElement, type Element } from "./Element";
 import type { Relationship } from "./Relationship";
-import type { Rule, Selector, Session } from "./Selector";
+import type { Rule, Selector, Group, Session } from "./Selector";
 
 export interface DiagramMetadata {
   version: string;
@@ -15,6 +15,7 @@ export interface DiagramModel {
   metadata: DiagramMetadata;
   rules?: Rule[];
   selectors?: Selector[];
+  groups?: Group[];
   sessions?: Session[];
   validationErrors?: string[];
 }
@@ -30,7 +31,7 @@ export function createEmptyDiagram(): DiagramModel {
     relationships: {},
     rules: [],
     selectors: [],
-    sessions: [{ id: DEFAULT_SESSION_ID, label: DEFAULT_SESSION_LABEL, selectorModes: {} }],
+    sessions: [{ id: DEFAULT_SESSION_ID, label: DEFAULT_SESSION_LABEL, groupModes: {} }],
     metadata: {
       version: "1.0.0",
       created: now,

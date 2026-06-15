@@ -6,7 +6,7 @@ import type { DiagramModel } from "../../../domain/models/DiagramModel";
 import { createEmptyDiagram } from "../../../domain/models/DiagramModel";
 import { createElement } from "../../../domain/models/Element";
 import { createRelationship } from "../../../domain/models/Relationship";
-import type { Rule, Selector } from "../../../domain/models/Selector";
+import type { Group } from "../../../domain/models/Selector";
 import {
   BUILT_IN_TEMPLATES,
   EXECUTION_TEMPLATES,
@@ -194,12 +194,12 @@ describe("CodeGenerator", () => {
       const code = generate(model);
       expect(code).toContain("!session");
       expect(code).toContain("id=default");
-      expect(code).toContain("selectors=foo:color");
+      expect(code).toContain("groups=foo:color");
     });
   });
 
   describe("session emission", () => {
-    it("suppresses the default session when its selectorModes is empty", () => {
+    it("suppresses the default session when its groupModes is empty", () => {
       const model = createEmptyDiagram();
       const code = generate(model);
       expect(code).not.toContain("!session");
@@ -207,17 +207,17 @@ describe("CodeGenerator", () => {
 
     it("emits the default session when it has selector modes", () => {
       const model = createEmptyDiagram();
-      model.sessions = [{ id: "default", label: "Default", selectorModes: { s1: "color" } }];
+      model.sessions = [{ id: "default", label: "Default", groupModes: { s1: "color" } }];
       const code = generate(model);
       expect(code).toContain("!session  id=default");
-      expect(code).toContain("selectors=s1:color");
+      expect(code).toContain("groups=s1:color");
     });
 
-    it("always emits non-default sessions even when selectorModes is empty", () => {
+    it("always emits non-default sessions even when groupModes is empty", () => {
       const model = createEmptyDiagram();
       model.sessions = [
-        { id: "default", label: "Default", selectorModes: {} },
-        { id: "remote", label: "Remote", selectorModes: {} },
+        { id: "default", label: "Default", groupModes: {} },
+        { id: "remote", label: "Remote", groupModes: {} },
       ];
       const code = generate(model);
       expect(code).toContain("!session  id=remote");
@@ -287,87 +287,34 @@ describe("CodeGenerator", () => {
     });
   });
 
-  describe("rule generation", () => {
-    function modelWithRule(rule: Rule): DiagramModel {
-      const model = createEmptyDiagram();
-      model.rules = [rule];
-      return model;
+  describe("group generation", () => {
+    function makeGroup(overrides: Partial<Group> = {}): Group {
+      return { id: "svc", label: "Services", color: "#2196f3", rule: "'.*Service'?", ...overrides };
     }
 
-    it("generates !rule line with id and pattern", () => {
-      const code = generate(
-        modelWithRule({ id: "fn", patterns: { function_name: ".*" } }),
-      );
-      expect(code).toContain("!rule  id=fn  function_name=.*");
-    });
-
-    it("quotes pattern values that contain spaces", () => {
-      const code = generate(
-        modelWithRule({ id: "x", patterns: { all_name: "has spaces" } }),
-      );
-      expect(code).toContain('"has spaces"');
-    });
-
-    it("generates multiple rules in order", () => {
+    it("generates !group line with id, color, and rule", () => {
       const model = createEmptyDiagram();
-      model.rules = [
-        { id: "a", patterns: { object_name: ".*" } },
-        { id: "b", patterns: { function_name: ".*" } },
-      ];
+      model.groups = [makeGroup()];
       const code = generate(model);
-      const aLine = code.indexOf("!rule  id=a");
-      const bLine = code.indexOf("!rule  id=b");
-      expect(aLine).toBeGreaterThanOrEqual(0);
-      expect(bLine).toBeGreaterThan(aLine);
+      expect(code).toContain("!group  id=svc");
+      expect(code).toContain("color=#2196f3");
+      expect(code).toContain("rule='.*Service'?");
     });
-  });
 
-  describe("selector generation", () => {
-    function makeSelector(overrides: Partial<Selector> = {}): Selector {
-      return {
-        id: "ok",
-        label: "ok",
-        color: "#123456",
-        expression: "fn",
-        ...overrides,
-      };
-    }
-
-    it("generates !selector line with name, color, and expression", () => {
+    it("omits rule field when rule is empty", () => {
       const model = createEmptyDiagram();
-      model.selectors = [makeSelector()];
+      model.groups = [makeGroup({ rule: "" })];
       const code = generate(model);
-      expect(code).toContain("!selector");
-      expect(code).toContain("name=ok");
-      expect(code).toContain("color=#123456");
-      expect(code).toContain("expression=fn");
+      expect(code).not.toContain("rule=");
     });
 
-    it("omits expression field when expression is empty", () => {
+    it("inserts a blank line between group directives and elements", () => {
       const model = createEmptyDiagram();
-      model.selectors = [makeSelector({ expression: "" })];
-      const code = generate(model);
-      expect(code).not.toContain("expression=");
-    });
-
-    it("quotes expression value that contains spaces", () => {
-      const model = createEmptyDiagram();
-      model.selectors = [makeSelector({ expression: "a b" })];
-      const code = generate(model);
-      expect(code).toContain('expression="a b"');
-    });
-  });
-
-  describe("rules/selectors blank-line separator", () => {
-    it("inserts a blank line between directives and elements", () => {
-      const model = createEmptyDiagram();
-      model.selectors = [
-        { id: "p", label: "p", color: "#fff", expression: "" },
-      ];
+      model.groups = [makeGroup()];
       model.elements["a"] = createElement("a", "object");
       model.root.childIds.push("a");
       const code = generate(model);
-      expect(code).toMatch(/!selector[\s\S]*\n\na\{\}/);
+      expect(code).toMatch(/!group[\s\S]*\n\na\{\}/);
     });
 
     it("does not insert extra blank line when there are no directives", () => {

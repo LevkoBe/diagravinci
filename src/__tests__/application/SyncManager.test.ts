@@ -68,7 +68,7 @@ describe("SyncManager.syncFromCode", () => {
     sm.syncFromCode("!selector  name=MyTag  color=#ff0000\na{}");
     const { model } = store.getState().diagram;
     const def = (model.sessions ?? []).find((s) => s.id === DEFAULT_SESSION_ID);
-    expect(def?.selectorModes["mytag"]).toBe("color");
+    expect(def?.groupModes["mytag"]).toBe("color");
   });
 
   it("auto-colors new selectors in ALL existing sessions", () => {
@@ -85,8 +85,8 @@ describe("SyncManager.syncFromCode", () => {
     const { model } = store.getState().diagram;
     const def = (model.sessions ?? []).find((s) => s.id === "default");
     const remote = (model.sessions ?? []).find((s) => s.id === "remote");
-    expect(def?.selectorModes["tag"]).toBe("color");
-    expect(remote?.selectorModes["tag"]).toBe("color");
+    expect(def?.groupModes["tag"]).toBe("color");
+    expect(remote?.groupModes["tag"]).toBe("color");
   });
 
   it("preserves a user-set mode when the same selector is re-synced", () => {
@@ -101,7 +101,7 @@ describe("SyncManager.syncFromCode", () => {
     );
     const { model } = store.getState().diagram;
     const def = (model.sessions ?? []).find((s) => s.id === DEFAULT_SESSION_ID);
-    expect(def?.selectorModes["tag"]).toBe("dim");
+    expect(def?.groupModes["tag"]).toBe("dim");
   });
 
   it("emitted code does not contain a bare default session line after syncing elements only", () => {
@@ -205,7 +205,7 @@ describe("SyncManager.syncFromVis – additional branches", () => {
     const { store, sm } = makeStore();
     sm.syncFromCode("a{}");
     const { model } = store.getState().diagram;
-    const newSession = { id: "extra", label: "Extra", selectorModes: {} };
+    const newSession = { id: "extra", label: "Extra", groupModes: {} };
     sm.syncFromVis({
       ...model,
       sessions: [...(model.sessions ?? []), newSession],

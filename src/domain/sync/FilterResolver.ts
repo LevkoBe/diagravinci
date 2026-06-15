@@ -4,6 +4,7 @@ import type { PositionedElement } from "../../domain/models/ViewState";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { FilterState } from "../../application/store/filterSlice";
 import { evaluateSelector } from "../selector/SelectorEvaluator";
+import { matchesGroup } from "../selector/GroupEvaluator";
 
 export interface FilterLists {
   hiddenPaths: string[];
@@ -22,22 +23,11 @@ export function matchesSelector(
   model: DiagramModel,
   rules: Rule[],
 ): boolean {
-  if (selector.selectedPaths) {
-    return selector.selectedPaths.includes(path);
-  }
-
   const elementId = path.split(".").at(-1)!;
   const element = model.elements[elementId];
-
   if (element?.flags?.some((f) => toSelectorId(f) === selector.id)) return true;
-
   const type = element?.type ?? "";
   return evaluateSelector(selector.expression, path, type, rules);
-}
-
-function arraysEqual(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false;
-  return a.every((v, i) => v === b[i]);
 }
 
 export class FilterResolver {
@@ -53,35 +43,37 @@ export class FilterResolver {
     const foldedSet = new Set<string>();
     const coloredMap = new Map<string, string>();
     const rules = model.rules ?? [];
+    const groups = model.groups ?? [];
 
     const activeSession = (model.sessions ?? []).find(
       (s) => s.id === activeSessionId,
     );
 
-    for (const selector of filterState.selectors) {
-      const mode: SelectorMode = activeSession?.selectorModes[selector.id] ?? "off";
-
+    // new-style groups (Group with rule field) — applied first
+    for (const group of filterState.groups ?? []) {
+      const mode: SelectorMode = activeSession?.groupModes?.[group.id] ?? "off";
       if (mode === "off") continue;
 
-      if (mode === "color") {
-        for (const path of allPaths) {
-          if (matchesSelector(path, selector, model, rules)) {
-            coloredMap.set(path, selector.color);
-          }
-        }
-        continue;
-      }
+      const elementOf = (path: string) => {
+        const id = path.split(".").at(-1)!;
+        return model.elements[id];
+      };
 
-      const unmatched: string[] = [];
-      for (const path of allPaths) {
-        if (!matchesSelector(path, selector, model, rules)) unmatched.push(path);
-      }
+      applyMode(mode, allPaths, coloredMap, hiddenSet, dimmedSet, group.color, (path) => {
+        const el = elementOf(path);
+        if (!el) return false;
+        if (el.flags?.some((f) => toSelectorId(f) === group.id)) return true;
+        return matchesGroup(group, path, el.type, model.elements, groups);
+      });
+    }
 
-      if (mode === "hide") {
-        unmatched.forEach((p) => hiddenSet.add(p));
-      } else if (mode === "dim") {
-        unmatched.forEach((p) => dimmedSet.add(p));
-      }
+    // old-style selectors (Selector with expression field) — applied last so click-selection always wins
+    for (const selector of filterState.selectors) {
+      const mode: SelectorMode = activeSession?.groupModes?.[selector.id] ?? "off";
+      if (mode === "off") continue;
+      applyMode(mode, allPaths, coloredMap, hiddenSet, dimmedSet, selector.color, (path) =>
+        matchesSelector(path, selector, model, rules),
+      );
     }
 
     const manuallyUnfoldedSet = new Set(filterState.manuallyUnfolded);
@@ -134,4 +126,35 @@ export class FilterResolver {
       coloredEqual
     );
   }
+}
+
+function applyMode(
+  mode: SelectorMode,
+  allPaths: string[],
+  coloredMap: Map<string, string>,
+  hiddenSet: Set<string>,
+  dimmedSet: Set<string>,
+  color: string,
+  matches: (path: string) => boolean,
+): void {
+  if (mode === "color") {
+    for (const path of allPaths) {
+      if (matches(path)) coloredMap.set(path, color);
+    }
+    return;
+  }
+  const unmatched: string[] = [];
+  for (const path of allPaths) {
+    if (!matches(path)) unmatched.push(path);
+  }
+  if (mode === "hide") {
+    unmatched.forEach((p) => hiddenSet.add(p));
+  } else if (mode === "dim") {
+    unmatched.forEach((p) => dimmedSet.add(p));
+  }
+}
+
+function arraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((v, i) => v === b[i]);
 }

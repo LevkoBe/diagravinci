@@ -742,7 +742,7 @@ describe("Parser sessions", () => {
     const def = sessions.find((s) => s.id === "default");
     expect(def).toBeDefined();
     expect(def!.label).toBe("My Default");
-    expect(def!.selectorModes["foo"]).toBe("color");
+    expect(def!.groupModes["foo"]).toBe("color");
   });
 
   it("does not create duplicate default sessions when !session id=default is explicit", () => {
@@ -770,10 +770,10 @@ describe("Parser sessions", () => {
     );
     const s1 = (model.sessions ?? []).find((s) => s.id === "s1");
     expect(s1).toBeDefined();
-    expect(s1!.selectorModes["a"]).toBe("color");
-    expect(s1!.selectorModes["b"]).toBe("dim");
-    expect(s1!.selectorModes["c"]).toBe("hide");
-    expect(s1!.selectorModes["d"]).toBe("off");
+    expect(s1!.groupModes["a"]).toBe("color");
+    expect(s1!.groupModes["b"]).toBe("dim");
+    expect(s1!.groupModes["c"]).toBe("hide");
+    expect(s1!.groupModes["d"]).toBe("off");
   });
 
   it("ignores !session without an id field", () => {
@@ -819,51 +819,50 @@ describe("Parser edge cases", () => {
     expect(ids).toContain("server");
   });
 
-  it("parses !atom (legacy) and !rule directives and !selector directives", () => {
-    const code =
-      "!atom  id=1  all=*.db.*\n!selector  name=warn  color=#f00  mode=dim  expression=1";
+  it("migrates !atom and !rule directives to groups", () => {
+    const code = "!atom  id=db  all=*.db.*\n!rule  id=royals  all_name=queen";
     const model = parse(code);
-    expect(model.rules ?? []).toHaveLength(1);
-    expect((model.rules ?? [])[0].patterns["all"]).toBe("*.db.*");
-    expect(model.selectors ?? []).toHaveLength(1);
-    const s = (model.selectors ?? [])[0];
-    expect(s.id).toBe("warn");
-    expect(s.color).toBe("#f00");
-    expect(s.expression).toBe("1");
+    const groups = model.groups ?? [];
+    expect(groups.find((g) => g.id === "db")).toBeDefined();
+    expect(groups.find((g) => g.id === "royals")).toBeDefined();
+    expect(model.rules ?? []).toHaveLength(0);
   });
 
-  it("parses !rule directive", () => {
-    const code = "!rule  id=royals  all=root\\.queen\\..*";
+  it("migrates !selector directive to a group using the expression as rule", () => {
+    const code = "!selector  name=warn  color=#f00  expression=services";
     const model = parse(code);
-    expect(model.rules ?? []).toHaveLength(1);
-    expect((model.rules ?? [])[0].id).toBe("royals");
-    expect((model.rules ?? [])[0].patterns["all"]).toBe("root\\.queen\\..*");
+    const groups = model.groups ?? [];
+    const g = groups.find((g) => g.id === "warn");
+    expect(g).toBeDefined();
+    expect(g!.color).toBe("#f00");
+    expect(g!.rule).toBe("services");
+    expect(model.selectors ?? []).toHaveLength(0);
   });
 
-  it("parses !selector with legacy combiner/formula fields (migration compat)", () => {
-    const code = "!selector  name=old  color=#f00  mode=dim  combiner=1";
+  it("migrates !selector with legacy combiner/formula fields to group rule", () => {
+    const code = "!selector  name=old  color=#f00  combiner=1";
     const model = parse(code);
-    const s = (model.selectors ?? [])[0];
-    expect(s.expression).toBe("1");
+    const g = (model.groups ?? []).find((g) => g.id === "old");
+    expect(g?.rule).toBe("1");
   });
 
   it("ignores !directive with unknown type", () => {
     const model = parse("!unknown foo=bar");
-    expect(model.selectors ?? []).toHaveLength(0);
+    expect(model.groups ?? []).toHaveLength(0);
   });
 
   it("ignores !selector directive missing name", () => {
     const model = parse("!selector path=*.db.*");
-    expect(model.selectors ?? []).toHaveLength(0);
+    expect(model.groups ?? []).toHaveLength(0);
   });
 
   it("deduplicates !selector directives with same name", () => {
     const model = parse(
       "!selector name=warn color=#f00 mode=color\n!selector name=warn color=#0f0 mode=dim",
     );
-    const selectors = model.selectors ?? [];
-    expect(selectors).toHaveLength(1);
-    expect(selectors[0].color).toBe("#f00");
+    const groups = model.groups ?? [];
+    expect(groups.filter((g) => g.id === "warn")).toHaveLength(1);
+    expect(groups.find((g) => g.id === "warn")?.color).toBe("#f00");
   });
 
   it("parses empty input without error", () => {

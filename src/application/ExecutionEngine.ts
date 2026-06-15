@@ -3,6 +3,7 @@ import type { ViewState, PositionedElement } from "../domain/models/ViewState";
 import type { Element } from "../domain/models/Element";
 import type { Relationship } from "../domain/models/Relationship";
 import type { TokenInstance } from "./store/executionSlice";
+import { buildPatternFromElement, matchesExpr } from "../domain/selector/GroupEvaluator";
 
 export type { TokenInstance };
 
@@ -630,35 +631,21 @@ export function computeExecutionStep(
     }
 
     if (currentEl?.type === "choice" && targets.length > 1) {
-      const selectors = templateChildren(currentEl).map((id) => ({
-        type: model.elements[id]!.type as string,
-        pattern: id.startsWith("anon_") ? null : id,
-      }));
+      const childExprs = templateChildren(currentEl).map((id) => {
+        const child = model.elements[id]!;
+        return buildPatternFromElement(child, id, model.elements);
+      });
 
-      const compiledSelectors = selectors.map((s) => ({
-        ...s,
-        regex:
-          s.pattern === null
-            ? null
-            : (() => {
-                try {
-                  return new RegExp(s.pattern!);
-                } catch {
-                  return null;
-                }
-              })(),
-      }));
       const conditionMet =
-        selectors.length === 0 ||
+        childExprs.length === 0 ||
         instance.clonedElementIds.some((cid) => {
           const cloneEl = model.elements[cid];
-          return compiledSelectors.some((s) => {
-            if (cloneEl?.type !== s.type) return false;
-            if (s.pattern === null) return true;
-            return s.regex
-              ? s.regex.test(baseName(cid))
-              : s.pattern === baseName(cid);
-          });
+          if (!cloneEl) return false;
+          // use the base name (without clone suffix) so cond_0 matches pattern for cond
+          const baseId = baseName(cid);
+          return childExprs.some((expr) =>
+            matchesExpr(expr, baseId, cloneEl.type, model.elements, []),
+          );
         });
 
       const choiceRels = allRels.filter(

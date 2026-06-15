@@ -4,7 +4,7 @@ import type { ViewState } from "../domain/models/ViewState";
 import { ModelDiffer } from "../domain/sync/ModelDiffer";
 import { ViewStateMerger } from "../domain/sync/ViewStateMerger";
 import { setCode, setModel, setViewState } from "./store/diagramSlice";
-import { syncSelectorsFromCode } from "./store/filterSlice";
+import { syncSelectorsFromCode, syncGroupsFromCode } from "./store/filterSlice";
 import type { AppStore } from "./store/store";
 import { ForceSimulationService } from "./ForceSimulationService";
 import { upsertSessionModeInCode } from "../presentation/utils/selectorCodeUtils";
@@ -64,13 +64,16 @@ export class SyncManager {
       const selectorsChanged =
         JSON.stringify(currentModel.selectors ?? []) !==
         JSON.stringify(newModel.selectors ?? []);
+      const groupsChanged =
+        JSON.stringify(currentModel.groups ?? []) !==
+        JSON.stringify(newModel.groups ?? []);
       const rulesChanged =
         JSON.stringify(currentModel.rules ?? []) !==
         JSON.stringify(newModel.rules ?? []);
       const sessionsChanged =
         JSON.stringify(currentModel.sessions ?? []) !==
         JSON.stringify(newModel.sessions ?? []);
-      if (ModelDiffer.isEmpty(diff) && !selectorsChanged && !rulesChanged && !sessionsChanged) {
+      if (ModelDiffer.isEmpty(diff) && !selectorsChanged && !groupsChanged && !rulesChanged && !sessionsChanged) {
         this.store.dispatch(setCode(code));
         return;
       }
@@ -87,6 +90,14 @@ export class SyncManager {
           syncSelectorsFromCode({
             modelSelectors: newModel.selectors ?? [],
             prevModelSelectorIds: (currentModel.selectors ?? []).map((s) => s.id),
+          }),
+        );
+      }
+      if (groupsChanged) {
+        this.store.dispatch(
+          syncGroupsFromCode({
+            modelGroups: newModel.groups ?? [],
+            prevModelGroupIds: (currentModel.groups ?? []).map((g) => g.id),
           }),
         );
       }
@@ -118,27 +129,34 @@ export class SyncManager {
     if ((model.sessions ?? []).length === 0) {
       model = {
         ...model,
-        sessions: [{ id: DEFAULT_SESSION_ID, label: DEFAULT_SESSION_LABEL, selectorModes: {} }],
+        sessions: [{ id: DEFAULT_SESSION_ID, label: DEFAULT_SESSION_LABEL, groupModes: {} }],
       };
       const sep = normalizedCode.length > 0 && !normalizedCode.endsWith("\n") ? "\n" : "";
       normalizedCode = normalizedCode + sep + `!session  id=${DEFAULT_SESSION_ID}  label=${DEFAULT_SESSION_LABEL}\n`;
     }
 
-    const prevIds = new Set((currentModel.selectors ?? []).map((s) => s.id));
+    const prevSelectorIds = new Set((currentModel.selectors ?? []).map((s) => s.id));
     const newSelectorIds = (model.selectors ?? [])
-      .filter((s) => !prevIds.has(s.id))
+      .filter((s) => !prevSelectorIds.has(s.id))
       .map((s) => s.id);
 
-    if (newSelectorIds.length > 0) {
+    const prevGroupIds = new Set((currentModel.groups ?? []).map((g) => g.id));
+    const newGroupIds = (model.groups ?? [])
+      .filter((g) => !prevGroupIds.has(g.id))
+      .map((g) => g.id);
+
+    const newEntityIds = [...newSelectorIds, ...newGroupIds];
+
+    if (newEntityIds.length > 0) {
       const updatedSessions = (model.sessions ?? []).map((session) => {
-        const updatedModes = { ...session.selectorModes };
-        for (const id of newSelectorIds) {
+        const updatedModes = { ...session.groupModes };
+        for (const id of newEntityIds) {
           if (!updatedModes[id]) {
             updatedModes[id] = "color";
             normalizedCode = upsertSessionModeInCode(session.id, id, "color", normalizedCode);
           }
         }
-        return { ...session, selectorModes: updatedModes };
+        return { ...session, groupModes: updatedModes };
       });
       model = { ...model, sessions: updatedSessions };
     }
@@ -163,10 +181,13 @@ export class SyncManager {
     const selectorsChanged =
       JSON.stringify(currentModel.selectors ?? []) !==
       JSON.stringify(updatedModel.selectors ?? []);
+    const groupsChangedVis =
+      JSON.stringify(currentModel.groups ?? []) !==
+      JSON.stringify(updatedModel.groups ?? []);
     const sessionsChanged =
       JSON.stringify(currentModel.sessions ?? []) !==
       JSON.stringify(updatedModel.sessions ?? []);
-    if (ModelDiffer.isEmpty(diff) && !selectorsChanged && !sessionsChanged) return;
+    if (ModelDiffer.isEmpty(diff) && !selectorsChanged && !groupsChangedVis && !sessionsChanged) return;
 
     let mergeViewState = currentViewState;
     if (preservePositions && pathRemapping) {
@@ -217,6 +238,14 @@ export class SyncManager {
         syncSelectorsFromCode({
           modelSelectors: updatedModel.selectors ?? [],
           prevModelSelectorIds: (currentModel.selectors ?? []).map((s) => s.id),
+        }),
+      );
+    }
+    if (groupsChangedVis) {
+      this.store.dispatch(
+        syncGroupsFromCode({
+          modelGroups: updatedModel.groups ?? [],
+          prevModelGroupIds: (currentModel.groups ?? []).map((g) => g.id),
         }),
       );
     }
