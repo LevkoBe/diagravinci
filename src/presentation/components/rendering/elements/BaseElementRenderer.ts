@@ -165,7 +165,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     const maxW = size * ec.CLASS_LABEL_WIDTH_RATIO;
     const xStart = -maxW / 2;
 
-    const displayName = this.element.id.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)$/, "");
+    const displayName = this.element.id.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)(_\d+)*$/, "");
     const allLines = [displayName, ...fields, ...methods];
     const longestLine = allLines.reduce(
       (a, b) => (a.length > b.length ? a : b),
@@ -289,7 +289,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     }
 
     // Strip type-wrapper suffix to get the display name (e.g. "player{}" → "player")
-    const name = rawId?.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)$/, "");
+    const name = rawId?.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)(_\d+)*$/, "");
 
     const iconMatch = name?.match(/^_(.+)_$/);
     if (iconMatch) {
