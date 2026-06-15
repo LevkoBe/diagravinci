@@ -99,10 +99,9 @@ const DEFAULT_LAYOUT: LayoutNodeDecl = {
     {
       type: "group",
       direction: "vertical",
-      sizes: [40, 35, 25],
+      sizes: [55, 45],
       children: [
         { type: "leaf", windowId: "properties" },
-        { type: "leaf", windowId: "selected" },
         { type: "leaf", windowId: "templates" },
       ],
     },
