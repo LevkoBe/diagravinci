@@ -87,7 +87,7 @@ import {
   setCode,
   setViewMode,
 } from "../../application/store/diagramSlice";
-import { toSelectorId, FOLD_SELECTOR_ID, type Session, type Selector } from "../../domain/models/Selector";
+import { toSelectorId, FOLD_SELECTOR_ID, type Session, type Selector, type Group } from "../../domain/models/Selector";
 import {
   startExecution,
   pauseExecution,
@@ -99,6 +99,7 @@ import {
   setFoldLevel,
   toggleFoldActive,
   syncSelectorsFromCode,
+  syncGroupsFromCode,
 } from "../../application/store/filterSlice";
 import {
   computeExecutionStep,
@@ -237,7 +238,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
     opaqueElementBg,
     activeSessionId,
   } = useAppSelector((s) => s.ui);
-  const { selectors, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
+  const { selectors, groups, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
     useAppSelector((s) => s.filter);
   const execState = useAppSelector((s) => s.execution);
   const isExecuteMode = viewMode === "execute";
@@ -267,10 +268,10 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
     dispatch(setActiveSession(sessions[0].id));
   }, [sessions, activeSession, dispatch]);
 
-  const activePresetCount = selectors.filter((s) => {
-    if (s.id === FOLD_SELECTOR_ID) return false;
-    return (activeSession?.selectorModes[s.id] ?? "off") !== "off";
-  }).length;
+  const activePresetCount = [
+    ...selectors.filter((s) => s.id !== FOLD_SELECTOR_ID),
+    ...groups,
+  ].filter((s) => (activeSession?.groupModes?.[s.id] ?? "off") !== "off").length;
 
   const foldMode = !foldActive
     ? "expanded"
@@ -396,16 +397,19 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
           else if (obj.type === "code") parsedCode = obj.value;
           else if (obj.type === "viewState") parsedViewState = obj.data;
         }
-        let sessions: Session[] = [{ id: "default", label: "Default", selectorModes: {} }];
+        let sessions: Session[] = [{ id: "default", label: "Default", groupModes: {} }];
         let newModelSelectors: Selector[] = [];
+        let newModelGroups: Group[] = [];
         if (parsedCode !== null) {
           try {
             const parsed = new Parser(new Lexer(parsedCode).tokenize()).parse();
             sessions = parsed.sessions ?? sessions;
             newModelSelectors = parsed.selectors ?? [];
+            newModelGroups = parsed.groups ?? [];
           } catch { /* keep fallback session */ }
         }
         const prevModelSelectorIds = (store.getState().diagram.model.selectors ?? []).map((s) => s.id);
+        const prevModelGroupIds = (store.getState().diagram.model.groups ?? []).map((g) => g.id);
         if (root)
           dispatch(
             setModel({ elements, relationships, root, sessions } as Parameters<
@@ -418,6 +422,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
           );
         if (parsedCode !== null) dispatch(setCode(parsedCode));
         dispatch(syncSelectorsFromCode({ modelSelectors: newModelSelectors, prevModelSelectorIds }));
+        dispatch(syncGroupsFromCode({ modelGroups: newModelGroups, prevModelGroupIds }));
         dispatch(setActiveSession(sessions[0].id));
       } catch {
         console.error("Invalid diagram file");
@@ -500,33 +505,21 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
           };
         }
 
-        const filteredSelectors = (mergedModel.selectors ?? []).filter(
-          (s) => s.id !== newSelId && s.id !== delSelId,
+        const codeGroups = (mergedModel.groups ?? []).filter(
+          (g) => g.id !== newSelId && g.id !== delSelId,
         );
-        const diffSelectors = [];
+        const diffGroups: Group[] = [];
         if (addedIds.length > 0) {
-          diffSelectors.push({
-            id: newSelId,
-            label: newSelLabel,
-            expression: "",
-            mode: "color" as const,
-            color: AppConfig.canvas.DIFF_ADDED_COLOR,
-          });
+          diffGroups.push({ id: newSelId, label: newSelLabel, rule: "", color: AppConfig.canvas.DIFF_ADDED_COLOR });
         }
         if (removedIds.length > 0) {
-          diffSelectors.push({
-            id: delSelId,
-            label: delSelLabel,
-            expression: "",
-            mode: "color" as const,
-            color: AppConfig.canvas.DIFF_REMOVED_COLOR,
-          });
+          diffGroups.push({ id: delSelId, label: delSelLabel, rule: "", color: AppConfig.canvas.DIFF_REMOVED_COLOR });
         }
 
         const finalModel = {
           ...mergedModel,
           elements: updatedElements,
-          selectors: [...diffSelectors, ...filteredSelectors],
+          groups: [...diffGroups, ...codeGroups],
         };
         const code = new CodeGenerator(finalModel).generate();
         syncManager.syncFromCode(code, true);
@@ -934,7 +927,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
 
         <div className="relative">
           <Button
-            title="Selectors"
+            title="Groups"
             variant={activePresetCount > 0 ? "secondary" : "ghost"}
             size="sm"
             className="w-9 h-9 p-0 rounded-full shrink-0"

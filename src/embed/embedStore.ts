@@ -8,7 +8,7 @@ import type { ViewState } from "../domain/models/ViewState";
 import diagramReducer, { setCode, setModel, setViewState } from "../application/store/diagramSlice";
 import uiReducer, { setInteractionMode, toggleClassDiagramMode, setRelLineStyle } from "../application/store/uiSlice";
 import type { RelLineStyle } from "../application/store/uiSlice";
-import filterReducer, { syncSelectorsFromCode } from "../application/store/filterSlice";
+import filterReducer, { syncSelectorsFromCode, syncGroupsFromCode } from "../application/store/filterSlice";
 import historyReducer from "../application/store/historySlice";
 import diffReducer from "../application/store/diffSlice";
 import executionReducer from "../application/store/executionSlice";
@@ -47,6 +47,7 @@ export function createEmbedStore(
         viewMode,
       };
       store.dispatch(syncSelectorsFromCode({ modelSelectors: model.selectors ?? [], prevModelSelectorIds: [] }));
+      store.dispatch(syncGroupsFromCode({ modelGroups: model.groups ?? [], prevModelGroupIds: [] }));
       store.dispatch(setModel(model));
       store.dispatch(setViewState(viewState));
       store.dispatch(setCode(diagramCode));

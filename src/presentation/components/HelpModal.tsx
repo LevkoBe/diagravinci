@@ -21,9 +21,9 @@ const RELATIONSHIPS = [
 ];
 
 const DIRECTIVES = [
-  { syntax: "!rule id=r all_name=regex", note: "name match rule (also: all_level=N, all=path-regex; prefix all with a type to restrict)" },
-  { syntax: "!selector name=S expression=r color=#hex", note: "visual preset — mode set at runtime or via session" },
-  { syntax: '!session id=v label="View" selectors=s:color,t:hide', note: "named preset combining selector:mode pairs" },
+  { syntax: "!group id=g rule='.*Service'? color=#hex", note: "element pattern: 'regex'=regex, ?=any; type: {} [] () || <> >> ?; bool: /|&|-" },
+  { syntax: "!group id=g2 rule=$g&$level=2-4 color=#hex", note: "$id refs another group; $level=N or $level=N-M matches nesting depth" },
+  { syntax: '!session id=v label="View" groups=g:color,g2:hide', note: "named preset combining group:mode pairs (color/dim/hide/off)" },
 ];
 
 const SHORTCUTS: { keys: string; action: string; group?: string }[] = [
@@ -127,7 +127,7 @@ export function HelpModal({
             </div>
           </Section>
 
-          <Section title="Directives — rules, selectors, sessions">
+          <Section title="Directives — groups, sessions">
             <div className="grid grid-cols-1 gap-2">
               {DIRECTIVES.map(({ syntax, note }) => (
                 <div key={syntax} className="flex flex-col gap-0.5 text-xs">
@@ -137,7 +137,7 @@ export function HelpModal({
               ))}
             </div>
             <div className="mt-1 text-xs text-fg-muted">
-              Selector modes: <CodeChip>color</CodeChip> highlights matched · <CodeChip>dim</CodeChip> fades unmatched · <CodeChip>hide</CodeChip> removes unmatched · <CodeChip>off</CodeChip> disabled
+              Group modes: <CodeChip>color</CodeChip> highlights matched · <CodeChip>dim</CodeChip> fades unmatched · <CodeChip>hide</CodeChip> removes unmatched · <CodeChip>off</CodeChip> disabled
             </div>
           </Section>
 
@@ -207,7 +207,7 @@ export function HelpModal({
               <li>Drag on empty canvas to box-select multiple elements</li>
               <li>Same name in two places = same element (cross-reference with dot-notation)</li>
               <li>Right-click any element to fold / unfold it individually</li>
-              <li>Define <CodeChip>!rule</CodeChip> <CodeChip>!selector</CodeChip> <CodeChip>!session</CodeChip> directly in diagram code — loaded automatically on parse</li>
+              <li>Define <CodeChip>!group</CodeChip> <CodeChip>!session</CodeChip> directly in diagram code — loaded automatically on parse</li>
               <li>AI panel: describe a system in plain English to generate or extend a diagram</li>
               <li>Templates panel: start from built-in architectural patterns</li>
               <li>State persists automatically in your browser — no need to save manually</li>

@@ -1,635 +1,164 @@
 import { useRef, useState, useCallback } from "react";
-import { Trash2, Plus, Check, Download, Upload, X, Pencil, Eraser } from "lucide-react";
+import { Trash2, Plus, Check, Download, Upload, Eraser } from "lucide-react";
 import { Select } from "@levkobe/c7one";
 import { DangerIconBtn } from "./DangerIconBtn";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
 import {
-  addSelector,
-  updateSelector,
-  removeSelector,
+  addGroup,
+  updateGroup,
+  removeGroup,
 } from "../../application/store/filterSlice";
 import {
-  FOLD_SELECTOR_ID,
-  toSelectorId,
+  toGroupId,
   type SelectorMode,
-  type Selector,
-  type Rule,
+  type Group,
 } from "../../domain/models/Selector";
 import { AppConfig } from "../../config/appConfig";
 import { store, syncManager } from "../../application/store/store";
 import { CodeGenerator } from "../../infrastructure/codegen/CodeGenerator";
 import {
-  upsertRuleInCode,
-  removeRuleFromCode,
-  upsertSelectorInCode,
-  removeSelectorFromCode,
+  upsertGroupInCode,
+  removeGroupFromCode,
   upsertSessionModeInCode,
 } from "../utils/selectorCodeUtils";
 
 const PALETTE = AppConfig.ui.COLOR_PALETTE;
 const MODES: SelectorMode[] = ["color", "dim", "hide", "off"];
 
-const ELEMENT_TYPES = [
-  { value: "all", label: "any type" },
-  { value: "object", label: "object" },
-  { value: "collection", label: "collection" },
-  { value: "function", label: "function" },
-  { value: "state", label: "state" },
-  { value: "flow", label: "flow" },
-  { value: "choice", label: "choice" },
-] as const;
-
 function randomColor(): string {
   return PALETTE[Math.floor(Math.random() * PALETTE.length)];
 }
 
-function freshSelector(): Selector {
+function freshGroup(): Group {
   return {
     id: "",
-    label: "New selector",
-    expression: "",
+    label: "New group",
+    rule: "",
     color: randomColor(),
   };
-}
-
-type RuleType = "path" | "name" | "level";
-type NameOp = "contains" | "matches";
-
-interface RuleDraft {
-  id: string;
-  elementType: string;
-  type: RuleType;
-  nameOp: NameOp;
-  value: string;
-  levelMin: string;
-  levelMax: string;
-}
-
-function freshRuleDraft(): RuleDraft {
-  return {
-    id: "",
-    elementType: "all",
-    type: "path",
-    nameOp: "contains",
-    value: "",
-    levelMin: "1",
-    levelMax: "1",
-  };
-}
-
-function ruleToDraft(rule: Rule): RuleDraft {
-  const firstKey = Object.keys(rule.patterns)[0] ?? "all";
-  const firstValue = Object.values(rule.patterns)[0] ?? "";
-  const underIdx = firstKey.lastIndexOf("_");
-
-  let elementType = "all";
-  let matchType: RuleType = "path";
-
-  if (underIdx > 0) {
-    const suffix = firstKey.slice(underIdx + 1);
-    if (suffix === "name" || suffix === "level") {
-      elementType = firstKey.slice(0, underIdx);
-      matchType = suffix as RuleType;
-    } else {
-      elementType = firstKey;
-    }
-  } else {
-    elementType = firstKey;
-  }
-
-  const isContains = matchType === "name" && firstValue.startsWith("c:");
-  const dash = firstValue.indexOf("-");
-
-  return {
-    id: rule.id,
-    elementType,
-    type: matchType,
-    nameOp: isContains ? "contains" : "matches",
-    value:
-      matchType !== "level"
-        ? isContains
-          ? firstValue.slice(2)
-          : firstValue
-        : "",
-    levelMin:
-      matchType === "level"
-        ? dash === -1
-          ? firstValue
-          : firstValue.slice(0, dash)
-        : "1",
-    levelMax:
-      matchType === "level"
-        ? dash === -1
-          ? firstValue
-          : firstValue.slice(dash + 1)
-        : "1",
-  };
-}
-
-function draftToRule(draft: RuleDraft): Rule {
-  const { elementType, type } = draft;
-  let key: string;
-  let value: string;
-
-  if (type === "path") {
-    key = elementType;
-    value = draft.value;
-  } else if (type === "name") {
-    key = `${elementType}_name`;
-    value = draft.nameOp === "contains" ? `c:${draft.value}` : draft.value;
-  } else {
-    key = `${elementType}_level`;
-    const min = draft.levelMin || "1";
-    const max = draft.levelMax || min;
-    value = min === max ? min : `${min}-${max}`;
-  }
-
-  return { id: draft.id, patterns: { [key]: value } };
-}
-
-function ruleDescription(rule: Rule): string {
-  const firstKey = Object.keys(rule.patterns)[0] ?? "all";
-  const firstValue = Object.values(rule.patterns)[0] ?? "";
-  const underIdx = firstKey.lastIndexOf("_");
-
-  let elementType = "all";
-  let matchType = "path";
-
-  if (underIdx > 0) {
-    const suffix = firstKey.slice(underIdx + 1);
-    if (suffix === "name" || suffix === "level") {
-      elementType = firstKey.slice(0, underIdx);
-      matchType = suffix;
-    } else {
-      elementType = firstKey;
-    }
-  } else {
-    elementType = firstKey;
-  }
-
-  const typeLabel = elementType === "all" ? "any" : elementType;
-
-  if (matchType === "name") {
-    return firstValue.startsWith("c:")
-      ? `${typeLabel} name contains "${firstValue.slice(2)}"`
-      : `${typeLabel} name ~ ${firstValue}`;
-  }
-  if (matchType === "level") {
-    const dash = firstValue.indexOf("-");
-    return dash === -1
-      ? `level = ${firstValue}`
-      : `level ${firstValue.slice(0, dash)}–${firstValue.slice(dash + 1)}`;
-  }
-  return `${typeLabel} path ~ ${firstValue}`;
-}
-
-function correctToken(token: string, ruleIds: string[]): string {
-  if (!token) return token;
-  if (ruleIds.includes(token)) return token;
-  if (["&", "|", "-", "(", ")"].includes(token)) return token;
-  if (token === "+") return "|";
-  const u = token.toUpperCase();
-  if (u === "OR") return "|";
-  if (u === "AND") return "&";
-  if (u === "NOT") return "-";
-  return token;
-}
-
-function correctExpression(expression: string, ruleIds: string[]): string {
-  if (!expression.trim()) return expression;
-  const tokens = expression
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((t) => correctToken(t, ruleIds));
-  const EXPLICIT_OPS = new Set(["&", "|"]);
-  const result: string[] = [];
-  for (let i = 0; i < tokens.length; i++) {
-    result.push(tokens[i]);
-    if (i < tokens.length - 1) {
-      const curr = tokens[i];
-      const next = tokens[i + 1];
-
-      const currEnds = !EXPLICIT_OPS.has(curr) && curr !== "(" && curr !== "-";
-      const nextStarts = !EXPLICIT_OPS.has(next) && next !== ")";
-      if (currEnds && nextStarts) result.push("&");
-    }
-  }
-  return result.join(" ");
 }
 
 const inputCls =
   "bg-bg-elevated border border-border rounded px-2 py-1 text-[11px] font-mono text-fg-primary placeholder:text-fg-disabled focus:outline-none focus:border-accent";
 
-const selectCls =
-  "bg-bg-elevated border border-border rounded px-1.5 py-1 text-[11px] font-mono text-fg-primary focus:outline-none focus:border-accent";
-
-function RuleEditor({
-  draft,
-  onChange,
-  onDone,
-  onCancel,
-  isNew,
-}: {
-  draft: RuleDraft;
-  onChange: (d: RuleDraft) => void;
-  onDone: () => void;
-  onCancel: () => void;
-  isNew: boolean;
-}) {
-  const valid = !!draft.id.trim();
-
-  return (
-    <div className="flex flex-col gap-2 px-3 py-2.5 border border-accent/40 rounded-lg bg-bg-elevated">
-      <input
-        type="text"
-        value={draft.id}
-        onChange={(e) =>
-          onChange({ ...draft, id: e.target.value.replace(/\s/g, "_") })
-        }
-        placeholder="rule id  (e.g. royals)"
-        className={`w-full ${inputCls}`}
-      />
-      <div className="flex gap-1.5 items-center flex-wrap">
-        <select
-          value={draft.elementType}
-          onChange={(e) => onChange({ ...draft, elementType: e.target.value })}
-          className={selectCls}
-        >
-          {ELEMENT_TYPES.map(({ value, label }) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={draft.type}
-          onChange={(e) =>
-            onChange({ ...draft, type: e.target.value as RuleType })
-          }
-          className={selectCls}
-        >
-          <option value="path">path</option>
-          <option value="name">name</option>
-          <option value="level">level</option>
-        </select>
-        {draft.type === "name" && (
-          <select
-            value={draft.nameOp}
-            onChange={(e) =>
-              onChange({ ...draft, nameOp: e.target.value as NameOp })
-            }
-            className={selectCls}
-          >
-            <option value="contains">contains</option>
-            <option value="matches">matches</option>
-          </select>
-        )}
-        {draft.type === "level" ? (
-          <>
-            <input
-              type="number"
-              value={draft.levelMin}
-              onChange={(e) => onChange({ ...draft, levelMin: e.target.value })}
-              placeholder="min"
-              className={`w-14 ${inputCls}`}
-            />
-            <span className="text-[11px] text-fg-muted">–</span>
-            <input
-              type="number"
-              value={draft.levelMax}
-              onChange={(e) => onChange({ ...draft, levelMax: e.target.value })}
-              placeholder="max"
-              className={`w-14 ${inputCls}`}
-            />
-          </>
-        ) : (
-          <input
-            type="text"
-            value={draft.value}
-            onChange={(e) => onChange({ ...draft, value: e.target.value })}
-            placeholder={
-              draft.type === "path"
-                ? "path regex"
-                : draft.nameOp === "contains"
-                  ? "substring"
-                  : "regex"
-            }
-            className={`flex-1 min-w-0 ${inputCls}`}
-          />
-        )}
-      </div>
-      <div className="flex justify-end gap-2">
-        <button
-          onClick={onCancel}
-          className="flex items-center gap-1 px-3 py-1 rounded border border-border text-[11px] text-fg-muted hover:bg-bg-overlay transition-colors"
-        >
-          <X size={11} /> cancel
-        </button>
-        <button
-          disabled={!valid}
-          onClick={onDone}
-          className={[
-            "flex items-center gap-1 px-3 py-1 rounded border text-[11px] font-medium transition-colors",
-            valid
-              ? "border-accent bg-accent text-bg-base hover:bg-accent-hover cursor-pointer"
-              : "border-border text-fg-disabled cursor-not-allowed opacity-40",
-          ].join(" ")}
-        >
-          <Check size={11} /> {isNew ? "add rule" : "done"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function RuleRow({
-  rule,
-  isEditing,
-  onInsert,
-  onEdit,
-  onDelete,
-}: {
-  rule: Rule;
-  isEditing: boolean;
-  onInsert: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <div
-      onClick={onInsert}
-      className={[
-        "flex items-center gap-2 px-2.5 py-1.5 rounded-md border cursor-pointer transition-colors",
-        isEditing
-          ? "border-accent/60 bg-accent/8"
-          : "border-border/50 bg-bg-elevated hover:border-accent/40 hover:bg-bg-overlay",
-      ].join(" ")}
-      title="Click to insert rule id into expression"
-    >
-      <code className="text-[11px] font-bold text-accent font-mono shrink-0">
-        {rule.id}
-      </code>
-      <span className="flex-1 text-[11px] truncate text-fg-muted font-mono">
-        {ruleDescription(rule)}
-      </span>
-      <button
-        title="Edit rule"
-        onClick={(e) => {
-          e.stopPropagation();
-          onEdit();
-        }}
-        className="btn-icon p-1! shrink-0"
-      >
-        <Pencil size={11} />
-      </button>
-      <DangerIconBtn
-        title="Delete rule"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        className="p-1! shrink-0"
-      >
-        <Trash2 size={11} />
-      </DangerIconBtn>
-    </div>
-  );
-}
-
 export function SelectorsPanel() {
   const dispatch = useAppDispatch();
-  const { selectors } = useAppSelector((s) => s.filter);
-  const rules = useAppSelector((s) => s.diagram.model.rules ?? []);
+  const { groups } = useAppSelector((s) => s.filter);
   const sessions = useAppSelector((s) => s.diagram.model.sessions ?? []);
   const activeSessionId = useAppSelector((s) => s.ui.activeSessionId);
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
   const importRef = useRef<HTMLInputElement>(null);
-  const expressionRef = useRef<HTMLInputElement>(null);
-
-  const visibleSelectors = selectors.filter(
-    (s) => s.id !== FOLD_SELECTOR_ID,
-  );
+  const ruleRef = useRef<HTMLInputElement>(null);
 
   const [activeId, setActiveId] = useState<string | null>(
-    () => visibleSelectors[0]?.id ?? null,
+    () => groups[0]?.id ?? null,
   );
-  const [draft, setDraft] = useState<Selector>(() => {
-    const first = visibleSelectors[0];
-    return first ? { ...first } : freshSelector();
+  const [draft, setDraft] = useState<Group>(() => {
+    const first = groups[0];
+    return first ? { ...first } : freshGroup();
   });
   const [isNew, setIsNew] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
-  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
-  const [isNewRule, setIsNewRule] = useState(false);
-  const [ruleDrafts, setRuleDrafts] = useState<Map<string, RuleDraft>>(
-    new Map(),
-  );
-
-  const ruleIds = rules.map((r) => r.id);
-
-  const updateDraft = (updater: (d: Selector) => Selector) => {
+  const updateDraft = (updater: (d: Group) => Group) => {
     setDraft(updater);
     setIsDirty(true);
   };
 
-  const selectTab = (sel: Selector) => {
-    setActiveId(sel.id);
-    setDraft({ ...sel });
+  const selectTab = (g: Group) => {
+    setActiveId(g.id);
+    setDraft({ ...g });
     setIsNew(false);
     setIsDirty(false);
-    setEditingRuleId(null);
-    setIsNewRule(false);
   };
 
   const startNew = () => {
-    setDraft(freshSelector());
+    setDraft(freshGroup());
     setIsNew(true);
     setIsDirty(true);
     setActiveId(null);
-    setEditingRuleId(null);
-    setIsNewRule(false);
   };
 
   const insertAtCursor = useCallback((text: string) => {
-    const input = expressionRef.current;
+    const input = ruleRef.current;
     if (!input) {
-      updateDraft((d) => ({
-        ...d,
-        expression: d.expression ? `${d.expression} ${text}` : text,
-      }));
+      updateDraft((d) => ({ ...d, rule: d.rule ? `${d.rule}${text}` : text }));
       return;
     }
     const start = input.selectionStart ?? input.value.length;
     const end = input.selectionEnd ?? input.value.length;
     const before = input.value.slice(0, start);
     const after = input.value.slice(end);
-    const sep = before && !before.endsWith(" ") ? " " : "";
-    const sepAfter = after && !after.startsWith(" ") ? " " : "";
-    const newVal = before + sep + text + sepAfter + after;
-    updateDraft((d) => ({ ...d, expression: newVal }));
+    const newVal = before + text + after;
+    updateDraft((d) => ({ ...d, rule: newVal }));
     setTimeout(() => {
-      const pos = (before + sep + text + sepAfter).length;
+      const pos = (before + text).length;
       input.setSelectionRange(pos, pos);
       input.focus();
     }, 0);
   }, []);
 
-  const handleExpressionBlur = () => {
-    setDraft((d) => {
-      const corrected = correctExpression(d.expression, ruleIds);
-      if (corrected !== d.expression) setIsDirty(true);
-      return { ...d, expression: corrected };
-    });
-  };
-
-  const handleExpressionKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>,
-  ) => {
-    if (e.key === " ") {
-      const input = e.currentTarget;
-      const cursor = input.selectionStart ?? input.value.length;
-      const beforeCursor = input.value.slice(0, cursor);
-      const lastSpace = beforeCursor.lastIndexOf(" ");
-      const lastToken = beforeCursor.slice(lastSpace + 1);
-      if (lastToken) {
-        const corrected = correctToken(lastToken, ruleIds);
-        if (corrected !== lastToken) {
-          e.preventDefault();
-          const after = input.value.slice(cursor);
-          const newVal =
-            beforeCursor.slice(0, lastSpace + 1) + corrected + " " + after;
-          updateDraft((d) => ({ ...d, expression: newVal }));
-          setTimeout(() => {
-            const pos =
-              beforeCursor.slice(0, lastSpace + 1).length +
-              corrected.length +
-              1;
-            input.setSelectionRange(pos, pos);
-          }, 0);
-        }
-      }
-    }
-  };
-
-  const startEditRule = (rule: Rule) => {
-    setIsNewRule(false);
-    const existing = ruleDrafts.get(rule.id) ?? ruleToDraft(rule);
-    setRuleDrafts((m) => new Map(m).set(rule.id, existing));
-    setEditingRuleId(rule.id);
-  };
-
-  const startNewRule = () => {
-    setIsNewRule(true);
-    setEditingRuleId("__new__");
-    setRuleDrafts((m) => new Map(m).set("__new__", freshRuleDraft()));
-  };
-
-  const cancelRuleEdit = () => {
-    setEditingRuleId(null);
-    setIsNewRule(false);
-  };
-
-  const commitRule = (draftId: string) => {
-    const rd = ruleDrafts.get(draftId);
-    if (!rd || !rd.id.trim()) return;
-    const rule = draftToRule({ ...rd, id: rd.id.trim() });
-    const code = store.getState().diagram.code;
-    syncManager.syncFromCode(upsertRuleInCode(rule, code));
-    setRuleDrafts((m) => {
-      const n = new Map(m);
-      n.delete(draftId);
-      return n;
-    });
-    setEditingRuleId(null);
-    setIsNewRule(false);
-  };
-
-  const deleteRule = (id: string) => {
-    const code = store.getState().diagram.code;
-    syncManager.syncFromCode(removeRuleFromCode(id, code));
-  };
-
   const handleSave = () => {
-    const correctedExpression = correctExpression(draft.expression, ruleIds);
-    const newId = toSelectorId(draft.label);
-    const selectorToSave: Selector = {
-      ...draft,
-      id: newId,
-      expression: correctedExpression,
-    };
-    setDraft(selectorToSave);
-
+    const newId = toGroupId(draft.label);
+    const groupToSave: Group = { ...draft, id: newId };
+    setDraft(groupToSave);
     const code = store.getState().diagram.code;
 
     if (isNew) {
-      const alreadyExists = visibleSelectors.some((s) => s.id === newId);
+      const alreadyExists = groups.some((g) => g.id === newId);
       if (alreadyExists) {
-        dispatch(updateSelector(selectorToSave));
+        dispatch(updateGroup(groupToSave));
       } else {
-        dispatch(addSelector(selectorToSave));
+        dispatch(addGroup(groupToSave));
       }
-      syncManager.syncFromCode(upsertSelectorInCode(selectorToSave, code));
-      setActiveId(selectorToSave.id);
+      syncManager.syncFromCode(upsertGroupInCode(groupToSave, code));
+      setActiveId(groupToSave.id);
       setIsNew(false);
       setIsDirty(false);
     } else {
-      const oldLabel =
-        visibleSelectors.find((s) => s.id === activeId)?.label ??
-        activeId ??
-        newId;
       if (newId !== activeId) {
-        dispatch(removeSelector(activeId ?? ""));
-        const targetExists = visibleSelectors.some((s) => s.id === newId);
+        dispatch(removeGroup(activeId ?? ""));
+        const targetExists = groups.some((g) => g.id === newId);
         if (targetExists) {
-          dispatch(updateSelector(selectorToSave));
+          dispatch(updateGroup(groupToSave));
         } else {
-          dispatch(addSelector(selectorToSave));
+          dispatch(addGroup(groupToSave));
         }
-
         syncManager.syncFromCode(
-          upsertSelectorInCode(
-            selectorToSave,
-            removeSelectorFromCode(oldLabel, code),
-          ),
+          upsertGroupInCode(groupToSave, removeGroupFromCode(activeId ?? "", code)),
         );
       } else {
-        dispatch(updateSelector(selectorToSave));
-        syncManager.syncFromCode(
-          upsertSelectorInCode(selectorToSave, code, oldLabel),
-        );
+        dispatch(updateGroup(groupToSave));
+        syncManager.syncFromCode(upsertGroupInCode(groupToSave, code));
       }
-      setActiveId(selectorToSave.id);
+      setActiveId(groupToSave.id);
       setIsDirty(false);
     }
   };
 
-  const handleDeleteSelector = () => {
+  const handleDeleteGroup = () => {
     if (!activeId) return;
     const code = store.getState().diagram.code;
-    const labelToRemove =
-      visibleSelectors.find((s) => s.id === activeId)?.label ?? activeId;
-    dispatch(removeSelector(activeId));
-    syncManager.syncFromCode(removeSelectorFromCode(labelToRemove, code));
-    const remaining = visibleSelectors.filter((s) => s.id !== activeId);
+    dispatch(removeGroup(activeId));
+    syncManager.syncFromCode(removeGroupFromCode(activeId, code));
+    const remaining = groups.filter((g) => g.id !== activeId);
     if (remaining.length > 0) {
       selectTab(remaining[0]);
     } else {
       setActiveId(null);
-      setDraft(freshSelector());
+      setDraft(freshGroup());
       setIsNew(false);
       setIsDirty(false);
     }
   };
 
   const handleExport = () => {
-    const lines = visibleSelectors.map((s) => JSON.stringify(s));
+    const lines = groups.map((g) => JSON.stringify(g));
     const blob = new Blob([lines.join("\n")], { type: "application/x-ndjson" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "selectors.jsonl";
+    a.download = "groups.jsonl";
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -646,16 +175,21 @@ export function SelectorsPanel() {
         for (const line of text.split("\n")) {
           const trimmed = line.trim();
           if (!trimmed) continue;
-          const s = JSON.parse(trimmed);
-          if (typeof s.label === "string" && typeof s.expression === "string") {
-            const imported: Selector = { ...s, id: crypto.randomUUID() };
-            dispatch(addSelector(imported));
-            updatedCode = upsertSelectorInCode(imported, updatedCode);
+          const g = JSON.parse(trimmed) as Partial<Group>;
+          if (typeof g.label === "string") {
+            const imported: Group = {
+              id: toGroupId(g.label),
+              label: g.label,
+              rule: g.rule ?? "",
+              color: g.color ?? randomColor(),
+            };
+            dispatch(addGroup(imported));
+            updatedCode = upsertGroupInCode(imported, updatedCode);
           }
         }
         syncManager.syncFromCode(updatedCode);
       } catch {
-        console.error("Invalid selectors file");
+        console.error("Invalid groups file");
       }
     };
     reader.readAsText(file);
@@ -664,14 +198,17 @@ export function SelectorsPanel() {
 
   const handleClearOrphanedFlags = () => {
     const { model: currentModel } = store.getState().diagram;
-    const { selectors: currentSelectors } = store.getState().filter;
-    const selectorIds = new Set(currentSelectors.map((s) => s.id));
+    const { groups: currentGroups, selectors: currentSelectors } = store.getState().filter;
+    const validIds = new Set([
+      ...currentGroups.map((g) => g.id),
+      ...currentSelectors.map((s) => s.id),
+    ]);
 
     let changed = false;
     const updatedElements = { ...currentModel.elements };
     for (const [id, el] of Object.entries(currentModel.elements)) {
       if (!el.flags || el.flags.length === 0) continue;
-      const cleanedFlags = el.flags.filter((f) => selectorIds.has(toSelectorId(f)));
+      const cleanedFlags = el.flags.filter((f) => validIds.has(toGroupId(f)));
       if (cleanedFlags.length !== el.flags.length) {
         changed = true;
         updatedElements[id] = {
@@ -689,30 +226,27 @@ export function SelectorsPanel() {
     syncManager.syncFromCode(newCode, true);
   };
 
-  const editingRuleDraft =
-    editingRuleId !== null ? (ruleDrafts.get(editingRuleId) ?? null) : null;
-
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-bg-base text-fg-primary">
       <div className="flex items-center border-b border-border px-2 py-1 gap-1 shrink-0">
         <button
           onClick={handleExport}
           className="btn-icon p-1! shrink-0"
-          title="Export selectors"
+          title="Export groups"
         >
           <Download size={13} />
         </button>
         <button
           onClick={() => importRef.current?.click()}
           className="btn-icon p-1! shrink-0"
-          title="Import selectors"
+          title="Import groups"
         >
           <Upload size={13} />
         </button>
         <button
           onClick={handleClearOrphanedFlags}
           className="btn-icon p-1! shrink-0"
-          title="Clear orphaned flags (flags whose selector no longer exists)"
+          title="Clear orphaned flags (flags whose group no longer exists)"
         >
           <Eraser size={13} />
         </button>
@@ -726,17 +260,14 @@ export function SelectorsPanel() {
 
         <div className="w-px h-4 bg-border/60 mx-0.5 shrink-0" />
 
-        {visibleSelectors.length > 0 && (
+        {groups.length > 0 && (
           <Select
-            value={isNew ? "" : (activeId ?? visibleSelectors[0]?.id ?? "")}
+            value={isNew ? "" : (activeId ?? groups[0]?.id ?? "")}
             onValueChange={(v) => {
-              const sel = visibleSelectors.find((s) => s.id === v);
-              if (sel) selectTab(sel);
+              const g = groups.find((g) => g.id === v);
+              if (g) selectTab(g);
             }}
-            options={visibleSelectors.map((sel) => ({
-              value: sel.id,
-              label: sel.label,
-            }))}
+            options={groups.map((g) => ({ value: g.id, label: g.label }))}
             className="w-auto"
           />
         )}
@@ -749,17 +280,16 @@ export function SelectorsPanel() {
               ? "border-accent bg-accent/15 text-accent"
               : "border-border hover:bg-bg-elevated hover:text-fg-primary",
           ].join(" ")}
-          title="New selector"
+          title="New group"
         >
           <Plus size={12} />
         </button>
       </div>
 
-      {visibleSelectors.length === 0 && !isNew ? (
+      {groups.length === 0 && !isNew ? (
         <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center text-center px-6 py-8 gap-6">
           <p className="text-[12px] text-fg-muted leading-relaxed max-w-xs">
-            Selectors let you highlight, dim, or hide diagram elements based on
-            matching rules.
+            Groups let you highlight, dim, or hide diagram elements using expression rules.
           </p>
           <ol className="flex flex-col gap-3 text-left w-full max-w-xs">
             <li className="flex items-start gap-3">
@@ -769,7 +299,7 @@ export function SelectorsPanel() {
               <span className="text-[12px] text-fg-muted leading-snug">
                 Click{" "}
                 <strong className="text-fg-primary font-semibold">+</strong>{" "}
-                above to create a new selector
+                above to create a new group
               </span>
             </li>
             <li className="flex items-start gap-3">
@@ -777,9 +307,12 @@ export function SelectorsPanel() {
                 2
               </span>
               <span className="text-[12px] text-fg-muted leading-snug">
-                Define{" "}
-                <strong className="text-fg-primary font-semibold">rules</strong>{" "}
-                — match elements by path, name, or hierarchy level
+                Write a{" "}
+                <strong className="text-fg-primary font-semibold">rule</strong>{" "}
+                — match elements by name, type, level, or combine with{" "}
+                <code className="font-mono">/</code>{" "}
+                <code className="font-mono">&</code>{" "}
+                <code className="font-mono">-</code>
               </span>
             </li>
             <li className="flex items-start gap-3">
@@ -808,7 +341,7 @@ export function SelectorsPanel() {
               <div className="flex gap-1">
                 {MODES.map((m) => {
                   const currentMode =
-                    activeSession?.selectorModes[draft.id] ?? "off";
+                    activeSession?.groupModes?.[draft.id] ?? "off";
                   return (
                     <button
                       key={m}
@@ -846,10 +379,10 @@ export function SelectorsPanel() {
           <div className="px-4 pt-2.5 pb-2 border-b border-border/30 shrink-0">
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider shrink-0 w-20">
-                Expression
+                Rule
               </span>
               <div className="flex items-center gap-0.5">
-                {(["&", "|", "-", "(", ")"] as const).map((op) => (
+                {(["/", "&", "-"] as const).map((op) => (
                   <button
                     key={op}
                     onClick={() => insertAtCursor(op)}
@@ -859,7 +392,7 @@ export function SelectorsPanel() {
                   </button>
                 ))}
                 <button
-                  onClick={() => updateDraft((d) => ({ ...d, expression: "" }))}
+                  onClick={() => updateDraft((d) => ({ ...d, rule: "" }))}
                   className="ml-1 px-2 py-0.5 text-[10px] border border-border rounded text-fg-muted hover:border-accent/50 hover:text-fg-primary hover:bg-bg-elevated transition-colors"
                 >
                   clear
@@ -867,94 +400,52 @@ export function SelectorsPanel() {
               </div>
             </div>
             <input
-              ref={expressionRef}
+              ref={ruleRef}
               type="text"
-              value={draft.expression}
+              value={draft.rule}
               onChange={(e) =>
-                updateDraft((d) => ({ ...d, expression: e.target.value }))
+                updateDraft((d) => ({ ...d, rule: e.target.value }))
               }
-              onBlur={handleExpressionBlur}
-              onKeyDown={handleExpressionKeyDown}
-              placeholder={
-                ruleIds.length > 0
-                  ? `e.g.  ${ruleIds[0]}  ·  ${ruleIds[0]} | ${ruleIds[1] ?? "r2"}  ·  (${ruleIds[0]} & -${ruleIds[1] ?? "r2"})`
-                  : "add rules below, then combine them here"
-              }
+              placeholder="e.g.  '.*Service'{}  ·  $level=2-3  ·  $g1/$g2"
               className={`w-full ${inputCls} py-1.5`}
             />
           </div>
 
-          <div className="flex-1 px-4 pt-2.5 pb-2 flex flex-col gap-2 min-h-0">
-            <div className="flex items-center justify-between shrink-0">
-              <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider select-none">
-                Rules
-              </span>
-              <span className="text-[10px] text-fg-disabled select-none">
-                click row to insert · ✎ to edit
-              </span>
+          {groups.length > 1 && (
+            <div className="flex-1 px-4 pt-2.5 pb-2 flex flex-col gap-2 min-h-0">
+              <div className="flex items-center justify-between shrink-0">
+                <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider select-none">
+                  Group refs
+                </span>
+                <span className="text-[10px] text-fg-disabled select-none">
+                  click to insert into rule
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 overflow-y-auto flex-1 min-h-0">
+                {groups
+                  .filter((g) => g.id !== draft.id)
+                  .map((g) => (
+                    <button
+                      key={g.id}
+                      onClick={() => insertAtCursor(`$${g.id}`)}
+                      className="px-2 py-0.5 h-fit text-[10px] border border-border rounded font-mono text-fg-muted hover:border-accent/50 hover:text-fg-primary hover:bg-bg-elevated transition-colors"
+                      title={`Insert $${g.id} reference`}
+                    >
+                      ${g.id}
+                    </button>
+                  ))}
+              </div>
             </div>
-
-            <div className="flex flex-col gap-1.5 overflow-y-auto flex-1 min-h-0">
-              {rules.map((rule) =>
-                editingRuleId === rule.id && editingRuleDraft ? (
-                  <RuleEditor
-                    key={rule.id}
-                    draft={editingRuleDraft}
-                    onChange={(d) =>
-                      setRuleDrafts((m) => new Map(m).set(rule.id, d))
-                    }
-                    onDone={() => commitRule(rule.id)}
-                    onCancel={cancelRuleEdit}
-                    isNew={false}
-                  />
-                ) : (
-                  <RuleRow
-                    key={rule.id}
-                    rule={rule}
-                    isEditing={editingRuleId === rule.id}
-                    onInsert={() => insertAtCursor(rule.id)}
-                    onEdit={() => startEditRule(rule)}
-                    onDelete={() => deleteRule(rule.id)}
-                  />
-                ),
-              )}
-
-              {isNewRule && editingRuleId === "__new__" && editingRuleDraft ? (
-                <RuleEditor
-                  draft={editingRuleDraft}
-                  onChange={(d) =>
-                    setRuleDrafts((m) => new Map(m).set("__new__", d))
-                  }
-                  onDone={() => commitRule("__new__")}
-                  onCancel={cancelRuleEdit}
-                  isNew
-                />
-              ) : (
-                <button
-                  onClick={startNewRule}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium border border-border rounded text-fg-muted hover:border-accent/50 hover:text-fg-primary hover:bg-bg-elevated transition-colors self-start"
-                >
-                  <Plus size={12} />
-                  Define rule
-                </button>
-              )}
-
-              {rules.length === 0 && !isNewRule && (
-                <p className="text-[11px] text-fg-disabled italic py-1">
-                  No rules yet — define one above.
-                </p>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       )}
 
-      {(visibleSelectors.length > 0 || isNew) && (
+      {(groups.length > 0 || isNew) && (
         <div className="flex items-center gap-2 px-3 py-2 border-t border-border shrink-0 bg-bg-elevated">
           {!isNew && (
             <DangerIconBtn
-              onClick={handleDeleteSelector}
-              title="Delete selector"
+              onClick={handleDeleteGroup}
+              title="Delete group"
               className="p-1! shrink-0"
             >
               <Trash2 size={13} />
@@ -967,7 +458,7 @@ export function SelectorsPanel() {
               updateDraft((d) => ({ ...d, label: e.target.value }))
             }
             className="flex-1 bg-transparent border-b border-border text-[13px] font-semibold text-fg-primary focus:outline-none focus:border-accent placeholder:text-fg-disabled py-0.5 transition-colors"
-            placeholder="Selector name"
+            placeholder="Group name"
           />
           <div className="relative shrink-0">
             <input

@@ -1,185 +1,81 @@
 import { describe, it, expect } from "vitest";
-import type { Rule, Selector } from "../../domain/models/Selector";
+import type { Group } from "../../domain/models/Selector";
 import {
-  generateRuleLine,
-  generateSelectorLine,
-  upsertRuleInCode,
-  removeRuleFromCode,
-  upsertSelectorInCode,
-  removeSelectorFromCode,
+  generateGroupLine,
+  upsertGroupInCode,
+  removeGroupFromCode,
   upsertSessionModeInCode,
 } from "../../presentation/utils/selectorCodeUtils";
 
-function makeSelector(overrides: Partial<Selector> = {}): Selector {
+function makeGroup(overrides: Partial<Group> = {}): Group {
   return {
-    id: "p1",
-    label: "p1",
+    id: "services",
+    label: "Services",
     color: "#ff0000",
-    expression: "royals",
+    rule: "'.*Service'?",
     ...overrides,
   };
 }
 
-describe("generateRuleLine", () => {
-  it("formats id and pattern with double-space separators", () => {
-    const rule: Rule = { id: "fn", patterns: { function_name: ".*" } };
-    expect(generateRuleLine(rule)).toBe("!rule  id=fn  function_name=.*");
-  });
-
-  it("quotes pattern values containing spaces", () => {
-    const rule: Rule = { id: "a", patterns: { all_name: "has spaces" } };
-    expect(generateRuleLine(rule)).toContain('"has spaces"');
-  });
-
-  it("handles multiple pattern entries", () => {
-    const rule: Rule = { id: "multi", patterns: { object_name: "Foo", function_name: "bar" } };
-    const line = generateRuleLine(rule);
-    expect(line).toContain("object_name=Foo");
-    expect(line).toContain("function_name=bar");
-  });
-});
-
-describe("generateSelectorLine", () => {
-  it("includes name, color, and expression", () => {
-    const line = generateSelectorLine(makeSelector());
-    expect(line).toContain("!selector");
-    expect(line).toContain("name=p1");
+describe("generateGroupLine", () => {
+  it("emits !group with id, color, and rule", () => {
+    const line = generateGroupLine(makeGroup());
+    expect(line).toContain("!group");
+    expect(line).toContain("id=services");
     expect(line).toContain("color=#ff0000");
-    expect(line).toContain("expression=royals");
+    expect(line).toContain("rule='.*Service'?");
   });
 
-  it("omits expression when expression is empty string", () => {
-    const line = generateSelectorLine(makeSelector({ expression: "" }));
-    expect(line).not.toContain("expression");
+  it("emits label when it differs from id", () => {
+    const line = generateGroupLine(makeGroup({ label: "My Services" }));
+    expect(line).toContain('label="My Services"');
   });
 
-  it("quotes expression value that contains spaces", () => {
-    const line = generateSelectorLine(makeSelector({ expression: "a b" }));
-    expect(line).toContain('expression="a b"');
+  it("omits label when it equals id", () => {
+    const line = generateGroupLine(makeGroup({ id: "services", label: "services" }));
+    expect(line).not.toContain("label=");
   });
 
-  it("uses selector.label as the name field and quotes labels with special chars", () => {
-    const lineSpace = generateSelectorLine(makeSelector({ label: "My Label" }));
-    expect(lineSpace).toContain('name="My Label"');
-    const lineSpecial = generateSelectorLine(makeSelector({ label: "foo?" }));
-    expect(lineSpecial).toContain('name="foo?"');
-    const lineClean = generateSelectorLine(makeSelector({ label: "my_label" }));
-    expect(lineClean).toContain("name=my_label");
-    expect(lineClean).not.toContain('"');
+  it("omits rule field when rule is empty", () => {
+    const line = generateGroupLine(makeGroup({ rule: "" }));
+    expect(line).not.toContain("rule=");
   });
 });
 
-describe("upsertRuleInCode", () => {
-  it("prepends rule line when not present in code", () => {
-    const result = upsertRuleInCode({ id: "a", patterns: { object_name: "X" } }, "a{}\n");
-    expect(result).toMatch(/^!rule {2}id=a/);
+describe("upsertGroupInCode", () => {
+  it("prepends group line when not present", () => {
+    const result = upsertGroupInCode(makeGroup(), "a{}\n");
+    expect(result).toMatch(/^!group/);
     expect(result).toContain("a{}");
   });
 
-  it("replaces existing !rule line with same id", () => {
-    const original = "!rule  id=a  object_name=Old\na{}\n";
-    const result = upsertRuleInCode({ id: "a", patterns: { object_name: "New" } }, original);
-    expect(result).toContain("object_name=New");
-    expect(result).not.toContain("object_name=Old");
+  it("replaces existing !group line with same id", () => {
+    const original = "!group  id=services  color=#000  rule=old\na{}\n";
+    const result = upsertGroupInCode(makeGroup({ rule: "new" }), original);
+    expect(result).toContain("rule=new");
+    expect(result).not.toContain("rule=old");
+    expect(result.match(/!group/g)?.length).toBe(1);
   });
 
-  it("replaces existing !atom line (migration compat) with same id", () => {
-    const original = "!atom  id=a  object_name=Old\na{}\n";
-    const result = upsertRuleInCode({ id: "a", patterns: { object_name: "New" } }, original);
-    expect(result).toContain("object_name=New");
-    expect(result).not.toContain("object_name=Old");
-  });
-
-  it("does not affect other rule lines", () => {
-    const original = "!rule  id=b  object_name=Keep\n!rule  id=a  object_name=Old\n";
-    const result = upsertRuleInCode({ id: "a", patterns: { object_name: "New" } }, original);
-    expect(result).toContain("!rule  id=b  object_name=Keep");
-  });
-
-  it("only replaces exact id match, not a prefix match", () => {
-    const original = "!rule  id=abc  object_name=Keep\n";
-    const result = upsertRuleInCode({ id: "a", patterns: { object_name: "New" } }, original);
-    expect(result).toContain("!rule  id=abc  object_name=Keep");
+  it("does not affect groups with different ids", () => {
+    const original = "!group  id=other  color=#000  rule=keep\n";
+    const result = upsertGroupInCode(makeGroup(), original);
+    expect(result).toContain("id=other");
+    expect(result).toContain("id=services");
   });
 });
 
-describe("removeRuleFromCode", () => {
-  it("removes the !rule line with matching id", () => {
-    const code = "!rule  id=fn  function_name=.*\na{}\n";
-    const result = removeRuleFromCode("fn", code);
-    expect(result).not.toContain("!rule  id=fn");
-    expect(result).toContain("a{}");
-  });
-
-  it("removes the legacy !atom line with matching id", () => {
-    const code = "!atom  id=fn  function_name=.*\na{}\n";
-    const result = removeRuleFromCode("fn", code);
-    expect(result).not.toContain("id=fn");
-    expect(result).toContain("a{}");
-  });
-
-  it("does nothing when id is not present", () => {
-    const code = "a{}\n";
-    expect(removeRuleFromCode("missing", code)).toBe("a{}\n");
-  });
-
-  it("only removes the matching line, leaving others intact", () => {
-    const code = "!rule  id=a  object_name=X\n!rule  id=b  function_name=Y\n";
-    const result = removeRuleFromCode("a", code);
-    expect(result).not.toContain("id=a  ");
-    expect(result).toContain("!rule  id=b");
-  });
-});
-
-describe("upsertSelectorInCode", () => {
-  it("prepends selector line when not present", () => {
-    const result = upsertSelectorInCode(makeSelector(), "a{}\n");
-    expect(result).toMatch(/^!selector/);
-    expect(result).toContain("a{}");
-  });
-
-  it("replaces existing selector line with matching label (name=)", () => {
-    const original = "!selector  name=p1  color=#000  mode=hide  expression=old\na{}\n";
-    const result = upsertSelectorInCode(makeSelector({ expression: "new" }), original);
-    expect(result).toContain("expression=new");
-    expect(result).not.toContain("expression=old");
-    expect(result.match(/!selector/g)?.length).toBe(1);
-  });
-
-  it("renames the selector line when oldLabel differs from new label", () => {
-    const original = "!selector  name=old  color=#000  mode=color\na{}\n";
-    const result = upsertSelectorInCode(makeSelector({ label: "new" }), original, "old");
-    expect(result).toContain("name=new");
-    expect(result).not.toContain("name=old");
-    expect(result.match(/!selector/g)?.length).toBe(1);
-  });
-
-  it("does not affect selectors with different labels", () => {
-    const original = "!selector  name=other  color=#000  mode=color\n";
-    const result = upsertSelectorInCode(makeSelector({ label: "p1" }), original);
-    expect(result).toContain("name=other");
-    expect(result).toContain("name=p1");
-  });
-});
-
-describe("removeSelectorFromCode", () => {
-  it("removes selector line with matching id", () => {
-    const code = "!selector  name=p1  color=#ff0000  mode=color\na{}\n";
-    const result = removeSelectorFromCode("p1", code);
-    expect(result).not.toContain("!selector  name=p1");
+describe("removeGroupFromCode", () => {
+  it("removes the !group line with matching id", () => {
+    const code = "!group  id=services  color=#f00\na{}\n";
+    const result = removeGroupFromCode("services", code);
+    expect(result).not.toContain("!group  id=services");
     expect(result).toContain("a{}");
   });
 
   it("does nothing when id not present", () => {
     const code = "a{}\n";
-    expect(removeSelectorFromCode("missing", code)).toBe("a{}\n");
-  });
-
-  it("does not remove selectors with a different id", () => {
-    const code = "!selector  name=p1  color=#f00  mode=color\n!selector  name=p2  color=#0f0  mode=hide\n";
-    const result = removeSelectorFromCode("p1", code);
-    expect(result).not.toContain("name=p1");
-    expect(result).toContain("name=p2");
+    expect(removeGroupFromCode("missing", code)).toBe("a{}\n");
   });
 });
 
@@ -188,7 +84,7 @@ describe("upsertSessionModeInCode", () => {
     const result = upsertSessionModeInCode("default", "s1", "color", "a{}\n");
     expect(result).toContain("!session");
     expect(result).toContain("id=default");
-    expect(result).toContain("selectors=s1:color");
+    expect(result).toContain("groups=s1:color");
   });
 
   it("is a no-op when mode=off and session does not exist", () => {
@@ -196,39 +92,47 @@ describe("upsertSessionModeInCode", () => {
     expect(upsertSessionModeInCode("default", "s1", "off", code)).toBe(code);
   });
 
-  it("adds a new selector entry to an existing session line", () => {
-    const code = "!session  id=default  label=Default  selectors=s1:color\n";
+  it("adds a new group entry to an existing session line", () => {
+    const code = "!session  id=default  label=Default  groups=s1:color\n";
     const result = upsertSessionModeInCode("default", "s2", "dim", code);
     expect(result).toContain("s1:color");
     expect(result).toContain("s2:dim");
   });
 
-  it("updates an existing selector entry in a session line", () => {
-    const code = "!session  id=default  label=Default  selectors=s1:color\n";
+  it("updates an existing group entry in a session line", () => {
+    const code = "!session  id=default  label=Default  groups=s1:color\n";
     const result = upsertSessionModeInCode("default", "s1", "hide", code);
     expect(result).toContain("s1:hide");
     expect(result).not.toContain("s1:color");
   });
 
-  it("removes a selector entry when mode=off, keeping others", () => {
-    const code = "!session  id=default  label=Default  selectors=s1:color,s2:dim\n";
+  it("removes a group entry when mode=off, keeping others", () => {
+    const code = "!session  id=default  label=Default  groups=s1:color,s2:dim\n";
     const result = upsertSessionModeInCode("default", "s1", "off", code);
     expect(result).not.toContain("s1:");
     expect(result).toContain("s2:dim");
   });
 
-  it("removes the selectors= field entirely when the last entry is turned off", () => {
-    const code = "!session  id=default  label=Default  selectors=s1:color\n";
+  it("removes the groups= field entirely when the last entry is turned off", () => {
+    const code = "!session  id=default  label=Default  groups=s1:color\n";
     const result = upsertSessionModeInCode("default", "s1", "off", code);
-    expect(result).not.toContain("selectors=");
+    expect(result).not.toContain("groups=");
+  });
+
+  it("migrates old selectors= key to groups= when updating", () => {
+    const code = "!session  id=default  label=Default  selectors=s1:color\n";
+    const result = upsertSessionModeInCode("default", "s2", "dim", code);
+    expect(result).toContain("s1:color");
+    expect(result).toContain("s2:dim");
+    expect(result).toContain("groups=");
   });
 
   it("only affects the matching session, not others", () => {
     const code =
-      "!session  id=default  label=Default  selectors=s1:color\n" +
-      "!session  id=remote  label=Remote  selectors=s1:dim\n";
+      "!session  id=default  label=Default  groups=s1:color\n" +
+      "!session  id=remote  label=Remote  groups=s1:dim\n";
     const result = upsertSessionModeInCode("default", "s1", "hide", code);
     expect(result).toContain("s1:hide");
-    expect(result).toContain("!session  id=remote  label=Remote  selectors=s1:dim");
+    expect(result).toContain("!session  id=remote  label=Remote  groups=s1:dim");
   });
 });

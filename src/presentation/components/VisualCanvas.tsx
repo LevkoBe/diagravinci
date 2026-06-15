@@ -16,16 +16,14 @@ import {
 import { toggleElementFold } from "../../application/store/filterSlice";
 import { syncManager, store } from "../../application/store/store";
 import { getCSSVariable } from "../../shared/utils";
-import { toSelectorId } from "../../domain/models/Selector";
+import { toSelectorId, type Group } from "../../domain/models/Selector";
+import { matchesGroup } from "../../domain/selector/GroupEvaluator";
 import { useExecution } from "../hooks/useExecution";
 import { getExecutionColorMap, computeCloneDuplicateHiddenPaths } from "../../application/ExecutionEngine";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
 import { computeElementSizes } from "./rendering/elementSizing";
 import type { GeometryCache } from "./rendering/relationships/RelationshipRenderer";
-import {
-  FilterResolver,
-  matchesSelector,
-} from "../../domain/sync/FilterResolver";
+import { FilterResolver } from "../../domain/sync/FilterResolver";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { Element, ElementType } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
@@ -156,46 +154,35 @@ export function VisualCanvas() {
     const selId = toSelectorId(selLabel);
     const selColor = getCSSVariable("--color-state-selected");
 
-    const existingSelectors = currentModel.selectors ?? [];
-    const existingSel = existingSelectors.find((s) => s.id === selId);
+    const codeGroups = (currentModel.groups ?? []).filter((g) => g.id !== selId);
+    const existingSel = (currentModel.groups ?? []).find((g) => g.id === selId);
 
-    const prevPaths = existingSel?.selectedPaths ?? [];
-    const nextPaths = selectedElementIds;
+    const rule = selectedElementIds
+      .map((p) => p.split(".").at(-1)! + "?")
+      .join("/");
+    const prevRule = existingSel?.rule ?? "";
 
-    const pathsChanged =
-      prevPaths.length !== nextPaths.length ||
-      prevPaths.some((p, i) => p !== nextPaths[i]);
+    if (rule === prevRule) return;
 
-    if (!pathsChanged) return;
-
-    let updatedSelectors: typeof existingSelectors;
-    if (nextPaths.length === 0) {
-      updatedSelectors = existingSelectors.filter((s) => s.id !== selId);
-    } else if (existingSel) {
-      updatedSelectors = existingSelectors.map((s) =>
-        s.id === selId ? { ...s, selectedPaths: nextPaths } : s,
-      );
+    let updatedGroups: Group[];
+    if (rule === "") {
+      // keep group with empty rule — existingSel is non-null (prevRule !== "" passed early-return)
+      updatedGroups = [...codeGroups, { ...existingSel!, rule: "" }];
     } else {
-      updatedSelectors = [
-        ...existingSelectors,
-        { id: selId, label: selLabel, expression: "", color: selColor, selectedPaths: nextPaths },
-      ];
+      const base = existingSel ?? { id: selId, label: selLabel, color: selColor };
+      updatedGroups = [...codeGroups, { ...base, rule }];
     }
 
     const updatedSessions = (currentModel.sessions ?? []).map((session) => {
       if (session.id !== activeSessionId) return session;
-      const already = session.selectorModes[selId];
-      if (nextPaths.length === 0) {
-        if (!already || already === "off") return session;
-        const { [selId]: _, ...rest } = session.selectorModes;
-        return { ...session, selectorModes: rest };
-      }
-      if (already === "color") return session;
-      return { ...session, selectorModes: { ...session.selectorModes, [selId]: "color" as const } };
+      if (rule === "") return session;
+      const already = session.groupModes?.[selId];
+      if (already && already !== "off") return session;
+      return { ...session, groupModes: { ...session.groupModes, [selId]: "color" as const } };
     });
 
     syncManager.syncFromVis(
-      { ...currentModel, selectors: updatedSelectors, sessions: updatedSessions },
+      { ...currentModel, groups: updatedGroups, sessions: updatedSessions },
       true,
     );
   }, [selectedElementIds, activeSessionId]);
@@ -639,11 +626,14 @@ export function VisualCanvas() {
               const state = store.getState();
               const positions = state.diagram.viewState.positions;
               const m = state.diagram.model;
-              const rules = m.rules ?? [];
-              const sel = state.filter.selectors.find(
-                (s) => s.id === groupSelId,
-              );
-              if (sel && matchesSelector(path, sel, m, rules)) {
+              const allGroups = m.groups ?? [];
+              const grp = state.filter.groups.find((g) => g.id === groupSelId);
+              const elOf = (p: string) => m.elements[p.split(".").at(-1)!];
+              const matches = (p: string) => {
+                const el = elOf(p);
+                return el ? matchesGroup(grp!, p, el.type, m.elements, allGroups) : false;
+              };
+              if (grp && matches(path)) {
                 const startPos = positions[path]?.position;
                 if (startPos) {
                   const delta = {
@@ -652,7 +642,7 @@ export function VisualCanvas() {
                   };
                   for (const [gp, posEntry] of Object.entries(positions)) {
                     if (gp === path) continue;
-                    if (!matchesSelector(gp, sel, m, rules)) continue;
+                    if (!matches(gp)) continue;
                     dispatch(
                       updateElementPositionInView({
                         id: gp,
@@ -821,7 +811,7 @@ export function VisualCanvas() {
       geometryCacheRef.current,
       () => ({
         selectorId: groupMoveSelIdRef.current,
-        filterSelectors: store.getState().filter.selectors,
+        filterSelectors: store.getState().filter.groups,
       }),
       opaqueElementBg,
       dragStateRef.current,

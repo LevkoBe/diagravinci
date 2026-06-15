@@ -18,7 +18,7 @@ import type {
   Colors,
   RenderCallbacks,
 } from "../../presentation/components/rendering/types";
-import type { Selector } from "../../domain/models/Selector";
+import type { Group } from "../../domain/models/Selector";
 
 describe("DiagramLayerRenderer", () => {
   let helper: KonvaTestHelper;
@@ -1564,10 +1564,10 @@ describe("DiagramLayerRenderer", () => {
       model = { ...model, elements: { ...model.elements, c: elemC } };
       model.root.childIds.push("a", "b");
 
-      const selector: Selector = {
+      const selector: Group = {
         id: "mytag",
         label: "MyTag",
-        expression: "",
+        rule: "a?/b?",
         color: "#ff0000",
       };
 

@@ -53,44 +53,44 @@ describe("TYPE_SHOWCASE_TEMPLATES", () => {
 });
 
 describe("SELECTOR_SHOWCASE_TEMPLATES", () => {
-  it("selector-flags — 4 filter presets, 12 elements, 4 relationships", () => {
+  it("selector-flags — 4 groups, 12 elements, 4 relationships", () => {
     const { code } = SELECTOR_SHOWCASE_TEMPLATES.find(
       (t) => t.id === "selector-flags",
     )!;
     const model = parse(code);
     expect(Object.keys(model.elements).length).toBe(12);
     expect(Object.keys(model.relationships).length).toBe(4);
-    expect(model.selectors?.length).toBe(4);
+    expect(model.groups?.length).toBe(4);
   });
 
-  it("selector-atoms-type — 3 filter presets, 10 elements, 4 relationships", () => {
+  it("selector-atoms-type — 3 groups, 10 elements, 4 relationships", () => {
     const { code } = SELECTOR_SHOWCASE_TEMPLATES.find(
       (t) => t.id === "selector-atoms-type",
     )!;
     const model = parse(code);
     expect(Object.keys(model.elements).length).toBe(10);
     expect(Object.keys(model.relationships).length).toBe(4);
-    expect(model.selectors?.length).toBe(3);
+    expect(model.groups?.length).toBe(3);
   });
 
-  it("selector-atoms-name — 3 filter presets, 12 elements, 7 relationships", () => {
+  it("selector-atoms-name — 3 groups, 12 elements, 7 relationships", () => {
     const { code } = SELECTOR_SHOWCASE_TEMPLATES.find(
       (t) => t.id === "selector-atoms-name",
     )!;
     const model = parse(code);
     expect(Object.keys(model.elements).length).toBe(12);
     expect(Object.keys(model.relationships).length).toBe(7);
-    expect(model.selectors?.length).toBe(3);
+    expect(model.groups?.length).toBe(3);
   });
 
-  it("selector-atoms-combine — 3 atoms → 5 filter presets, 7 elements, 6 relationships", () => {
+  it("selector-atoms-combine — 5 groups, 7 elements, 6 relationships", () => {
     const { code } = SELECTOR_SHOWCASE_TEMPLATES.find(
       (t) => t.id === "selector-atoms-combine",
     )!;
     const model = parse(code);
     expect(Object.keys(model.elements).length).toBe(7);
     expect(Object.keys(model.relationships).length).toBe(6);
-    expect(model.selectors?.length).toBe(5);
+    expect(model.groups?.length).toBe(5);
   });
 });
 
