@@ -27,14 +27,14 @@ Elements can contain children, declared by nesting inside the parent's wrappers.
 
 The meaning of children depends on the parent:
 
-| Parent         | What children represent                                                       | Their role in execution                                                                                                                                                                  |
-| -------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Object**     | Sub-components, properties, and methods.                                      | Upserted by the incoming token: children with the same base name are replaced, new ones are appended.                                                                                    |
-| **Collection** | Type hints for the kind of items held — purely descriptive, like annotations. | None — the collection accepts all tokens regardless of child types.                                                                                                                      |
-| **State**      | Sub-states.                                                                   | None — states accumulate all tokens regardless of children.                                                                                                                              |
+| Parent         | What children represent                                                                                                                                         | Their role in execution                                                                                                                                                                                                                                                                                                                                   |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Object**     | Sub-components, properties, and methods.                                                                                                                        | Upserted by the incoming token: children with the same base name are replaced, new ones are appended.                                                                                                                                                                                                                                                     |
+| **Collection** | Type hints for the kind of items held — purely descriptive, like annotations.                                                                                   | None — the collection accepts all tokens regardless of child types.                                                                                                                                                                                                                                                                                       |
+| **State**      | Sub-states.                                                                                                                                                     | None — states accumulate all tokens regardless of children.                                                                                                                                                                                                                                                                                               |
 | **Function**   | Arguments and parameters — the inputs the function operates on. When a child is itself a **function**, it represents a subroutine call rather than an argument. | The function receives non-function children as inputs. If function children are present with internal relationships, execution entering this function is transparently routed through those children in the declared order, then exits to this function's own outgoing targets. Non-function children remain as arguments. Passes through if no children. |
-| **Flow**       | The output type — what the flow carries out.                                  | A payload override — the incoming token is replaced with clones of the children; passes through unchanged if empty.                                                                      |
-| **Choice**     | The condition to evaluate.                                                    | A condition selector — tokens matching any child (by type, and by name if the child is named) are routed to the "yes" branch; all others go to "no". Routes all to "yes" if no children. |
+| **Flow**       | The output type — what the flow carries out.                                                                                                                    | A payload override — the incoming token is replaced with clones of the children; passes through unchanged if empty.                                                                                                                                                                                                                                       |
+| **Choice**     | The condition to evaluate.                                                                                                                                      | A condition selector — tokens matching any child (by type, and by name if the child is named) are routed to the "yes" branch; all others go to "no". Routes all to "yes" if no children.                                                                                                                                                                  |
 
 ---
 
@@ -99,11 +99,11 @@ a 1-->1 b       # works with any relationship type
 
 Supported quantifier values:
 
-| Value | Where | Notes |
-|-------|-------|-------|
-| Digit sequence (`1`, `10`, …) | source or target | Unambiguous — digits can never be element names |
-| `N` | source or target | Treated as a quantifier only when it appears immediately adjacent to a relationship token; use a different name for an element you want to call `N` |
-| `*` | **target only** | A standalone `*` before `--` conflicts with the `*--` composition token and is not supported as a source quantifier |
+| Value                         | Where            | Notes                                                                                                                                               |
+| ----------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Digit sequence (`1`, `10`, …) | source or target | Unambiguous — digits can never be element names                                                                                                     |
+| `N`                           | source or target | Treated as a quantifier only when it appears immediately adjacent to a relationship token; use a different name for an element you want to call `N` |
+| `*`                           | **target only**  | A standalone `*` before `--` conflicts with the `*--` composition token and is not supported as a source quantifier                                 |
 
 Quantifiers are **independent of the relationship type** — the label and the arrow style are unchanged; the quantifier is additive.
 
@@ -153,12 +153,12 @@ Lines beginning with `!` are directives. They configure groups and sessions. Dir
 
 A group defines a set of elements identified by a regex pattern, a boolean composition of other groups, or both. The `id` is used to reference the group from sessions and from `compose=` expressions.
 
-| Key        | Required | Description                                                                                          |
-| ---------- | -------- | ---------------------------------------------------------------------------------------------------- |
-| `id=`      | yes      | Unique identifier (slugified: spaces → `_`)                                                          |
-| `regex=`   | no       | Regex matched against the element's full type-embedded path (see below). Quote if it contains spaces. |
-| `compose=` | no       | Boolean expression over group ids — `a&b`, `a|b`, `a-b`, with parens for grouping (see below). When both `regex=` and `compose=` are present, an element must satisfy both.  |
-| `color=`   | no       | Hex color used in `color` mode (default `#888888`)                                                   |
+| Key        | Required | Description                                                                                                                                                                  |
+| ---------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id=`      | yes      | Unique identifier (slugified: spaces → `_`)                                                                                                                                  |
+| `regex=`   | no       | Regex matched against the element's full type-embedded path (see below). Quote if it contains spaces.                                                                        |
+| `compose=` | no       | Boolean expression over group ids — `a&b`, `a\|b`, `a-b`, with parens for grouping (see below). When both `regex=` and `compose=` are present, an element must satisfy both. |
+| `color=`   | no       | Hex color used in `color` mode (default `#888888`)                                                                                                                           |
 
 Group mode is **not** set in the directive — it is controlled via `!session` or the UI toggle.
 
@@ -168,12 +168,12 @@ Group mode is **not** set in the directive — it is controlled via `!session` o
 
 **Auto-escaping:** the four empty type-wrapper sequences are automatically escaped before the regex is compiled, so you can write them literally in `regex=` without backslashes:
 
-| Written in regex | Compiled to regex | Matches |
-| ---------------- | ----------------- | ------- |
-| `{}`             | `\{\}`            | object wrapper |
-| `[]`             | `\[\]`            | collection wrapper |
-| `()`             | `\(\)`            | function wrapper |
-| `||`             | `\|\|`            | state wrapper |
+| Written in regex | Compiled to regex | Matches            |
+| ---------------- | ----------------- | ------------------ |
+| `{}`             | `{}`              | object wrapper     |
+| `[]`             | `[]`              | collection wrapper |
+| `()`             | `()`              | function wrapper   |
+| `\|\|`           | `\|\|`            | state wrapper      |
 
 Non-empty constructs — `[abc]`, `(x|y)`, `(?:…)` — are left intact, so standard regex character classes and groups still work in the name portion of a rule.
 
@@ -181,34 +181,34 @@ Non-empty constructs — `[abc]`, `(x|y)`, `(?:…)` — are left intact, so sta
 
 **Examples:**
 
-| Regex | What it matches |
-| ----- | --------------- |
-| `.*{}` | any object at any depth |
-| `.*\(\)` | any function at any depth |
-| `^[^.]+\{\}$` | root-level objects only |
-| `.*Service{}` | any object whose name ends in `Service` |
-| `game{}\..+` | anything nested inside `game{}` |
-| `.*Service{}|.*Repository{}` | objects ending in `Service` or `Repository` |
-| `.*player{}$` | any path whose last segment is `player{}` |
+| Regex                           | What it matches                             |
+| ------------------------------- | ------------------------------------------- |
+| `.*{}`                          | any object at any depth                     |
+| `.*()`                          | any function at any depth                   |
+| `^[^.]+{}$`                     | root-level objects only                     |
+| `.*Service{}`                   | any object whose name ends in `Service`     |
+| `game{}\..+`                    | anything nested inside `game{}`             |
+| `.\*Service{}\|.\*Repository{}` | objects ending in `Service` or `Repository` |
+| `.*player{}$`                   | any path whose last segment is `player{}`   |
 
 ```
 !group id=services    regex=.*Service{}              color=#2196f3
 !group id=repos       regex=.*Repository{}           color=#9c27b0
 !group id=data_layer  regex=.*Service{}|.*Repository{}  color=#ff9800
-!group id=top_objs    regex=^[^.]+\{\}$              color=#4caf50
-!group id=functions   regex=.*\(\)                   color=#607d8b
+!group id=top_objs    regex=^[^.]+{}$              color=#4caf50
+!group id=functions   regex=.*()                   color=#607d8b
 ```
 
 ### Group compose syntax
 
 `compose=` is a boolean expression over group ids. It is evaluated against the same element path that `regex=` tests; when both keys are present, the element must satisfy both.
 
-| Token | Meaning | Precedence |
-| ----- | ------- | ---------- |
-| `a&b` or `a,b` | AND — element must match both groups | high |
-| `a-b` | AND NOT — element matches `a` but not `b` | high |
-| `a|b` | OR — element matches either group | low |
-| `(…)` | parentheses override precedence | — |
+| Token          | Meaning                                   | Precedence |
+| -------------- | ----------------------------------------- | ---------- |
+| `a&b` or `a,b` | AND — element must match both groups      | high       |
+| `a-b`          | AND NOT — element matches `a` but not `b` | high       |
+| `a\|b`         | OR — element matches either group         | low        |
+| `(…)`          | parentheses override precedence           | —          |
 
 Missing group ids in a `compose=` expression evaluate to `false`. Circular references are broken by returning `false` for the already-visiting group.
 
@@ -216,7 +216,7 @@ Missing group ids in a `compose=` expression evaluate to `false`. Circular refer
 
 ```
 !group id=services   regex=.*Service{}           color=#2196f3
-!group id=storage    regex=.*DB\{\}              color=#ff9800
+!group id=storage    regex=.*DB{}              color=#ff9800
 !group id=external   regex=.*Gateway             color=#e91e63
 
 # union of services and storage
@@ -233,22 +233,22 @@ Missing group ids in a `compose=` expression evaluate to `false`. Circular refer
 
 | Mode    | Effect on matching elements | Effect on non-matching elements |
 | ------- | --------------------------- | ------------------------------- |
-| `color` | colored with `color=`        | unchanged                       |
-| `dim`   | unchanged (prominent)        | dimmed                          |
-| `hide`  | unchanged (visible)          | hidden                          |
-| `off`   | no effect                    | no effect                       |
+| `color` | colored with `color=`       | unchanged                       |
+| `dim`   | unchanged (prominent)       | dimmed                          |
+| `hide`  | unchanged (visible)         | hidden                          |
+| `off`   | no effect                   | no effect                       |
 
-`dim` and `hide` use *inverse* matching: the rule identifies what to **keep**, and everything else is dimmed or hidden. Multiple active groups are composited — a path hidden by one group and colored by another ends up hidden.
+`dim` and `hide` use _inverse_ matching: the rule identifies what to **keep**, and everything else is dimmed or hidden. Multiple active groups are composited — a path hidden by one group and colored by another ends up hidden.
 
 ### Sessions
 
 A session defines a named preset that assigns a mode to each group at once. Group ids in the `groups=` value are the slugified group ids. No spaces are allowed around commas.
 
-| Key       | Required | Description                                         |
-| --------- | -------- | --------------------------------------------------- |
-| `id=`     | yes      | Unique identifier for the session                   |
-| `label=`  | no       | Display name (quote if it contains spaces)          |
-| `groups=` | no       | Comma-separated `groupId:mode` pairs                |
+| Key       | Required | Description                                |
+| --------- | -------- | ------------------------------------------ |
+| `id=`     | yes      | Unique identifier for the session          |
+| `label=`  | no       | Display name (quote if it contains spaces) |
+| `groups=` | no       | Comma-separated `groupId:mode` pairs       |
 
 ```
 !session id=dev    label="Dev View"    groups=services:color,functions:dim
