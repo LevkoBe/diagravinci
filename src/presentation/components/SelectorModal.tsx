@@ -24,6 +24,21 @@ import {
 
 const PALETTE = AppConfig.ui.COLOR_PALETTE;
 const MODES: SelectorMode[] = ["color", "dim", "hide", "off"];
+const TYPE_FILTERS = ["", "{}", "[]", "()", "||", ">>", "<>"] as const;
+type TypeFilter = (typeof TYPE_FILTERS)[number];
+
+function buildNameRegex(name: string, type: TypeFilter): string {
+  if (!name && !type) return "";
+  return `(^|.*\\.)[^.]*${name}[^.]*${type}(?![^.]*\\.)`;
+}
+
+function buildLevelsRegex(from: number, to: number): string {
+  const mn = Math.max(1, from);
+  const mx = Math.max(mn, to);
+  if (mn === 1 && mx === 1) return "^[^.]+$";
+  if (mn === mx) return `^[^.]+(\\.[^.]+){${mn - 1}}$`;
+  return `^[^.]+(\\.[^.]+){${mn - 1},${mx - 1}}$`;
+}
 
 function randomColor(): string {
   return PALETTE[Math.floor(Math.random() * PALETTE.length)];
@@ -32,8 +47,7 @@ function randomColor(): string {
 function freshGroup(): Group {
   return {
     id: "",
-    label: "New group",
-    rule: "",
+    regex: "",
     color: randomColor(),
   };
 }
@@ -49,6 +63,7 @@ export function SelectorsPanel() {
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
   const importRef = useRef<HTMLInputElement>(null);
   const ruleRef = useRef<HTMLInputElement>(null);
+  const composeRef = useRef<HTMLInputElement>(null);
 
   const [activeId, setActiveId] = useState<string | null>(
     () => groups[0]?.id ?? null,
@@ -60,6 +75,14 @@ export function SelectorsPanel() {
   const [isNew, setIsNew] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
+  const [regexPreset, setRegexPreset] = useState<"path" | "name" | "levels">(
+    "path",
+  );
+  const [nameInput, setNameInput] = useState("");
+  const [nameTypeFilter, setNameTypeFilter] = useState<TypeFilter>("");
+  const [levelFrom, setLevelFrom] = useState(1);
+  const [levelTo, setLevelTo] = useState(1);
+
   const updateDraft = (updater: (d: Group) => Group) => {
     setDraft(updater);
     setIsDirty(true);
@@ -70,6 +93,7 @@ export function SelectorsPanel() {
     setDraft({ ...g });
     setIsNew(false);
     setIsDirty(false);
+    setRegexPreset("path");
   };
 
   const startNew = () => {
@@ -77,12 +101,20 @@ export function SelectorsPanel() {
     setIsNew(true);
     setIsDirty(true);
     setActiveId(null);
+    setRegexPreset("path");
+    setNameInput("");
+    setNameTypeFilter("");
+    setLevelFrom(1);
+    setLevelTo(1);
   };
 
-  const insertAtCursor = useCallback((text: string) => {
-    const input = ruleRef.current;
+  const insertAtCompose = useCallback((text: string) => {
+    const input = composeRef.current;
     if (!input) {
-      updateDraft((d) => ({ ...d, rule: d.rule ? `${d.rule}${text}` : text }));
+      updateDraft((d) => ({
+        ...d,
+        compose: (d.compose ?? "") + text || undefined,
+      }));
       return;
     }
     const start = input.selectionStart ?? input.value.length;
@@ -90,7 +122,29 @@ export function SelectorsPanel() {
     const before = input.value.slice(0, start);
     const after = input.value.slice(end);
     const newVal = before + text + after;
-    updateDraft((d) => ({ ...d, rule: newVal }));
+    updateDraft((d) => ({ ...d, compose: newVal || undefined }));
+    setTimeout(() => {
+      const pos = (before + text).length;
+      input.setSelectionRange(pos, pos);
+      input.focus();
+    }, 0);
+  }, []);
+
+  const insertAtCursor = useCallback((text: string) => {
+    const input = ruleRef.current;
+    if (!input) {
+      updateDraft((d) => ({
+        ...d,
+        regex: d.regex ? `${d.regex}${text}` : text,
+      }));
+      return;
+    }
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
+    const before = input.value.slice(0, start);
+    const after = input.value.slice(end);
+    const newVal = before + text + after;
+    updateDraft((d) => ({ ...d, regex: newVal }));
     setTimeout(() => {
       const pos = (before + text).length;
       input.setSelectionRange(pos, pos);
@@ -99,7 +153,7 @@ export function SelectorsPanel() {
   }, []);
 
   const handleSave = () => {
-    const newId = toGroupId(draft.label);
+    const newId = toGroupId(draft.id) || "group";
     const groupToSave: Group = { ...draft, id: newId };
     setDraft(groupToSave);
     const code = store.getState().diagram.code;
@@ -125,7 +179,10 @@ export function SelectorsPanel() {
           dispatch(addGroup(groupToSave));
         }
         syncManager.syncFromCode(
-          upsertGroupInCode(groupToSave, removeGroupFromCode(activeId ?? "", code)),
+          upsertGroupInCode(
+            groupToSave,
+            removeGroupFromCode(activeId ?? "", code),
+          ),
         );
       } else {
         dispatch(updateGroup(groupToSave));
@@ -175,12 +232,16 @@ export function SelectorsPanel() {
         for (const line of text.split("\n")) {
           const trimmed = line.trim();
           if (!trimmed) continue;
-          const g = JSON.parse(trimmed) as Partial<Group>;
-          if (typeof g.label === "string") {
+          const g = JSON.parse(trimmed) as Partial<Group> & {
+            label?: string;
+            rule?: string;
+          };
+          const rawId = g.id || g.label;
+          if (rawId) {
             const imported: Group = {
-              id: toGroupId(g.label),
-              label: g.label,
-              rule: g.rule ?? "",
+              id: toGroupId(rawId),
+              regex: g.regex ?? g.rule ?? "",
+              ...(g.compose ? { compose: g.compose } : {}),
               color: g.color ?? randomColor(),
             };
             dispatch(addGroup(imported));
@@ -198,7 +259,8 @@ export function SelectorsPanel() {
 
   const handleClearOrphanedFlags = () => {
     const { model: currentModel } = store.getState().diagram;
-    const { groups: currentGroups, selectors: currentSelectors } = store.getState().filter;
+    const { groups: currentGroups, selectors: currentSelectors } =
+      store.getState().filter;
     const validIds = new Set([
       ...currentGroups.map((g) => g.id),
       ...currentSelectors.map((s) => s.id),
@@ -267,7 +329,7 @@ export function SelectorsPanel() {
               const g = groups.find((g) => g.id === v);
               if (g) selectTab(g);
             }}
-            options={groups.map((g) => ({ value: g.id, label: g.label }))}
+            options={groups.map((g) => ({ value: g.id, label: g.id }))}
             className="w-auto"
           />
         )}
@@ -289,7 +351,8 @@ export function SelectorsPanel() {
       {groups.length === 0 && !isNew ? (
         <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center text-center px-6 py-8 gap-6">
           <p className="text-[12px] text-fg-muted leading-relaxed max-w-xs">
-            Groups let you highlight, dim, or hide diagram elements using expression rules.
+            Groups let you highlight, dim, or hide diagram elements using
+            expression rules.
           </p>
           <ol className="flex flex-col gap-3 text-left w-full max-w-xs">
             <li className="flex items-start gap-3">
@@ -379,47 +442,233 @@ export function SelectorsPanel() {
           <div className="px-4 pt-2.5 pb-2 border-b border-border/30 shrink-0">
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider shrink-0 w-20">
-                Rule
+                Regex
               </span>
-              <div className="flex items-center gap-0.5">
-                {(["/", "&", "-"] as const).map((op) => (
+              {regexPreset === "path" && (
+                <div className="flex items-center gap-0.5 ml-auto">
+                  {([".*", "{}", "[]", "()", "||"] as const).map((snip) => (
+                    <button
+                      key={snip}
+                      onClick={() => insertAtCursor(snip)}
+                      className="px-1.5 h-6 flex items-center justify-center border border-border rounded text-[10px] font-mono text-fg-muted hover:border-accent/60 hover:text-fg-primary hover:bg-bg-elevated transition-colors"
+                    >
+                      {snip}
+                    </button>
+                  ))}
                   <button
-                    key={op}
-                    onClick={() => insertAtCursor(op)}
-                    className="w-6 h-6 flex items-center justify-center border border-border rounded text-[11px] font-mono text-fg-muted hover:border-accent/60 hover:text-fg-primary hover:bg-bg-elevated transition-colors"
+                    onClick={() => updateDraft((d) => ({ ...d, regex: "" }))}
+                    className="ml-1 px-2 py-0.5 text-[10px] border border-border rounded text-fg-muted hover:border-accent/50 hover:text-fg-primary hover:bg-bg-elevated transition-colors"
                   >
-                    {op}
+                    clear
                   </button>
-                ))}
-                <button
-                  onClick={() => updateDraft((d) => ({ ...d, rule: "" }))}
-                  className="ml-1 px-2 py-0.5 text-[10px] border border-border rounded text-fg-muted hover:border-accent/50 hover:text-fg-primary hover:bg-bg-elevated transition-colors"
-                >
-                  clear
-                </button>
-              </div>
+                </div>
+              )}
             </div>
-            <input
-              ref={ruleRef}
-              type="text"
-              value={draft.rule}
-              onChange={(e) =>
-                updateDraft((d) => ({ ...d, rule: e.target.value }))
-              }
-              placeholder="e.g.  '.*Service'{}  ·  $level=2-3  ·  $g1/$g2"
-              className={`w-full ${inputCls} py-1.5`}
-            />
+
+            {regexPreset === "path" && (
+              <div className="flex items-center gap-1.5">
+                <Select
+                  value={regexPreset}
+                  onValueChange={(v) => {
+                    const p = v as "path" | "name" | "levels";
+                    setRegexPreset(p);
+                    if (p === "name")
+                      updateDraft((d) => ({
+                        ...d,
+                        regex: buildNameRegex(nameInput, nameTypeFilter),
+                      }));
+                    else if (p === "levels")
+                      updateDraft((d) => ({
+                        ...d,
+                        regex: buildLevelsRegex(levelFrom, levelTo),
+                      }));
+                  }}
+                  options={[
+                    { value: "path", label: "Path" },
+                    { value: "name", label: "Name" },
+                    { value: "levels", label: "Levels" },
+                  ]}
+                  className="w-auto shrink-0"
+                />
+                <input
+                  ref={ruleRef}
+                  type="text"
+                  value={draft.regex}
+                  onChange={(e) =>
+                    updateDraft((d) => ({ ...d, regex: e.target.value }))
+                  }
+                  placeholder="e.g.  .*Service\{\}  ·  game\{\}\..*  ·  .*\|\|"
+                  className={`flex-1 ${inputCls} py-1.5`}
+                />
+              </div>
+            )}
+
+            {regexPreset === "name" && (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-0.5">
+                  {TYPE_FILTERS.map((t) => (
+                    <button
+                      key={t || "any"}
+                      onClick={() => {
+                        setNameTypeFilter(t);
+                        updateDraft((d) => ({
+                          ...d,
+                          regex: buildNameRegex(nameInput, t),
+                        }));
+                      }}
+                      className={[
+                        "px-1.5 h-6 flex items-center justify-center border rounded text-[10px] font-mono transition-colors",
+                        nameTypeFilter === t
+                          ? "border-accent bg-accent/15 text-accent"
+                          : "border-border text-fg-muted hover:border-accent/60 hover:text-fg-primary hover:bg-bg-elevated",
+                      ].join(" ")}
+                    >
+                      {t || "any"}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Select
+                    value={regexPreset}
+                    onValueChange={(v) => {
+                      const p = v as "path" | "name" | "levels";
+                      setRegexPreset(p);
+                      if (p === "levels")
+                        updateDraft((d) => ({
+                          ...d,
+                          regex: buildLevelsRegex(levelFrom, levelTo),
+                        }));
+                    }}
+                    options={[
+                      { value: "path", label: "Path" },
+                      { value: "name", label: "Name" },
+                      { value: "levels", label: "Levels" },
+                    ]}
+                    className="w-auto shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={nameInput}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setNameInput(v);
+                      updateDraft((d) => ({
+                        ...d,
+                        regex: buildNameRegex(v, nameTypeFilter),
+                      }));
+                    }}
+                    placeholder="name pattern — e.g.  .*Service  ·  User"
+                    className={`flex-1 ${inputCls} py-1.5`}
+                  />
+                  {buildNameRegex(nameInput, nameTypeFilter) && (
+                    <span className="text-[11px] text-fg-muted font-mono shrink-0 truncate">
+                      → {buildNameRegex(nameInput, nameTypeFilter)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {regexPreset === "levels" && (
+              <div className="flex items-center gap-2">
+                <Select
+                  value={regexPreset}
+                  onValueChange={(v) => {
+                    const p = v as "path" | "name" | "levels";
+                    setRegexPreset(p);
+                    if (p === "name")
+                      updateDraft((d) => ({
+                        ...d,
+                        regex: buildNameRegex(nameInput, nameTypeFilter),
+                      }));
+                  }}
+                  options={[
+                    { value: "path", label: "Path" },
+                    { value: "name", label: "Name" },
+                    { value: "levels", label: "Levels" },
+                  ]}
+                  className="w-auto shrink-0"
+                />
+                <span className="text-[11px] text-fg-muted shrink-0">from</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={levelFrom}
+                  onChange={(e) => {
+                    const v = Math.max(1, Number(e.target.value));
+                    setLevelFrom(v);
+                    const to = Math.max(v, levelTo);
+                    setLevelTo(to);
+                    updateDraft((d) => ({
+                      ...d,
+                      regex: buildLevelsRegex(v, to),
+                    }));
+                  }}
+                  className={`w-16 ${inputCls} py-1.5`}
+                />
+                <span className="text-[11px] text-fg-muted shrink-0">to</span>
+                <input
+                  type="number"
+                  min={levelFrom}
+                  value={levelTo}
+                  onChange={(e) => {
+                    const v = Math.max(levelFrom, Number(e.target.value));
+                    setLevelTo(v);
+                    updateDraft((d) => ({
+                      ...d,
+                      regex: buildLevelsRegex(levelFrom, v),
+                    }));
+                  }}
+                  className={`w-16 ${inputCls} py-1.5`}
+                />
+                <span className="text-[11px] text-fg-muted font-mono shrink-0 truncate">
+                  → {buildLevelsRegex(levelFrom, levelTo)}
+                </span>
+              </div>
+            )}
           </div>
 
           {groups.length > 1 && (
             <div className="flex-1 px-4 pt-2.5 pb-2 flex flex-col gap-2 min-h-0">
-              <div className="flex items-center justify-between shrink-0">
-                <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider select-none">
-                  Group refs
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider shrink-0 w-20">
+                  Compose
                 </span>
-                <span className="text-[10px] text-fg-disabled select-none">
-                  click to insert into rule
-                </span>
+                <div className="flex items-center gap-0.5">
+                  {(["&", "|", "-", "(", ")"] as const).map((op) => (
+                    <button
+                      key={op}
+                      onClick={() => insertAtCompose(op)}
+                      className="w-6 h-6 flex items-center justify-center border border-border rounded text-[11px] font-mono text-fg-muted hover:border-accent/60 hover:text-fg-primary hover:bg-bg-elevated transition-colors"
+                    >
+                      {op}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() =>
+                      updateDraft((d) => ({ ...d, compose: undefined }))
+                    }
+                    className="ml-1 px-2 py-0.5 text-[10px] border border-border rounded text-fg-muted hover:border-accent/50 hover:text-fg-primary hover:bg-bg-elevated transition-colors"
+                  >
+                    clear
+                  </button>
+                </div>
+              </div>
+              <input
+                ref={composeRef}
+                type="text"
+                value={draft.compose ?? ""}
+                onChange={(e) =>
+                  updateDraft((d) => ({
+                    ...d,
+                    compose: e.target.value || undefined,
+                  }))
+                }
+                placeholder="e.g.  a&b  ·  a|b  ·  a-b  ·  (a|b)&c"
+                className={`w-full ${inputCls} py-1.5`}
+              />
+              <div className="text-[10px] text-fg-disabled select-none shrink-0">
+                click to insert group id
               </div>
               <div className="flex flex-wrap gap-1.5 overflow-y-auto flex-1 min-h-0">
                 {groups
@@ -427,11 +676,10 @@ export function SelectorsPanel() {
                   .map((g) => (
                     <button
                       key={g.id}
-                      onClick={() => insertAtCursor(`$${g.id}`)}
-                      className="px-2 py-0.5 h-fit text-[10px] border border-border rounded font-mono text-fg-muted hover:border-accent/50 hover:text-fg-primary hover:bg-bg-elevated transition-colors"
-                      title={`Insert $${g.id} reference`}
+                      onClick={() => insertAtCompose(g.id)}
+                      className="px-2 py-0.5 h-fit text-[10px] border border-border rounded font-mono text-fg-muted hover:border-accent/60 hover:text-fg-primary hover:bg-bg-elevated transition-colors"
                     >
-                      ${g.id}
+                      {g.id}
                     </button>
                   ))}
               </div>
@@ -453,12 +701,10 @@ export function SelectorsPanel() {
           )}
           <input
             type="text"
-            value={draft.label}
-            onChange={(e) =>
-              updateDraft((d) => ({ ...d, label: e.target.value }))
-            }
+            value={draft.id}
+            onChange={(e) => updateDraft((d) => ({ ...d, id: e.target.value }))}
             className="flex-1 bg-transparent border-b border-border text-[13px] font-semibold text-fg-primary focus:outline-none focus:border-accent placeholder:text-fg-disabled py-0.5 transition-colors"
-            placeholder="Group name"
+            placeholder="Group id"
           />
           <div className="relative shrink-0">
             <input

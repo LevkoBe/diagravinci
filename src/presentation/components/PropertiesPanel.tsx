@@ -11,6 +11,10 @@ import { setViewState, updateElementDimensions } from "../../application/store/d
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { ViewState } from "../../domain/models/ViewState";
 
+function stripTypeSuffix(id: string): string {
+  return id.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)$/, "");
+}
+
 export function PropertiesPanel() {
   const dispatch = useAppDispatch();
   const model = useAppSelector((s) => s.diagram.model);
@@ -73,7 +77,7 @@ function PropertiesPanelContent({
 }) {
   const element = model.elements[selectedId]!;
   const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState(selectedId);
+  const [nameInput, setNameInput] = useState(stripTypeSuffix(selectedId));
 
   const hiddenSet = new Set(viewState.hiddenPaths);
   const dimmedSet = new Set(viewState.dimmedPaths);
@@ -154,9 +158,11 @@ function PropertiesPanelContent({
     const selectedPath = selectedIds[inspectIndex];
     if (!trimmed || !selectedPath) return;
     const leafId = selectedPath.split(".").at(-1)!;
-    if (trimmed === leafId) return;
+    const typeSuffix = leafId.match(/(\{\}|\[\]|\(\)|\|\||<>|>>)$/)?.[0] ?? "";
+    const newLeafId = trimmed + typeSuffix;
+    if (newLeafId === leafId) return;
 
-    const renamedModel = renameElementAtPath(model, selectedPath, trimmed);
+    const renamedModel = renameElementAtPath(model, selectedPath, newLeafId);
 
     const renamedPositions: typeof viewState.positions = {};
     for (const [path, val] of Object.entries(viewState.positions)) {
@@ -187,7 +193,7 @@ function PropertiesPanelContent({
               }`}
               onClick={() => onSelectIndex(i)}
             >
-              {id}
+              {stripTypeSuffix(id.split(".").at(-1)!)}
             </button>
           ))}
         </div>
@@ -227,11 +233,11 @@ function PropertiesPanelContent({
               className="font-semibold text-fg-primary text-sm truncate leading-tight text-left w-full hover:text-accent transition-colors"
               title="Click to rename"
               onClick={() => {
-                setNameInput(selectedId);
+                setNameInput(stripTypeSuffix(selectedId));
                 setEditingName(true);
               }}
             >
-              {selectedId}
+              {stripTypeSuffix(selectedId)}
             </button>
           )}
           <div className="text-xs text-fg-muted mt-0.5">{element.type}</div>
@@ -315,7 +321,7 @@ function PropertiesPanelContent({
                     dispatch(setSelectedElement(childId));
                   }}
                 >
-                  <span className="text-xs truncate">{childId}</span>
+                  <span className="text-xs truncate">{stripTypeSuffix(childId)}</span>
                   <div className="flex items-center gap-1 shrink-0">
                     {child && (
                       <span className="text-[10px] text-fg-disabled">
@@ -532,7 +538,7 @@ function RelRow({
         {dir === "out" ? "→" : "←"}
       </span>
       <span className="text-xs truncate" style={{ color: color ?? undefined }}>
-        {peerId}
+        {stripTypeSuffix(peerId)}
       </span>
       <span className="text-[10px] text-fg-disabled shrink-0 ml-auto">
         {type}

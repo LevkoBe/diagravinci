@@ -157,25 +157,25 @@ export function VisualCanvas() {
     const codeGroups = (currentModel.groups ?? []).filter((g) => g.id !== selId);
     const existingSel = (currentModel.groups ?? []).find((g) => g.id === selId);
 
-    const rule = selectedElementIds
-      .map((p) => p.split(".").at(-1)! + "?")
-      .join("/");
-    const prevRule = existingSel?.rule ?? "";
+    const regex = selectedElementIds
+      .map((p) => `^${p.replace(/\./g, "\\.")}$`)
+      .join("|");
+    const prevRegex = existingSel?.regex ?? "";
 
-    if (rule === prevRule) return;
+    if (regex === prevRegex) return;
 
     let updatedGroups: Group[];
-    if (rule === "") {
-      // keep group with empty rule — existingSel is non-null (prevRule !== "" passed early-return)
-      updatedGroups = [...codeGroups, { ...existingSel!, rule: "" }];
+    if (regex === "") {
+      // keep group with empty regex — existingSel is non-null (prevRegex !== "" passed early-return)
+      updatedGroups = [...codeGroups, { ...existingSel!, regex: "" }];
     } else {
-      const base = existingSel ?? { id: selId, label: selLabel, color: selColor };
-      updatedGroups = [...codeGroups, { ...base, rule }];
+      const base = existingSel ?? { id: selId, color: selColor };
+      updatedGroups = [...codeGroups, { ...base, regex }];
     }
 
     const updatedSessions = (currentModel.sessions ?? []).map((session) => {
       if (session.id !== activeSessionId) return session;
-      if (rule === "") return session;
+      if (regex === "") return session;
       const already = session.groupModes?.[selId];
       if (already && already !== "off") return session;
       return { ...session, groupModes: { ...session.groupModes, [selId]: "color" as const } };
@@ -626,12 +626,13 @@ export function VisualCanvas() {
               const state = store.getState();
               const positions = state.diagram.viewState.positions;
               const m = state.diagram.model;
-              const allGroups = m.groups ?? [];
               const grp = state.filter.groups.find((g) => g.id === groupSelId);
               const elOf = (p: string) => m.elements[p.split(".").at(-1)!];
               const matches = (p: string) => {
                 const el = elOf(p);
-                return el ? matchesGroup(grp!, p, el.type, m.elements, allGroups) : false;
+                if (!el) return false;
+                if (el.flags?.some((f) => f === grp!.id)) return true;
+                return matchesGroup(grp!, p, state.filter.groups);
               };
               if (grp && matches(path)) {
                 const startPos = positions[path]?.position;

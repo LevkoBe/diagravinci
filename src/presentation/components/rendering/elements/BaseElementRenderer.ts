@@ -165,10 +165,11 @@ export abstract class BaseElementRenderer implements IElementRenderer {
     const maxW = size * ec.CLASS_LABEL_WIDTH_RATIO;
     const xStart = -maxW / 2;
 
-    const allLines = [this.element.id, ...fields, ...methods];
+    const displayName = this.element.id.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)$/, "");
+    const allLines = [displayName, ...fields, ...methods];
     const longestLine = allLines.reduce(
       (a, b) => (a.length > b.length ? a : b),
-      this.element.id,
+      displayName,
     );
     const { fontSize, useEllipsis } = this.computeFontSize(maxW, longestLine);
 
@@ -191,7 +192,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
 
     clip.add(
       new Konva.Text({
-        text: this.element.id,
+        text: displayName,
         fontSize,
         fontFamily: FONT,
         fontStyle: "bold",
@@ -287,7 +288,10 @@ export abstract class BaseElementRenderer implements IElementRenderer {
       return;
     }
 
-    const iconMatch = rawId?.match(/^_(.+)_$/);
+    // Strip type-wrapper suffix to get the display name (e.g. "player{}" → "player")
+    const name = rawId?.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)$/, "");
+
+    const iconMatch = name?.match(/^_(.+)_$/);
     if (iconMatch) {
       const iconName = iconMatch[1].toLowerCase();
       const iconNodes = getLucideIcon(iconName);
@@ -306,7 +310,7 @@ export abstract class BaseElementRenderer implements IElementRenderer {
 
     const labelText = iconMatch
       ? iconMatch[1]
-      : (rawId ?? this.element.type.toUpperCase());
+      : (name ?? this.element.type.toUpperCase());
     const maxWidth = this.size * ec.LABEL_WIDTH_RATIO;
     const { fontSize, useEllipsis } = this.computeFontSize(maxWidth, labelText);
     const opacity = this.labelOpacity;

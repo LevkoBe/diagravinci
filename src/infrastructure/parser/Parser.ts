@@ -43,6 +43,17 @@ const WRAPPERS: Record<
 
 const VALID_MODES: SelectorMode[] = ["color", "dim", "hide", "off"];
 
+function wrapperSuffixFor(type: ElementType): string {
+  switch (type) {
+    case "object":     return "{}";
+    case "collection": return "[]";
+    case "function":   return "()";
+    case "state":      return "||";
+    case "choice":     return "<>";
+    case "flow":       return ">>";
+  }
+}
+
 function splitDirective(raw: string): string[] {
   const parts: string[] = [];
   let cur = "";
@@ -89,6 +100,7 @@ export class Parser {
 
   parse(): DiagramModel {
     this.parseContents(this.model.root, "");
+    this.embedTypesInIds();
     this.validatePaths();
     if (this.validationErrors.length)
       this.model.validationErrors = this.validationErrors;
@@ -416,6 +428,42 @@ export class Parser {
     return null;
   }
 
+  private embedTypesInIds(): void {
+    const oldToNew = new Map<string, string>();
+    for (const [oldId, el] of Object.entries(this.model.elements)) {
+      if (oldId === this.model.root.id) continue;
+      const suffix = wrapperSuffixFor(el.type);
+      if (oldId.endsWith(suffix)) continue; // already embedded (e.g. from a second parse pass)
+      const newId = oldId + suffix;
+      oldToNew.set(oldId, newId);
+    }
+    if (oldToNew.size === 0) return;
+
+    for (const [oldId, newId] of oldToNew) {
+      const el = this.model.elements[oldId];
+      el.id = newId;
+      el.childIds = el.childIds.map((c) => oldToNew.get(c) ?? c);
+      this.model.elements[newId] = el;
+      delete this.model.elements[oldId];
+    }
+
+    this.model.root.childIds = this.model.root.childIds.map(
+      (c) => oldToNew.get(c) ?? c,
+    );
+
+    const renamePath = (p: string) =>
+      p.split(".").map((seg) => oldToNew.get(seg) ?? seg).join(".");
+
+    const newRels: typeof this.model.relationships = {};
+    for (const rel of Object.values(this.model.relationships)) {
+      rel.source = renamePath(rel.source);
+      rel.target = renamePath(rel.target);
+      rel.id = `${rel.source}${rel.type}${rel.target}`;
+      newRels[rel.id] = rel;
+    }
+    this.model.relationships = newRels;
+  }
+
   private validatePaths(): void {
     const toRemove: string[] = [];
     for (const rel of Object.values(this.model.relationships)) {
@@ -460,12 +508,11 @@ export class Parser {
     const rawId = kvs["id"];
     if (!rawId) return;
 
-    const label = kvs["label"] ?? rawId;
     const id = toGroupId(rawId);
     const group: Group = {
       id,
-      label,
-      rule: kvs["rule"] ?? "",
+      regex: kvs["regex"] ?? kvs["rule"] ?? "",
+      ...(kvs["compose"] ? { compose: kvs["compose"] } : {}),
       color: kvs["color"] ?? "#888888",
     };
 
@@ -481,8 +528,9 @@ export class Parser {
 
     const id = toGroupId(rawId);
     const namePattern = kvs["all_name"] ?? kvs["name"] ?? kvs["all"] ?? "";
-    const rule = namePattern ? `'${namePattern}'?` : "";
-    const group: Group = { id, label: rawId, rule, color: "#888888" };
+    // migrate: name regex + any-type wildcard → plain regex against full path
+    const rule = namePattern ? `${namePattern}.*` : "";
+    const group: Group = { id, regex: rule, color: "#888888" };
 
     if (!(this.model.groups ?? []).some((g) => g.id === id)) {
       (this.model.groups ??= []).push(group);
@@ -495,12 +543,10 @@ export class Parser {
     if (!name) return;
 
     const id = toGroupId(name);
-    const group: Group = {
-      id,
-      label: name,
-      rule: kvs["expression"] ?? kvs["formula"] ?? kvs["combiner"] ?? "",
-      color: kvs["color"] ?? "#888888",
-    };
+    // old expression field used structured syntax ($ref, /) — store as-is;
+    // will fail regex compilation and match nothing (user must update manually)
+    const rule = kvs["expression"] ?? kvs["formula"] ?? kvs["combiner"] ?? "";
+    const group: Group = { id, regex: rule, color: kvs["color"] ?? "#888888" };
 
     if (!(this.model.groups ?? []).some((g) => g.id === id)) {
       (this.model.groups ??= []).push(group);

@@ -43,7 +43,6 @@ export class FilterResolver {
     const foldedSet = new Set<string>();
     const coloredMap = new Map<string, string>();
     const rules = model.rules ?? [];
-    const groups = model.groups ?? [];
 
     const activeSession = (model.sessions ?? []).find(
       (s) => s.id === activeSessionId,
@@ -63,7 +62,7 @@ export class FilterResolver {
         const el = elementOf(path);
         if (!el) return false;
         if (el.flags?.some((f) => toSelectorId(f) === group.id)) return true;
-        return matchesGroup(group, path, el.type, model.elements, groups);
+        return matchesGroup(group, path, filterState.groups);
       });
     }
 

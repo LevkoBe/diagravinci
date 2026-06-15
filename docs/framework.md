@@ -55,12 +55,12 @@ _The sketch gives you a shape. This step gives you a complete picture — all co
 _A complete diagram still needs to be communicated. Different audiences need different views of the same system; a live walkthrough needs different tools than a solo investigation. This step turns a complete diagram into a presentation artifact._
 
 - **Filter** — remove noise without destroying the diagram
-  - Selectors: rules matching elements by name, type, nesting level, or flag
+  - Groups: regex rules matched against element paths (`game{}.player{}` format)
     - Color mode — matched elements highlighted; others unchanged
     - Dim mode — matched elements prominent; others faded
     - Hide mode — matched elements visible; others removed from canvas
-    - Stacked selectors — multiple rules composited into one view
-  - Sessions — named, saved selector states; one-click perspective switch
+    - Stacked groups — multiple rules composited into one view
+  - Sessions — named, saved group states; one-click perspective switch
     - Audience-specific (developer / product / management)
     - Flow-specific, abstraction-only, subsystem-only
 - **Navigate** — walk through it live, not just look at it

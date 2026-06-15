@@ -15,7 +15,7 @@ Everything in `DiagramModel` is serialised to the `.dg` code text by `CodeGenera
 | `groups` | `!group  id=…  label=…  color=…  rule=…` |
 | `sessions` | `!session  id=…  label=…  groups=id:mode,…` |
 
-All groups are uniform — click-selection groups, rule-based groups, and diff groups all use the same `!group` directive. Selection groups carry a rule like `UserService?/OrderService?` (name wildcards) generated from the clicked elements.
+All groups are uniform — click-selection groups, rule-based groups, and diff groups all use the same `!group` directive. A click-selection group's `rule` is a generated regex of the form `(^|.*\.)player{}$|(^|.*\.)login\|\|$` — one regex alternative per selected element, matching the type-embedded path segment at any depth.
 
 Old `!selector` and `!rule` directives found in `.dg` files are automatically migrated to `!group` on the first save.
 
@@ -23,23 +23,48 @@ Old `!selector` and `!rule` directives found in `.dg` files are automatically mi
 
 ---
 
-## Layer 2 — ViewState (browser storage only, not in code)
+## Layer 2 — Browser storage (not in code)
 
-`ViewState` is persisted to IndexedDB / localStorage between sessions but is **never emitted to the code file**. These are canvas display properties, not diagram semantics.
+Persisted to **IndexedDB** (primary) with **localStorage** as a synchronous fallback. Survives page reloads but is never emitted to the code file.
+
+### ViewState
+
+Canvas display properties — keyed by type-embedded path (e.g. `game{}.player{}`):
 
 | Field | What it stores |
 |---|---|
-| `positions` | Per-path `{x, y, size, value, width, height}` |
+| `positions` | Per-path `{id, position, size, value, isRecursive, width, height}` |
+| `relationships` | Resolved edge layout: source/target paths, type, label, quantifiers |
+| `viewMode` | Active layout mode (`"circular"`, `"radial"`, `"force"`, `"execute"`, …) |
 | `pan` | Canvas pan offset `{x, y}` |
 | `zoom` | Canvas zoom level |
-| `hiddenPaths` | Paths explicitly hidden from the canvas |
+| `hiddenPaths` | Paths removed from the canvas by active groups/sessions |
 | `dimmedPaths` | Paths rendered at reduced opacity |
-| `coloredPaths` | Per-path colour overrides (not group-based) |
 | `foldedPaths` | Paths whose subtrees are collapsed |
-| `viewMode` | `"normal" | "force" | "execute"` |
-| `relationships` (visual) | Edge layout state |
+| `coloredPaths` | Per-path colour overrides from active groups/sessions |
 
-Also browser-stored but not in code: fold settings (`foldLevel`, `foldActive`, manual fold/unfold overrides), UI preferences (`renderStyle`, `relLineStyle`, `opaqueElementBg`, …), and `filter.groups` (kept in sync with the code, but also cached in storage).
+### Filter state
+
+| Field | What it stores |
+|---|---|
+| `groups` | Runtime mirror of `model.groups` — kept in sync with the code |
+| `selectors` | Legacy selector list (expression-based; preserved for backward compatibility) |
+| `foldLevel` | The depth at which fold-to-level collapses the tree |
+| `foldActive` | Whether fold-to-level is currently enabled |
+| `manuallyFolded` | Paths the user has explicitly folded |
+| `manuallyUnfolded` | Paths the user has explicitly unfolded against the active fold level |
+
+### UI preferences
+
+| Field | What it stores |
+|---|---|
+| `renderStyle` | Element shape: `"svg" \| "rect" \| "polygon"` |
+| `relLineStyle` | Edge routing: `"straight" \| "curved" \| "orthogonal"` |
+| `classDiagramMode` | Whether class-diagram mode is active |
+| `opaqueElementBg` | Whether element backgrounds are opaque |
+| `interactionMode` | Last active interaction mode (select, create, connect, …) |
+| `activeElementType` | Last selected element type in the toolbar |
+| `activeRelationshipType` | Last selected relationship type in the toolbar |
 
 ---
 

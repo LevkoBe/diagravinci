@@ -3,7 +3,6 @@ import type { ViewState, PositionedElement } from "../domain/models/ViewState";
 import type { Element } from "../domain/models/Element";
 import type { Relationship } from "../domain/models/Relationship";
 import type { TokenInstance } from "./store/executionSlice";
-import { buildPatternFromElement, matchesExpr } from "../domain/selector/GroupEvaluator";
 
 export type { TokenInstance };
 
@@ -224,40 +223,43 @@ function baseName(id: string): string {
   return id.replace(/(_\d+)+$/, "");
 }
 
+function elementBaseName(id: string): string {
+  return id.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)(_\d+)*$/, "");
+}
+
 function isGen(el: Element): boolean {
-  return (
-    el.type === "function" && (el.id === "gen" || el.id.startsWith("gen_"))
-  );
+  const name = elementBaseName(el.id);
+  return (name === "gen" || name.startsWith("gen_")) && el.type === "function";
 }
 
 function isRoundRobin(el: Element): boolean {
-  return el.type === "function" && el.id === "round_robin";
+  return elementBaseName(el.id) === "round_robin" && el.type === "function";
 }
 
 function isMultiplier(el: Element): boolean {
-  return el.type === "function" && el.id.startsWith("multiplier_");
+  return elementBaseName(el.id).startsWith("multiplier_") && el.type === "function";
 }
 function multiplierCount(el: Element): number {
-  const m = el.id.match(/^multiplier_(\d+)$/);
+  const m = elementBaseName(el.id).match(/^multiplier_(\d+)$/);
   return m ? Math.max(1, parseInt(m[1], 10)) : 1;
 }
 function isDuplicator(el: Element): boolean {
-  return el.type === "function" && el.id === "duplicator";
+  return elementBaseName(el.id) === "duplicator" && el.type === "function";
 }
 function isDeduplicator(el: Element): boolean {
-  return el.type === "function" && el.id === "deduplicator";
+  return elementBaseName(el.id) === "deduplicator" && el.type === "function";
 }
 function isConnector(el: Element): boolean {
-  return el.type === "function" && el.id === "connector";
+  return elementBaseName(el.id) === "connector" && el.type === "function";
 }
 function isDisconnector(el: Element): boolean {
-  return el.type === "function" && el.id === "disconnector";
+  return elementBaseName(el.id) === "disconnector" && el.type === "function";
 }
 function isThrottler(el: Element): boolean {
-  return el.type === "function" && el.id.startsWith("throttler_");
+  return elementBaseName(el.id).startsWith("throttler_") && el.type === "function";
 }
 function throttlerPeriod(el: Element): number {
-  const m = el.id.match(/^throttler_(\d+)$/);
+  const m = elementBaseName(el.id).match(/^throttler_(\d+)$/);
   return m ? Math.max(1, parseInt(m[1], 10)) : 1;
 }
 
@@ -631,20 +633,15 @@ export function computeExecutionStep(
     }
 
     if (currentEl?.type === "choice" && targets.length > 1) {
-      const childExprs = templateChildren(currentEl).map((id) => {
-        const child = model.elements[id]!;
-        return buildPatternFromElement(child, id, model.elements);
-      });
+      const childTemplateIds = templateChildren(currentEl);
 
       const conditionMet =
-        childExprs.length === 0 ||
+        childTemplateIds.length === 0 ||
         instance.clonedElementIds.some((cid) => {
-          const cloneEl = model.elements[cid];
-          if (!cloneEl) return false;
-          // use the base name (without clone suffix) so cond_0 matches pattern for cond
+          // use the base name (without clone suffix) so cond{}_0 matches template cond{}
           const baseId = baseName(cid);
-          return childExprs.some((expr) =>
-            matchesExpr(expr, baseId, cloneEl.type, model.elements, []),
+          return childTemplateIds.some((id) =>
+            baseName(id).startsWith("anon_") ? true : baseId === id,
           );
         });
 

@@ -209,10 +209,7 @@ const filterSlice = createSlice({
       for (const modelGroup of modelGroups) {
         const idx = state.groups.findIndex((g) => g.id === modelGroup.id);
         if (idx !== -1) {
-          state.groups[idx] = {
-            ...modelGroup,
-            label: state.groups[idx].label,
-          };
+          state.groups[idx] = { ...modelGroup };
         } else {
           state.groups.push(modelGroup);
         }

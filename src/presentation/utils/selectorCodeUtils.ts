@@ -4,17 +4,11 @@ function escapeForRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function quoteLabel(v: string): string {
-  if (/[^\w-]/.test(v)) return `"${v.replace(/"/g, "'")}"`;
-  return v;
-}
-
 export function generateGroupLine(group: Group): string {
   const parts = [`!group`, `id=${group.id}`];
-  if (group.label && group.label !== group.id)
-    parts.push(`label=${quoteLabel(group.label)}`);
   parts.push(`color=${group.color}`);
-  if (group.rule) parts.push(`rule=${group.rule}`);
+  if (group.regex) parts.push(`regex=${group.regex}`);
+  if (group.compose) parts.push(`compose=${group.compose}`);
   return parts.join("  ");
 }
 

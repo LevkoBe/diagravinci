@@ -65,8 +65,15 @@ export class CodeGenerator {
     return /\s/.test(id) ? `"${id}"` : id;
   }
 
+  private static stripTypeSuffix(id: string): string {
+    return id.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)$/, "");
+  }
+
   private static quotePath(path: string): string {
-    return path.split(".").map(CodeGenerator.quoteId).join(".");
+    return path
+      .split(".")
+      .map((s) => CodeGenerator.quoteId(CodeGenerator.stripTypeSuffix(s)))
+      .join(".");
   }
 
   private static quoteLabel(v: string): string {
@@ -79,11 +86,11 @@ export class CodeGenerator {
       `!group`,
       `id=${group.id}`,
     ];
-    if (group.label && group.label !== group.id)
-      parts.push(`label=${CodeGenerator.quoteLabel(group.label)}`);
     parts.push(`color=${group.color}`);
-    if (group.rule)
-      parts.push(`rule=${group.rule}`);
+    if (group.regex)
+      parts.push(`regex=${group.regex}`);
+    if (group.compose)
+      parts.push(`compose=${group.compose}`);
     return parts.join("  ");
   }
 
@@ -115,7 +122,7 @@ export class CodeGenerator {
     const wrapper = this.getWrapperFromType(element.type);
     const opening = wrapper[0];
     const closing = wrapper[1];
-    const nameOut = CodeGenerator.quoteId(element.id);
+    const nameOut = CodeGenerator.quoteId(CodeGenerator.stripTypeSuffix(element.id));
     const flagSuffix = element.flags
       ? element.flags.map((f) => (/\s/.test(f) ? `:"${f}"` : `:${f}`)).join("")
       : "";

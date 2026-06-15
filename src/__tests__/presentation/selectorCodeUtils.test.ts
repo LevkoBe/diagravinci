@@ -10,35 +10,29 @@ import {
 function makeGroup(overrides: Partial<Group> = {}): Group {
   return {
     id: "services",
-    label: "Services",
     color: "#ff0000",
-    rule: "'.*Service'?",
+    regex: "'.*Service'?",
     ...overrides,
   };
 }
 
 describe("generateGroupLine", () => {
-  it("emits !group with id, color, and rule", () => {
+  it("emits !group with id, color, and regex", () => {
     const line = generateGroupLine(makeGroup());
     expect(line).toContain("!group");
     expect(line).toContain("id=services");
     expect(line).toContain("color=#ff0000");
-    expect(line).toContain("rule='.*Service'?");
+    expect(line).toContain("regex='.*Service'?");
   });
 
-  it("emits label when it differs from id", () => {
-    const line = generateGroupLine(makeGroup({ label: "My Services" }));
-    expect(line).toContain('label="My Services"');
+  it("omits regex field when regex is empty", () => {
+    const line = generateGroupLine(makeGroup({ regex: "" }));
+    expect(line).not.toContain("regex=");
   });
 
-  it("omits label when it equals id", () => {
-    const line = generateGroupLine(makeGroup({ id: "services", label: "services" }));
-    expect(line).not.toContain("label=");
-  });
-
-  it("omits rule field when rule is empty", () => {
-    const line = generateGroupLine(makeGroup({ rule: "" }));
-    expect(line).not.toContain("rule=");
+  it("emits compose field when compose is set", () => {
+    const line = generateGroupLine(makeGroup({ compose: "a&b" }));
+    expect(line).toContain("compose=a&b");
   });
 });
 
@@ -50,10 +44,10 @@ describe("upsertGroupInCode", () => {
   });
 
   it("replaces existing !group line with same id", () => {
-    const original = "!group  id=services  color=#000  rule=old\na{}\n";
-    const result = upsertGroupInCode(makeGroup({ rule: "new" }), original);
-    expect(result).toContain("rule=new");
-    expect(result).not.toContain("rule=old");
+    const original = "!group  id=services  color=#000  regex=old\na{}\n";
+    const result = upsertGroupInCode(makeGroup({ regex: "new" }), original);
+    expect(result).toContain("regex=new");
+    expect(result).not.toContain("regex=old");
     expect(result.match(/!group/g)?.length).toBe(1);
   });
 

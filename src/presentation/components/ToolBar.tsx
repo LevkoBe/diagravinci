@@ -510,10 +510,10 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
         );
         const diffGroups: Group[] = [];
         if (addedIds.length > 0) {
-          diffGroups.push({ id: newSelId, label: newSelLabel, rule: "", color: AppConfig.canvas.DIFF_ADDED_COLOR });
+          diffGroups.push({ id: newSelId, regex: "", color: AppConfig.canvas.DIFF_ADDED_COLOR });
         }
         if (removedIds.length > 0) {
-          diffGroups.push({ id: delSelId, label: delSelLabel, rule: "", color: AppConfig.canvas.DIFF_REMOVED_COLOR });
+          diffGroups.push({ id: delSelId, regex: "", color: AppConfig.canvas.DIFF_REMOVED_COLOR });
         }
 
         const finalModel = {

@@ -22,8 +22,8 @@ export interface Selector {
 
 export interface Group {
   id: string;
-  label: string;
-  rule: string;
+  regex: string;
+  compose?: string;
   color: string;
 }
 

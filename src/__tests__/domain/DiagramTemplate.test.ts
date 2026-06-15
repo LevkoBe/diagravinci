@@ -101,9 +101,9 @@ describe("EXECUTION_TEMPLATES", () => {
     )!;
     const model = parse(code);
     expect(Object.keys(model.relationships).length).toBe(5);
-    const gen = model.elements["gen"];
+    const gen = model.elements["gen()"];
     expect(gen?.type).toBe("function");
-    const ch = model.elements["ch"];
+    const ch = model.elements["ch<>"];
     expect(ch?.type).toBe("choice");
     const rels = Object.values(model.relationships);
     const labeledRels = rels.filter((r) => r.label);
@@ -118,13 +118,13 @@ describe("EXECUTION_TEMPLATES", () => {
     const model = parse(code);
     expect(Object.keys(model.elements).length).toBe(8);
     expect(Object.keys(model.relationships).length).toBe(4);
-    const gen = model.elements["gen"];
+    const gen = model.elements["gen()"];
     expect(gen?.type).toBe("function");
-    expect(gen?.childIds).toContain("Good_Item");
-    expect(gen?.childIds).toContain("Faulty_Itm");
-    const filter = model.elements["filter"];
+    expect(gen?.childIds).toContain("Good_Item{}");
+    expect(gen?.childIds).toContain("Faulty_Itm{}");
+    const filter = model.elements["filter<>"];
     expect(filter?.type).toBe("choice");
-    expect(filter?.childIds).toContain("Item");
+    expect(filter?.childIds).toContain("Item{}");
     const rels = Object.values(model.relationships);
     expect(rels.some((r) => r.label === "pass")).toBe(true);
     expect(rels.some((r) => r.label === "reject")).toBe(true);
@@ -137,9 +137,9 @@ describe("EXECUTION_TEMPLATES", () => {
     const model = parse(code);
     expect(Object.keys(model.elements).length).toBe(6);
     expect(Object.keys(model.relationships).length).toBe(4);
-    expect(model.elements["round_robin"]?.type).toBe("function");
+    expect(model.elements["round_robin()"]?.type).toBe("function");
     const rels = Object.values(model.relationships);
-    const rrOuts = rels.filter((r) => r.source === "round_robin");
+    const rrOuts = rels.filter((r) => r.source === "round_robin()");
     expect(rrOuts.length).toBe(3);
   });
 
@@ -149,9 +149,9 @@ describe("EXECUTION_TEMPLATES", () => {
     )!;
     const model = parse(code);
     expect(Object.keys(model.relationships).length).toBe(7);
-    expect(model.elements["root"]?.type).toBe("choice");
-    expect(model.elements["branch1"]?.type).toBe("choice");
-    expect(model.elements["branch2"]?.type).toBe("choice");
+    expect(model.elements["root<>"]?.type).toBe("choice");
+    expect(model.elements["branch1<>"]?.type).toBe("choice");
+    expect(model.elements["branch2<>"]?.type).toBe("choice");
     const rels = Object.values(model.relationships);
     const labeled = rels.filter((r) => r.label);
     expect(labeled.length).toBe(6);
@@ -164,11 +164,11 @@ describe("EXECUTION_TEMPLATES", () => {
     const model = parse(code);
     expect(Object.keys(model.elements).length).toBe(10);
     expect(Object.keys(model.relationships).length).toBe(5);
-    expect(model.elements["gen_a"]?.type).toBe("function");
-    expect(model.elements["gen_b"]?.type).toBe("function");
-    expect(model.elements["connector"]?.type).toBe("function");
+    expect(model.elements["gen_a()"]?.type).toBe("function");
+    expect(model.elements["gen_b()"]?.type).toBe("function");
+    expect(model.elements["connector()"]?.type).toBe("function");
     const rels = Object.values(model.relationships);
-    const connectorIns = rels.filter((r) => r.target === "connector");
+    const connectorIns = rels.filter((r) => r.target === "connector()");
     expect(connectorIns.length).toBe(4);
   });
 
@@ -179,10 +179,10 @@ describe("EXECUTION_TEMPLATES", () => {
     const model = parse(code);
     expect(Object.keys(model.elements).length).toBe(6);
     expect(Object.keys(model.relationships).length).toBe(5);
-    expect(model.elements["gen"]?.childIds).toContain("x");
-    expect(model.elements["gen"]?.childIds).toContain("y");
-    expect(model.elements["gen"]?.childIds).toContain("z");
-    expect(model.elements["disconnector"]?.type).toBe("function");
+    expect(model.elements["gen()"]?.childIds).toContain("x{}");
+    expect(model.elements["gen()"]?.childIds).toContain("y{}");
+    expect(model.elements["gen()"]?.childIds).toContain("z{}");
+    expect(model.elements["disconnector()"]?.type).toBe("function");
   });
 
   it("exec-multiplier-duplicator — multiplier_3 and duplicator are function elements", () => {
@@ -192,10 +192,10 @@ describe("EXECUTION_TEMPLATES", () => {
     const model = parse(code);
     expect(Object.keys(model.elements).length).toBe(8);
     expect(Object.keys(model.relationships).length).toBe(6);
-    expect(model.elements["multiplier_3"]?.type).toBe("function");
-    expect(model.elements["duplicator"]?.type).toBe("function");
+    expect(model.elements["multiplier_3()"]?.type).toBe("function");
+    expect(model.elements["duplicator()"]?.type).toBe("function");
     const dupOuts = Object.values(model.relationships).filter(
-      (r) => r.source === "duplicator",
+      (r) => r.source === "duplicator()",
     );
     expect(dupOuts.length).toBe(2);
   });
@@ -207,9 +207,9 @@ describe("EXECUTION_TEMPLATES", () => {
     const model = parse(code);
     expect(Object.keys(model.elements).length).toBe(8);
     expect(Object.keys(model.relationships).length).toBe(6);
-    expect(model.elements["multiplier_4"]?.type).toBe("function");
-    expect(model.elements["deduplicator"]?.type).toBe("function");
-    expect(model.elements["throttler_3"]?.type).toBe("function");
+    expect(model.elements["multiplier_4()"]?.type).toBe("function");
+    expect(model.elements["deduplicator()"]?.type).toBe("function");
+    expect(model.elements["throttler_3()"]?.type).toBe("function");
   });
 });
 
@@ -219,9 +219,9 @@ describe("STRESS_TEMPLATES", () => {
     expect(elCount(code)).toBe(201);
     expect(relCount(code)).toBe(200);
     const model = parse(code);
-    expect(model.elements["Hub"]).toBeDefined();
+    expect(model.elements["Hub{}"]).toBeDefined();
     const hubOuts = Object.values(model.relationships).filter(
-      (r) => r.source === "Hub",
+      (r) => r.source === "Hub{}",
     );
     expect(hubOuts.length).toBe(200);
   });

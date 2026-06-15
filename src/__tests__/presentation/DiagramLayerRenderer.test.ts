@@ -1566,8 +1566,7 @@ describe("DiagramLayerRenderer", () => {
 
       const selector: Group = {
         id: "mytag",
-        label: "MyTag",
-        rule: "a?/b?",
+        regex: "a?/b?",
         color: "#ff0000",
       };
 

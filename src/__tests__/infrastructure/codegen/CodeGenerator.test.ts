@@ -165,7 +165,7 @@ describe("CodeGenerator", () => {
     it("marks recursive reference with # recursion comment", () => {
       const model = parse("a{b}");
 
-      model.elements["b"] = { ...model.elements["b"], childIds: ["a"] };
+      model.elements["b{}"] = { ...model.elements["b{}"], childIds: ["a{}"] };
       const code = generate(model);
       expect(code).toContain("# recursion");
     });
@@ -174,7 +174,7 @@ describe("CodeGenerator", () => {
   describe("missing element fallback", () => {
     it("uses [NON-EXISTING ELEMENT] for dangling child ids", () => {
       const model = parse("a");
-      model.elements["a"] = { ...model.elements["a"], childIds: ["ghost"] };
+      model.elements["a{}"] = { ...model.elements["a{}"], childIds: ["ghost"] };
       const code = generate(model);
       expect(code).toContain("[NON-EXISTING ELEMENT]");
     });
@@ -289,23 +289,23 @@ describe("CodeGenerator", () => {
 
   describe("group generation", () => {
     function makeGroup(overrides: Partial<Group> = {}): Group {
-      return { id: "svc", label: "Services", color: "#2196f3", rule: "'.*Service'?", ...overrides };
+      return { id: "svc", color: "#2196f3", regex: "'.*Service'?", ...overrides };
     }
 
-    it("generates !group line with id, color, and rule", () => {
+    it("generates !group line with id, color, and regex", () => {
       const model = createEmptyDiagram();
       model.groups = [makeGroup()];
       const code = generate(model);
       expect(code).toContain("!group  id=svc");
       expect(code).toContain("color=#2196f3");
-      expect(code).toContain("rule='.*Service'?");
+      expect(code).toContain("regex='.*Service'?");
     });
 
-    it("omits rule field when rule is empty", () => {
+    it("omits regex field when regex is empty", () => {
       const model = createEmptyDiagram();
-      model.groups = [makeGroup({ rule: "" })];
+      model.groups = [makeGroup({ regex: "" })];
       const code = generate(model);
-      expect(code).not.toContain("rule=");
+      expect(code).not.toContain("regex=");
     });
 
     it("inserts a blank line between group directives and elements", () => {
@@ -396,14 +396,14 @@ describe("CodeGenerator", () => {
       const { first, regenerated } = roundTrip("player >emeralds> shop");
       expect(Object.keys(regenerated.elements).length).toBe(Object.keys(first.elements).length);
       expect(Object.keys(regenerated.relationships).length).toBe(Object.keys(first.relationships).length);
-      expect(regenerated.elements["player"]?.type).toBe("flow");
-      expect(regenerated.elements["player"]?.childIds).toContain("emeralds");
+      expect(regenerated.elements["player>>"]?.type).toBe("flow");
+      expect(regenerated.elements["player>>"]?.childIds).toContain("emeralds{}");
     });
 
     it("named flow with children preserves type through round-trip", () => {
       const { regenerated } = roundTrip("queue>Token> handler()");
-      expect(regenerated.elements["queue"]?.type).toBe("flow");
-      expect(regenerated.elements["queue"]?.childIds).toContain("Token");
+      expect(regenerated.elements["queue>>"]?.type).toBe("flow");
+      expect(regenerated.elements["queue>>"]?.childIds).toContain("Token{}");
     });
 
     it("round-trips all EXECUTION_TEMPLATES without losing elements or relationships", () => {
@@ -458,10 +458,10 @@ describe("CodeGenerator", () => {
       const rels = Object.values(m.relationships);
       expect(rels).toHaveLength(2);
       const [r1, r2] = rels.sort((a, b) => a.source.localeCompare(b.source));
-      expect(r1.source).toMatch(/^c\./);
-      expect(r1.target).toMatch(/^c\./);
-      expect(r2.source).toMatch(/^c\./);
-      expect(r2.target).toMatch(/^c\./);
+      expect(r1.source).toMatch(/^c\(\)\./);
+      expect(r1.target).toMatch(/^c\(\)\./);
+      expect(r2.source).toMatch(/^c\(\)\./);
+      expect(r2.target).toMatch(/^c\(\)\./);
       const code = generate(m);
       const relLines = code.split("\n").filter(l => l.includes("..>"));
       expect(relLines.every(l => l.startsWith("c."))).toBe(true);
@@ -479,11 +479,11 @@ describe("CodeGenerator", () => {
       expect(flowCount(m2), "flow count after first re-parse").toBe(flowCount(m1));
       expect(flowCount(m3), "flow count after second re-parse").toBe(flowCount(m1));
 
-      expect(m2.elements["c"]?.childIds, "c.childIds after first re-parse").toEqual(
-        m1.elements["c"]?.childIds,
+      expect(m2.elements["c()"]?.childIds, "c.childIds after first re-parse").toEqual(
+        m1.elements["c()"]?.childIds,
       );
-      expect(m3.elements["c"]?.childIds, "c.childIds after second re-parse").toEqual(
-        m1.elements["c"]?.childIds,
+      expect(m3.elements["c()"]?.childIds, "c.childIds after second re-parse").toEqual(
+        m1.elements["c()"]?.childIds,
       );
     });
 
@@ -545,7 +545,7 @@ SyncManager --> DiagramModel
 SyncManager --> ViewState
 `;
 
-      const isAnon = (id: string) => /(?:^|\.)anon_\d+$/.test(id);
+      const isAnon = (id: string) => id.split(".").some(seg => /^anon_\d+/.test(seg));
       const namedIds = (model: ReturnType<typeof parse>) =>
         Object.keys(model.elements).filter((id) => !isAnon(id)).sort();
       const namedChildIds = (model: ReturnType<typeof parse>, id: string) =>

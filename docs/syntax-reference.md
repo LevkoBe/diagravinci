@@ -143,84 +143,90 @@ A flag whose slugified form matches a group id causes that element to always be 
 Lines beginning with `!` are directives. They configure groups and sessions. Directive key-value pairs are whitespace-separated. Any value that contains spaces must be wrapped in double quotes; quotes are consumed and the interior is treated as a single token.
 
 ```
-!group   id=services  rule='.*Service'{}  color=#2196f3
-!group   id=shallow   rule=$services&$level=2-4  color=#ff9800  label="Shallow services"
-!session id=focused   label="Focused View"  groups=services:color,shallow:dim
+!group   id=services  regex=.*Service{}  color=#2196f3
+!group   id=backends  regex=.*Service{}|.*Repository{}  color=#ff9800
+!group   id=backend_only  compose=services-backends  color=#e91e63
+!session id=focused   label="Focused View"  groups=services:color,backends:dim
 ```
 
 ### Groups
 
-A group pairs a match expression with a display color. The `id` is used to reference the group from sessions and from other group expressions via `$id`.
+A group defines a set of elements identified by a regex pattern, a boolean composition of other groups, or both. The `id` is used to reference the group from sessions and from `compose=` expressions.
 
-| Key      | Required | Description                                                    |
-| -------- | -------- | -------------------------------------------------------------- |
-| `id=`    | yes      | Unique identifier (slugified: spaces → `_`)                    |
-| `rule=`  | yes      | Group expression (see below). Quote if it contains spaces.     |
-| `color=` | no       | Hex color used in `color` mode (default `#888888`)             |
-| `label=` | no       | Display name shown in the UI (defaults to `id`)                |
+| Key        | Required | Description                                                                                          |
+| ---------- | -------- | ---------------------------------------------------------------------------------------------------- |
+| `id=`      | yes      | Unique identifier (slugified: spaces → `_`)                                                          |
+| `regex=`   | no       | Regex matched against the element's full type-embedded path (see below). Quote if it contains spaces. |
+| `compose=` | no       | Boolean expression over group ids — `a&b`, `a|b`, `a-b`, with parens for grouping (see below). When both `regex=` and `compose=` are present, an element must satisfy both.  |
+| `color=`   | no       | Hex color used in `color` mode (default `#888888`)                                                   |
 
 Group mode is **not** set in the directive — it is controlled via `!session` or the UI toggle.
 
-### Group expression syntax
+### Group regex syntax
 
-A group expression is a boolean combination of **element patterns**. No spaces are allowed inside an expression (use `$id` references to split complex rules across multiple groups).
+`regex=` is a **regular expression** matched against the element's full type-embedded path. Each path segment is the element's name plus its type wrapper, dot-separated — for example `game{}.player{}.username{}`.
 
-**Element pattern** — `name type children`, all three optional, no spaces between them:
+**Auto-escaping:** the four empty type-wrapper sequences are automatically escaped before the regex is compiled, so you can write them literally in `regex=` without backslashes:
 
-| Part | Forms | Meaning |
-| ---- | ----- | ------- |
-| name | bare identifier | literal match against the element's name (last path segment) |
-| name | `'regex'` (single-quoted) | regex match against the name |
-| name | `?` | any name |
-| name | omitted | any name |
-| type | `{}` `[]` `()` `\|\|` `<>` `>>` | object / collection / function / state / choice / flow |
-| type | `?` | any type |
-| type | omitted | defaults to object |
-| children | patterns inside the wrapper | all listed children must be present (AND); omit for no constraint |
+| Written in regex | Compiled to regex | Matches |
+| ---------------- | ----------------- | ------- |
+| `{}`             | `\{\}`            | object wrapper |
+| `[]`             | `\[\]`            | collection wrapper |
+| `()`             | `\(\)`            | function wrapper |
+| `||`             | `\|\|`            | state wrapper |
 
-A bare identifier with no wrapper (`user`) is shorthand for `user{}`.
+Non-empty constructs — `[abc]`, `(x|y)`, `(?:…)` — are left intact, so standard regex character classes and groups still work in the name portion of a rule.
 
-**`?` wildcards one position** — the name or the type, never both at once. Two adjacent `?` tokens (`??`) are simply name-wildcard followed by type-wildcard:
+**Elements match a group by regex OR by flag.** An element whose flag slug equals the group `id` is always included regardless of the regex.
 
-| Pattern   | Matches |
-| --------- | ------- |
-| `?{}`     | any-name object |
-| `user?`   | element named `user` of any type |
-| `??`      | any name, any type |
-| `x{??}`   | object `x` with at least one child of any name and type |
+**Examples:**
 
-**Boolean operators** — evaluated left to right, precedence `-` > `&` > `/`:
-
-| Operator | Meaning | Precedence |
-| -------- | ------- | ---------- |
-| `-x`     | NOT x   | highest    |
-| `x&y`    | AND     |            |
-| `x/y`    | OR      | lowest     |
-
-No parentheses — use `$id` references to group sub-expressions:
+| Regex | What it matches |
+| ----- | --------------- |
+| `.*{}` | any object at any depth |
+| `.*\(\)` | any function at any depth |
+| `^[^.]+\{\}$` | root-level objects only |
+| `.*Service{}` | any object whose name ends in `Service` |
+| `game{}\..+` | anything nested inside `game{}` |
+| `.*Service{}|.*Repository{}` | objects ending in `Service` or `Repository` |
+| `.*player{}$` | any path whose last segment is `player{}` |
 
 ```
-!group id=svc      rule='.*Service'{}
-!group id=shallow  rule=$svc&$level=2-4
+!group id=services    regex=.*Service{}              color=#2196f3
+!group id=repos       regex=.*Repository{}           color=#9c27b0
+!group id=data_layer  regex=.*Service{}|.*Repository{}  color=#ff9800
+!group id=top_objs    regex=^[^.]+\{\}$              color=#4caf50
+!group id=functions   regex=.*\(\)                   color=#607d8b
 ```
 
-**Built-in references:**
+### Group compose syntax
 
-| Token          | Meaning |
-| -------------- | ------- |
-| `$id`          | resolves to the expression of the group with that id |
-| `$level=N`     | matches elements at nesting depth N (1 = root) |
-| `$level=N-M`   | matches elements at depth N through M inclusive |
+`compose=` is a boolean expression over group ids. It is evaluated against the same element path that `regex=` tests; when both keys are present, the element must satisfy both.
+
+| Token | Meaning | Precedence |
+| ----- | ------- | ---------- |
+| `a&b` or `a,b` | AND — element must match both groups | high |
+| `a-b` | AND NOT — element matches `a` but not `b` | high |
+| `a|b` | OR — element matches either group | low |
+| `(…)` | parentheses override precedence | — |
+
+Missing group ids in a `compose=` expression evaluate to `false`. Circular references are broken by returning `false` for the already-visiting group.
 
 **Examples:**
 
 ```
-!group id=services    rule='.*Service'{}            color=#2196f3
-!group id=repos       rule='.*Repository'{}         color=#9c27b0
-!group id=data_layer  rule=$services/$repos         color=#ff9800
-!group id=top_svc     rule=$services&$level=1-2     color=#4caf50
-!group id=containers  rule=?{??}                    color=#607d8b
-!group id=not_fn      rule=-{}                      color=#888888
+!group id=services   regex=.*Service{}           color=#2196f3
+!group id=storage    regex=.*DB\{\}              color=#ff9800
+!group id=external   regex=.*Gateway             color=#e91e63
+
+# union of services and storage
+!group id=back_layer  compose=services|storage   color=#00bcd4
+
+# services AND storage (elements that are both — rare but possible)
+!group id=svc_db      compose=services&storage   color=#9c27b0
+
+# services that are not external gateways
+!group id=internal    compose=services-external  color=#4caf50
 ```
 
 ### Mode semantics
@@ -232,7 +238,7 @@ No parentheses — use `$id` references to group sub-expressions:
 | `hide`  | unchanged (visible)          | hidden                          |
 | `off`   | no effect                    | no effect                       |
 
-`dim` and `hide` use *inverse* matching: the expression identifies what to **keep**, and everything else is dimmed or hidden. Multiple active groups are composited — a path hidden by one group and colored by another ends up hidden.
+`dim` and `hide` use *inverse* matching: the rule identifies what to **keep**, and everything else is dimmed or hidden. Multiple active groups are composited — a path hidden by one group and colored by another ends up hidden.
 
 ### Sessions
 
@@ -245,8 +251,8 @@ A session defines a named preset that assigns a mode to each group at once. Grou
 | `groups=` | no       | Comma-separated `groupId:mode` pairs                |
 
 ```
-!session id=dev    label="Dev View"    groups=services:color,containers:dim
-!session id=clean  label="Clean View"  groups=not_fn:hide
+!session id=dev    label="Dev View"    groups=services:color,functions:dim
+!session id=clean  label="Clean View"  groups=data_layer:hide
 ```
 
 **Backward compatibility:** old `!rule` and `!selector` directives are accepted and silently migrated to `!group` at parse time. The first save after loading an old file rewrites them in the new syntax. Old `selectors=` in `!session` is accepted as an alias for `groups=`.

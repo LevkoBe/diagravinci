@@ -507,12 +507,7 @@ export class DiagramLayerRenderer {
         const { selectorId, filterSelectors } = this.getGroupMoveInfo();
         if (selectorId) {
           const sel = filterSelectors.find((s) => s.id === selectorId);
-          const allGroups = this.model.groups ?? [];
-          const elOf = (p: string) => this.model.elements[p.split(".").at(-1)!];
-          const matches = (p: string) => {
-            const el = elOf(p);
-            return el ? matchesGroup(sel!, p, el.type, this.model.elements, allGroups) : false;
-          };
+          const matches = (p: string) => matchesGroup(sel!, p);
           if (sel && matches(path)) {
             for (const gp of Object.keys(this.viewState.positions)) {
               if (gp === path || childDragScales.has(gp)) continue;
@@ -699,12 +694,7 @@ export class DiagramLayerRenderer {
     const sel = filterSelectors.find((s) => s.id === selectorId);
     if (!sel) return;
 
-    const allGroups = this.model.groups ?? [];
-    const elOf = (p: string) => this.model.elements[p.split(".").at(-1)!];
-    const matches = (p: string) => {
-      const el = elOf(p);
-      return el ? matchesGroup(sel, p, el.type, this.model.elements, allGroups) : false;
-    };
+    const matches = (p: string) => matchesGroup(sel, p);
 
     if (!matches(path)) return;
 

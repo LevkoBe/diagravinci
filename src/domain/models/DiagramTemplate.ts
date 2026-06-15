@@ -320,9 +320,9 @@ bishop --> pawn`,
       "Groups that match by element type — functions, states, and deep elements highlighted",
     tags: ["group", "type-match"],
     preferredView: "hierarchical",
-    code: `!group  id=functions      rule=?()         color=#ff6b35
-!group  id=states         rule=?||         color=#4caf50
-!group  id=deep_elements  rule=$level=3-4  color=#9c27b0
+    code: `!group  id=functions      regex=.*\\(\\)      color=#ff6b35
+!group  id=states         regex=.*\\|\\|      color=#4caf50
+!group  id=deep_elements  regex=.*\\..*\\..*  color=#9c27b0
 
 Pipeline{
   transform()
@@ -349,9 +349,9 @@ Idle --> transform`,
       "Groups using regex to highlight services, databases, and caches by name",
     tags: ["group", "name-pattern"],
     preferredView: "pipeline",
-    code: `!group  id=services   rule='.*Service'?  color=#2196f3
-!group  id=databases  rule='.*DB'{}      color=#ff9800
-!group  id=caches     rule='Cache.*'?    color=#4caf50
+    code: `!group  id=services   regex=.*Service    color=#abc123
+!group  id=databases  regex=.*DB\\{\\}     color=#ff9800
+!group  id=caches     regex=Cache.*      color=#4caf50
 
 UserService{}
 OrderService{}
@@ -377,14 +377,14 @@ OrderService --> MessageBus`,
     id: "selector-atoms-combine",
     name: "Group: Boolean Expressions",
     description:
-      "Combining groups with / (OR), & (AND), - (NOT) operators",
+      "Combining groups with compose= — & (AND), | (OR), - (AND NOT) operators",
     tags: ["group", "boolean-logic"],
     preferredView: "basic",
-    code: `!group  id=backend          rule='.*Service'?            color=#2196f3
-!group  id=storage          rule='.*DB'{}                color=#ff9800
-!group  id=external         rule='.*Gateway.*'?          color=#e91e63
-!group  id=backend_or_store rule=$backend/$storage       color=#00bcd4
-!group  id=not_external     rule=-$external              color=#9e9e9e
+    code: `!group  id=backend          regex=.*Service              color=#2196f3
+!group  id=storage          regex=.*DB\\{\\}               color=#ff9800
+!group  id=external         regex=.*Gateway              color=#e91e63
+!group  id=backend_or_store compose=backend|storage      color=#00bcd4
+!group  id=backend_not_ext  compose=backend-external     color=#9e9e9e
 
 AuthService{}
 UserService{}
@@ -714,8 +714,8 @@ NotificationSender ..> FirebaseClient`,
       "Adding Slack notifications means creating a new SlackNotification class — existing code is never touched.",
     tags: ["solid", "ocp", "good", "principles", "oop"],
     preferredView: "hierarchical",
-    code: `!group  id=interface        rule=-'.+Notification'{}&$level=1  color=#451c82
-!group  id=implementations  rule='.+Notification'{}             color=#7b47c7
+    code: `!group  id=interface        regex=^Notification\\{\\}$  color=#451c82
+!group  id=implementations  regex=.+Notification\\{\\}  color=#7b47c7
 
 Notification{
   send()
@@ -2437,10 +2437,10 @@ export const DIAGRAVINCI_TEMPLATES: DiagramTemplate[] = [
     code: `# Radial layout recommended — center: Diagrams
 # Ring 1: why   Ring 2: when   Ring 3: DigraVinci answer
 
-!group  id=communicate  rule='Communicate|team_alignment|stakeholder_pitch|PR_review|incident_postmortem|cross_team_handoff|named_sessions|audience_views|git_diffable_dg|session_chapters|live_link_sharing'?  color=#22c55e
-!group  id=understand   rule='Understand|architecture_map|onboarding|debugging|code_review|dependency_tracing|canvas|filter_and_dim|execution_engine|fold_to_depth|highlight_flows'?  color=#f97316
-!group  id=document     rule='Document|living_docs|API_contracts|version_history|design_decisions|runbooks|PNG_export|dg_syntax|visual_diff|dg_in_pr|template_snapshots'?            color=#f472b6
-!group  id=design       rule='Design|system_design|data_modeling|user_flows|API_design|event_modeling|AI_generation|class_diagram_mode|flow_animation|AI_gap_finder|token_simulation'?  color=#fbbf24
+!group  id=communicate  regex=Communicate|team_alignment|stakeholder_pitch|PR_review|incident_postmortem|cross_team_handoff|named_sessions|audience_views|git_diffable_dg|session_chapters|live_link_sharing  color=#22c55e
+!group  id=understand   regex=Understand|architecture_map|onboarding|debugging|code_review|dependency_tracing|canvas|filter_and_dim|execution_engine|fold_to_depth|highlight_flows  color=#f97316
+!group  id=document     regex=Document|living_docs|API_contracts|version_history|design_decisions|runbooks|PNG_export|dg_syntax|visual_diff|dg_in_pr|template_snapshots            color=#f472b6
+!group  id=design       regex=Design|system_design|data_modeling|user_flows|API_design|event_modeling|AI_generation|class_diagram_mode|flow_animation|AI_gap_finder|token_simulation  color=#fbbf24
 
 !session  id=overview  label=Overview    groups=communicate:color,understand:color,document:color,design:color
 !session  id=comm      label=Communicate groups=communicate:dim
@@ -2570,10 +2570,10 @@ event_modeling --> token_simulation`,
     code: `# Radial layout recommended — center: DigraVinci
 # Ring 1: input modes   Ring 2: features per mode   Ring 3: specific capabilities
 
-!group  id=canvas     rule='Canvas|spatial_editing|nesting_hierarchy|class_mode|visual_diff_view|drag_connect_nest|arrange|fold_depth|schema_view|diff_highlights|direct_manipulation'?  color=#6366f1
-!group  id=code       rule='Code|six_element_types|labeled_relationships|selectors_and_sessions|nesting_and_scope|flags_and_tags|six_types|named_edges|audience_sessions|dot_notation_refs|flag_targeting'?  color=#22c55e
-!group  id=ai         rule='AI|describe_to_diagram|targeted_additions|AI_analysis|AI_consistency_check|diagram_explanation|natural_language|grow_existing|gap_finder|architecture_review|plain_english_tour'?  color=#f472b6
-!group  id=templates  rule='Templates|architecture_patterns|saved_diagrams|blank_start|collection_browsing|snapshot_compare|patterns|prior_baseline|instant_structure|curated_libraries|version_diff'?          color=#fbbf24
+!group  id=canvas     regex=Canvas|spatial_editing|nesting_hierarchy|class_mode|visual_diff_view|drag_connect_nest|arrange|fold_depth|schema_view|diff_highlights|direct_manipulation  color=#6366f1
+!group  id=code       regex=Code|six_element_types|labeled_relationships|selectors_and_sessions|nesting_and_scope|flags_and_tags|six_types|named_edges|audience_sessions|dot_notation_refs|flag_targeting  color=#22c55e
+!group  id=ai         regex=AI|describe_to_diagram|targeted_additions|AI_analysis|AI_consistency_check|diagram_explanation|natural_language|grow_existing|gap_finder|architecture_review|plain_english_tour  color=#f472b6
+!group  id=templates  regex=Templates|architecture_patterns|saved_diagrams|blank_start|collection_browsing|snapshot_compare|patterns|prior_baseline|instant_structure|curated_libraries|version_diff          color=#fbbf24
 
 !session  id=overview  label=Overview   groups=canvas:color,code:color,ai:color,templates:color
 !session  id=canvas_s  label=Canvas     groups=canvas:dim
@@ -2710,10 +2710,10 @@ snapshot_compare --> version_diff`,
 # Sessions walk one stage at a time; Evolve → Sketch closes the loop
 # Fold to depth 2 for overview; unfold specific nodes for detail
 
-!group  id=sketch_stage    rule=Sketch?    color=#6366f1
-!group  id=deepen_stage    rule=Deepen?    color=#22c55e
-!group  id=showcase_stage  rule=Showcase?  color=#f97316
-!group  id=evolve_stage    rule=Evolve?    color=#f472b6
+!group  id=sketch_stage    regex=.*Sketch    color=#6366f1
+!group  id=deepen_stage    regex=.*Deepen    color=#22c55e
+!group  id=showcase_stage  regex=.*Showcase  color=#f97316
+!group  id=evolve_stage    regex=.*Evolve    color=#f472b6
 
 !session  id=overview    label=Overview   groups=sketch_stage:color,deepen_stage:color,showcase_stage:color,evolve_stage:color
 !session  id=sketch_s    label=Sketch     groups=sketch_stage:color
@@ -2870,8 +2870,8 @@ Evolve --> Sketch`,
       "The bidirectional sync between CodeEditor and VisualCanvas — CD flow (code → model) and VIS flow (canvas → code) highlighted by session",
     tags: ["diagravinci", "architecture", "internals"],
     preferredView: "circular",
-    code: `!group  id=cd_flow           rule='gen_code|syncFromCode|tokenize|parse|diagramSlice|render'?  color=#22c55e
-!group  id=vis_flow          rule='gen_vis|syncFromVis|generate|diagramSlice|output'?           color=#f97316
+    code: `!group  id=cd_flow           regex=gen_code|syncFromCode|tokenize|parse|diagramSlice|render  color=#22c55e
+!group  id=vis_flow          regex=gen_vis|syncFromVis|generate|diagramSlice|output           color=#f97316
 !group  id=selection_default color=#3773d5
 !session  id=default   label=Default    groups=cd_flow:color,vis_flow:color,selection_default:color
 !session  id=cd_view   label="CD Flow"  groups=cd_flow:dim,vis_flow:color,selection_default:color

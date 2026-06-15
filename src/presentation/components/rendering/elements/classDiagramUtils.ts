@@ -36,32 +36,37 @@ export function computeClassDiagramContent(
   return { fields, methods };
 }
 
+function stripSuffix(id: string): string {
+  return id.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)$/, "");
+}
+
 function formatClassMember(element: Element, model: DiagramModel): string {
+  const name = stripSuffix(element.id);
   switch (element.type) {
     case "object":
-      return element.id;
+      return name;
     case "function": {
       const params = element.childIds
-        .map((id) => model.elements[id]?.id ?? id)
+        .map((id) => stripSuffix(model.elements[id]?.id ?? id))
         .join(", ");
       const returnType = getReturnType(element, model);
-      return `${element.id}(${params}): ${returnType}`;
+      return `${name}(${params}): ${returnType}`;
     }
     case "collection": {
-      if (element.childIds.length === 0) return `${element.id}[]`;
+      if (element.childIds.length === 0) return `${name}[]`;
       const types = element.childIds
-        .map((id) => model.elements[id]?.id ?? id)
+        .map((id) => stripSuffix(model.elements[id]?.id ?? id))
         .join(" | ");
-      return `${element.id}<${types}>[]`;
+      return `${name}<${types}>[]`;
     }
     case "choice":
-      return `${element.id}(): enum`;
+      return `${name}(): enum`;
     case "state":
-      return `${element.id}||`;
+      return `${name}||`;
     case "flow":
-      return element.id;
+      return name;
     default:
-      return element.id;
+      return name;
   }
 }
 
@@ -72,7 +77,7 @@ function getReturnType(funcElement: Element, model: DiagramModel): string {
     if (!target || target.type !== "flow") continue;
     if (target.childIds.length > 0) {
       return target.childIds
-        .map((id) => model.elements[id]?.id ?? id)
+        .map((id) => stripSuffix(model.elements[id]?.id ?? id))
         .join(", ");
     }
   }

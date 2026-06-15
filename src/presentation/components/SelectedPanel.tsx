@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Move, Trash2, LayoutGrid, MousePointer2 } from "lucide-react";
 import { Select, Button } from "@levkobe/c7one";
 import { useAppDispatch, useAppSelector } from "../../application/store/hooks";
@@ -32,12 +32,11 @@ function getMatchedPaths(
 ): string[] {
   const group = groups.find((g) => g.id === groupId);
   if (!group) return [];
-  const allGroups = model.groups ?? [];
   return Object.keys(positions).filter((path) => {
     const el = model.elements[path.split(".").at(-1)!];
     if (!el) return false;
     if (el.flags?.some((f) => toSelectorId(f) === group.id)) return true;
-    return matchesGroup(group, path, el.type, model.elements, allGroups);
+    return matchesGroup(group, path, groups);
   });
 }
 
@@ -50,13 +49,14 @@ export function SelectedPanel() {
 
   const selectionGroups = groups.filter((g) => g.id.startsWith("selection_"));
 
-  const defaultId = activeSessionId ? toSelectorId(`Selection_${activeSessionId}`) : "";
-  const [activeGroupId, setActiveGroupId] = useState(defaultId);
-
-  useEffect(() => {
-    if (activeSessionId)
-      setActiveGroupId(toSelectorId(`Selection_${activeSessionId}`));
-  }, [activeSessionId]);
+  const defaultGroupId = activeSessionId ? toSelectorId(`Selection_${activeSessionId}`) : "";
+  const [manualGroupId, setManualGroupId] = useState<string | null>(null);
+  const [prevSessionId, setPrevSessionId] = useState(activeSessionId);
+  if (activeSessionId !== prevSessionId) {
+    setPrevSessionId(activeSessionId);
+    setManualGroupId(null);
+  }
+  const activeGroupId = manualGroupId ?? defaultGroupId;
 
   const group = useMemo(
     () =>
@@ -195,8 +195,8 @@ export function SelectedPanel() {
       <div className="px-3 py-2 border-b border-border/40 shrink-0">
         <Select
           value={effectiveId ?? ""}
-          onValueChange={(v) => setActiveGroupId(v)}
-          options={selectionGroups.map((g) => ({ value: g.id, label: g.label }))}
+          onValueChange={(v) => setManualGroupId(v)}
+          options={selectionGroups.map((g) => ({ value: g.id, label: g.id }))}
         />
       </div>
 
@@ -305,7 +305,7 @@ export function SelectedPanel() {
                       className="flex items-center justify-between px-2 py-1 rounded hover:bg-accent/10 hover:text-accent text-left transition-colors"
                       onClick={() => dispatch(setSelectedElements([id]))}
                     >
-                      <span className="text-xs truncate">{id}</span>
+                      <span className="text-xs truncate">{id.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)$/, "")}</span>
                       {el && (
                         <span className="text-[10px] text-fg-disabled shrink-0 ml-2">
                           {el.type}
