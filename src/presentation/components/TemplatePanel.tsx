@@ -431,7 +431,7 @@ function CollectionView({
 
   function applyTemplate(template: DiagramTemplate) {
     dispatch(setViewMode(template.preferredView));
-    syncManager.syncFromCode(template.code);
+    syncManager.syncFromTemplate(template.code);
     dispatch(sendZoomCommand("reset"));
   }
 

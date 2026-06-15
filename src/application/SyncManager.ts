@@ -47,7 +47,7 @@ export class SyncManager {
     };
   }
 
-  syncFromCode(code: string, preservePositions = false): void {
+  syncFromCode(code: string, preservePositions = false, resetSessions = false): void {
     try {
       const parsedModel = this.parser.parse(code);
       const {
@@ -56,8 +56,12 @@ export class SyncManager {
         canvasSize,
       } = this.store.getState().diagram;
 
+      const baselineModel = resetSessions
+        ? { ...currentModel, groups: [], selectors: [], sessions: [] }
+        : currentModel;
+
       const { model: newModel, code: normalizedCode } =
-        this.normalizeSessionsAndAutoColor(parsedModel, currentModel, code);
+        this.normalizeSessionsAndAutoColor(parsedModel, baselineModel, code);
       code = normalizedCode;
 
       const diff = ModelDiffer.diff(currentModel, newModel);
@@ -116,6 +120,10 @@ export class SyncManager {
     } catch (error) {
       console.error("[SyncManager] syncFromCode error:", error);
     }
+  }
+
+  syncFromTemplate(code: string): void {
+    this.syncFromCode(code, false, true);
   }
 
   private normalizeSessionsAndAutoColor(
