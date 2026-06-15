@@ -998,18 +998,13 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
         <div className="relative">
           <Button
             title="Groups"
-            variant={activePresetCount > 0 ? "secondary" : "ghost"}
+            variant={activePresetCount > 0 ? "primary" : "ghost"}
             size="sm"
             className="w-9 h-9 p-0 rounded-full shrink-0"
             onClick={() => setSelectorModalOpen(true)}
           >
             <ListFilter size={15} />
           </Button>
-          {activePresetCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-3.5 h-3.5 rounded-full bg-accent text-bg-primary text-[9px] font-bold flex items-center justify-center pointer-events-none px-0.5">
-              {activePresetCount}
-            </span>
-          )}
         </div>
         {layout !== "compact" && <Divider />}
 
