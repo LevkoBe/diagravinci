@@ -30,7 +30,7 @@ export function saveActiveSessionId(id: string | null): void {
 
 type PersistedFilter = Pick<
   FilterState,
-  "selectors" | "foldLevel" | "foldActive" | "manuallyFolded" | "manuallyUnfolded"
+  "selectors" | "groups" | "foldLevel" | "foldActive" | "manuallyFolded" | "manuallyUnfolded"
 >;
 
 type PersistedState = {
@@ -128,11 +128,22 @@ function hydratePersistedState(parsed: PersistedState): HydratedState {
       (parsed.diagram.viewState as { coloredPaths?: Record<string, string> })
         .coloredPaths ?? {},
   };
+  // Migrate sessions saved before the selectorModes → groupModes rename
+  if (parsed.diagram.model.sessions) {
+    parsed.diagram.model.sessions = parsed.diagram.model.sessions.map((s) => ({
+      ...s,
+      groupModes:
+        s.groupModes ??
+        (s as unknown as { selectorModes?: Record<string, string> }).selectorModes ??
+        {},
+    }));
+  }
   return {
     ...parsed,
     filter: {
       ...parsed.filter,
       selectors,
+      groups: parsed.filter?.groups ?? [],
       _rev: 0,
     },
     diagram: {
@@ -189,6 +200,7 @@ export function saveState(state: AppState): void {
     },
     filter: {
       selectors: state.filter.selectors,
+      groups: state.filter.groups,
       foldLevel: state.filter.foldLevel,
       foldActive: state.filter.foldActive,
       manuallyFolded: state.filter.manuallyFolded,

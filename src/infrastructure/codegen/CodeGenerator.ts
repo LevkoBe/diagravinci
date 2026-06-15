@@ -1,6 +1,6 @@
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import { DEFAULT_SESSION_ID } from "../../domain/models/DiagramModel";
-import type { Rule, Selector, Session } from "../../domain/models/Selector";
+import type { Group, Session } from "../../domain/models/Selector";
 import {
   createElement,
   type Element,
@@ -31,24 +31,17 @@ export class CodeGenerator {
   generate(): string {
     const lines: string[] = [];
 
-    for (const rule of this.model.rules ?? [])
-      lines.push(this.generateRule(rule));
-
-    for (const selector of this.model.selectors ?? [])
-      lines.push(this.generateSelector(selector));
+    for (const group of (this.model.groups ?? []))
+      lines.push(this.generateGroup(group));
 
     const sessionsToEmit = (this.model.sessions ?? []).filter(
       (s) =>
-        s.id !== DEFAULT_SESSION_ID || Object.keys(s.selectorModes).length > 0,
+        s.id !== DEFAULT_SESSION_ID || Object.keys(s.groupModes).length > 0,
     );
     for (const session of sessionsToEmit)
       lines.push(this.generateSession(session));
 
-    if (
-      (this.model.rules ?? []).length > 0 ||
-      (this.model.selectors ?? []).length > 0 ||
-      sessionsToEmit.length > 0
-    )
+    if ((this.model.groups ?? []).length > 0 || sessionsToEmit.length > 0)
       lines.push("");
 
     const rootElements = this.model.root.childIds
@@ -72,17 +65,15 @@ export class CodeGenerator {
     return /\s/.test(id) ? `"${id}"` : id;
   }
 
-  private static quotePath(path: string): string {
-    return path.split(".").map(CodeGenerator.quoteId).join(".");
+  private static stripTypeSuffix(id: string): string {
+    return id.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)$/, "");
   }
 
-  private generateRule(rule: Rule): string {
-    const parts = [`!rule`, `id=${rule.id}`];
-    for (const [key, value] of Object.entries(rule.patterns)) {
-      const v = /\s/.test(value) ? `"${value}"` : value;
-      parts.push(`${key}=${v}`);
-    }
-    return parts.join("  ");
+  private static quotePath(path: string): string {
+    return path
+      .split(".")
+      .map((s) => CodeGenerator.quoteId(CodeGenerator.stripTypeSuffix(s)))
+      .join(".");
   }
 
   private static quoteLabel(v: string): string {
@@ -90,18 +81,16 @@ export class CodeGenerator {
     return v;
   }
 
-  private generateSelector(selector: Selector): string {
+  private generateGroup(group: Group): string {
     const parts = [
-      `!selector`,
-      `name=${CodeGenerator.quoteLabel(selector.label)}`,
+      `!group`,
+      `id=${group.id}`,
     ];
-    parts.push(`color=${selector.color}`);
-    if (selector.expression) {
-      const v = /\s/.test(selector.expression)
-        ? `"${selector.expression}"`
-        : selector.expression;
-      parts.push(`expression=${v}`);
-    }
+    parts.push(`color=${group.color}`);
+    if (group.regex)
+      parts.push(`regex=${group.regex}`);
+    if (group.compose)
+      parts.push(`compose=${group.compose}`);
     return parts.join("  ");
   }
 
@@ -111,10 +100,10 @@ export class CodeGenerator {
       `id=${session.id}`,
       `label=${CodeGenerator.quoteLabel(session.label)}`,
     ];
-    const modes = Object.entries(session.selectorModes)
+    const modes = Object.entries(session.groupModes)
       .map(([id, mode]) => `${id}:${mode}`)
       .join(",");
-    if (modes) parts.push(`selectors=${modes}`);
+    if (modes) parts.push(`groups=${modes}`);
     return parts.join("  ");
   }
 
@@ -133,7 +122,7 @@ export class CodeGenerator {
     const wrapper = this.getWrapperFromType(element.type);
     const opening = wrapper[0];
     const closing = wrapper[1];
-    const nameOut = CodeGenerator.quoteId(element.id);
+    const nameOut = CodeGenerator.quoteId(CodeGenerator.stripTypeSuffix(element.id));
     const flagSuffix = element.flags
       ? element.flags.map((f) => (/\s/.test(f) ? `:"${f}"` : `:${f}`)).join("")
       : "";

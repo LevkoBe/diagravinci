@@ -23,12 +23,11 @@ import {
   createRelationship,
 } from "../../domain/models/Relationship";
 import type {
-  Rule,
-  Selector,
+  Group,
   SelectorMode,
   Session,
 } from "../../domain/models/Selector";
-import { toSelectorId } from "../../domain/models/Selector";
+import { toGroupId } from "../../domain/models/Selector";
 
 const WRAPPERS: Record<
   OpeningWrapper,
@@ -43,6 +42,17 @@ const WRAPPERS: Record<
 };
 
 const VALID_MODES: SelectorMode[] = ["color", "dim", "hide", "off"];
+
+function wrapperSuffixFor(type: ElementType): string {
+  switch (type) {
+    case "object":     return "{}";
+    case "collection": return "[]";
+    case "function":   return "()";
+    case "state":      return "||";
+    case "choice":     return "<>";
+    case "flow":       return ">>";
+  }
+}
 
 function splitDirective(raw: string): string[] {
   const parts: string[] = [];
@@ -90,6 +100,7 @@ export class Parser {
 
   parse(): DiagramModel {
     this.parseContents(this.model.root, "");
+    this.embedTypesInIds();
     this.validatePaths();
     if (this.validationErrors.length)
       this.model.validationErrors = this.validationErrors;
@@ -417,6 +428,42 @@ export class Parser {
     return null;
   }
 
+  private embedTypesInIds(): void {
+    const oldToNew = new Map<string, string>();
+    for (const [oldId, el] of Object.entries(this.model.elements)) {
+      if (oldId === this.model.root.id) continue;
+      const suffix = wrapperSuffixFor(el.type);
+      if (oldId.endsWith(suffix)) continue; // already embedded (e.g. from a second parse pass)
+      const newId = oldId + suffix;
+      oldToNew.set(oldId, newId);
+    }
+    if (oldToNew.size === 0) return;
+
+    for (const [oldId, newId] of oldToNew) {
+      const el = this.model.elements[oldId];
+      el.id = newId;
+      el.childIds = el.childIds.map((c) => oldToNew.get(c) ?? c);
+      this.model.elements[newId] = el;
+      delete this.model.elements[oldId];
+    }
+
+    this.model.root.childIds = this.model.root.childIds.map(
+      (c) => oldToNew.get(c) ?? c,
+    );
+
+    const renamePath = (p: string) =>
+      p.split(".").map((seg) => oldToNew.get(seg) ?? seg).join(".");
+
+    const newRels: typeof this.model.relationships = {};
+    for (const rel of Object.values(this.model.relationships)) {
+      rel.source = renamePath(rel.source);
+      rel.target = renamePath(rel.target);
+      rel.id = `${rel.source}${rel.type}${rel.target}`;
+      newRels[rel.id] = rel;
+    }
+    this.model.relationships = newRels;
+  }
+
   private validatePaths(): void {
     const toRemove: string[] = [];
     for (const rel of Object.values(this.model.relationships)) {
@@ -450,9 +497,28 @@ export class Parser {
   private parseDirective(raw: string): void {
     const parts = splitDirective(raw.trim());
     const type = parts[0];
-    if (type === "atom" || type === "rule") this.parseRuleDirective(parts);
+    if (type === "group") this.parseGroupDirective(parts);
+    else if (type === "atom" || type === "rule") this.parseRuleDirective(parts);
     else if (type === "selector") this.parseSelectorDirective(parts);
     else if (type === "session") this.parseSessionDirective(parts);
+  }
+
+  private parseGroupDirective(parts: string[]): void {
+    const kvs = parseKVs(parts, 1);
+    const rawId = kvs["id"];
+    if (!rawId) return;
+
+    const id = toGroupId(rawId);
+    const group: Group = {
+      id,
+      regex: kvs["regex"] ?? kvs["rule"] ?? "",
+      ...(kvs["compose"] ? { compose: kvs["compose"] } : {}),
+      color: kvs["color"] ?? "#888888",
+    };
+
+    if (!(this.model.groups ?? []).some((g) => g.id === id)) {
+      (this.model.groups ??= []).push(group);
+    }
   }
 
   private parseRuleDirective(parts: string[]): void {
@@ -460,12 +526,14 @@ export class Parser {
     const rawId = kvs["id"];
     if (!rawId) return;
 
-    const id = kvs["name"] ?? rawId;
-    const { id: _id, name: _name, ...patternKvs } = kvs;
-    const rule: Rule = { id, patterns: patternKvs };
+    const id = toGroupId(rawId);
+    const namePattern = kvs["all_name"] ?? kvs["name"] ?? kvs["all"] ?? "";
+    // migrate: name regex + any-type wildcard → plain regex against full path
+    const rule = namePattern ? `${namePattern}.*` : "";
+    const group: Group = { id, regex: rule, color: "#888888" };
 
-    if (!(this.model.rules ?? []).some((r) => r.id === id)) {
-      (this.model.rules ??= []).push(rule);
+    if (!(this.model.groups ?? []).some((g) => g.id === id)) {
+      (this.model.groups ??= []).push(group);
     }
   }
 
@@ -474,16 +542,14 @@ export class Parser {
     const name = kvs["name"];
     if (!name) return;
 
-    const id = toSelectorId(name);
-    const selector: Selector = {
-      id,
-      label: name,
-      expression: kvs["expression"] ?? kvs["formula"] ?? kvs["combiner"] ?? "",
-      color: kvs["color"] ?? "#888888",
-    };
+    const id = toGroupId(name);
+    // old expression field used structured syntax ($ref, /) — store as-is;
+    // will fail regex compilation and match nothing (user must update manually)
+    const rule = kvs["expression"] ?? kvs["formula"] ?? kvs["combiner"] ?? "";
+    const group: Group = { id, regex: rule, color: kvs["color"] ?? "#888888" };
 
-    if (!(this.model.selectors ?? []).some((s) => s.id === id)) {
-      (this.model.selectors ??= []).push(selector);
+    if (!(this.model.groups ?? []).some((g) => g.id === id)) {
+      (this.model.groups ??= []).push(group);
     }
   }
 
@@ -493,22 +559,22 @@ export class Parser {
     if (!id) return;
 
     const label = kvs["label"] ?? id;
-    const selectorModes: Record<string, SelectorMode> = {};
+    const groupModes: Record<string, SelectorMode> = {};
 
-    const selectorsRaw = kvs["selectors"] ?? "";
-    if (selectorsRaw) {
-      for (const entry of selectorsRaw.split(",")) {
+    const modesRaw = kvs["groups"] ?? kvs["selectors"] ?? ""; // selectors= for backward compat
+    if (modesRaw) {
+      for (const entry of modesRaw.split(",")) {
         const colonIdx = entry.lastIndexOf(":");
         if (colonIdx < 0) continue;
-        const selectorId = entry.slice(0, colonIdx).trim();
+        const entityId = entry.slice(0, colonIdx).trim();
         const rawMode = entry.slice(colonIdx + 1).trim();
-        if (selectorId && (VALID_MODES as string[]).includes(rawMode)) {
-          selectorModes[selectorId] = rawMode as SelectorMode;
+        if (entityId && (VALID_MODES as string[]).includes(rawMode)) {
+          groupModes[entityId] = rawMode as SelectorMode;
         }
       }
     }
 
-    const session: Session = { id, label, selectorModes };
+    const session: Session = { id, label, groupModes };
     const existingIdx = (this.model.sessions ?? []).findIndex((s) => s.id === id);
     if (existingIdx >= 0) {
       this.model.sessions![existingIdx] = session;

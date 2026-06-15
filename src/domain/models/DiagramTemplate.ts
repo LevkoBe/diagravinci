@@ -285,10 +285,10 @@ export const SELECTOR_SHOWCASE_TEMPLATES: DiagramTemplate[] = [
       "Elements tagged with :flag syntax, each selector preset colors its matching group",
     tags: ["selector", "flags", "showcase"],
     preferredView: "hierarchical",
-    code: `!selector  name=fine  color=#661144  mode=color
-!selector  name=unlocked  color=#4caf50  mode=color
-!selector  name=current  color=#2196f3  mode=color
-!selector  name=locked  color=#9e9e9e  mode=color
+    code: `!group  id=fine      color=#661144
+!group  id=unlocked  color=#4caf50
+!group  id=current   color=#2196f3
+!group  id=locked    color=#9e9e9e
 
 knight:fine{
   longsword()
@@ -315,18 +315,14 @@ bishop --> pawn`,
   },
   {
     id: "selector-atoms-type",
-    name: "Rule: Match by Element Type",
+    name: "Group: Match by Element Type",
     description:
-      "Rules that select by element type — functions, states, and deep elements highlighted",
-    tags: ["selector", "rules", "type-match"],
+      "Groups that match by element type — functions, states, and deep elements highlighted",
+    tags: ["group", "type-match"],
     preferredView: "hierarchical",
-    code: `!rule  id=fn  function_name=.*
-!rule  id=st  state_name=.*
-!rule  id=deep  all_level=3-4
-
-!selector  name=functions  expression=fn  color=#ff6b35  mode=color
-!selector  name=states  expression=st  color=#4caf50  mode=color
-!selector  name=deep_elements  expression=deep  color=#9c27b0  mode=color
+    code: `!group  id=functions      regex=.*\\(\\)      color=#ff6b35
+!group  id=states         regex=.*\\|\\|      color=#4caf50
+!group  id=deep_elements  regex=.*\\..*\\..*  color=#9c27b0
 
 Pipeline{
   transform()
@@ -348,18 +344,14 @@ Idle --> transform`,
   },
   {
     id: "selector-atoms-name",
-    name: "Rule: Match by Name Pattern",
+    name: "Group: Match by Name Pattern",
     description:
-      "Rules using regex to highlight services, databases, and caches by name",
-    tags: ["selector", "rules", "name-pattern"],
+      "Groups using regex to highlight services, databases, and caches by name",
+    tags: ["group", "name-pattern"],
     preferredView: "pipeline",
-    code: `!rule  id=svc  all_name=.*Service
-!rule  id=db   object_name=.*DB
-!rule  id=cch  all_name=Cache.*
-
-!selector  name=services   expression=svc  color=#2196f3  mode=color
-!selector  name=databases  expression=db   color=#ff9800  mode=color
-!selector  name=caches     expression=cch  color=#4caf50  mode=color
+    code: `!group  id=services   regex=.*Service    color=#abc123
+!group  id=databases  regex=.*DB\\{\\}     color=#ff9800
+!group  id=caches     regex=Cache.*      color=#4caf50
 
 UserService{}
 OrderService{}
@@ -383,20 +375,16 @@ OrderService --> MessageBus`,
   },
   {
     id: "selector-atoms-combine",
-    name: "Rule: Boolean Expressions",
+    name: "Group: Boolean Expressions",
     description:
-      "Combining rules with | (OR), & (AND), - (NOT) operators to build compound selectors",
-    tags: ["selector", "rules", "boolean-logic"],
+      "Combining groups with compose= — & (AND), | (OR), - (AND NOT) operators",
+    tags: ["group", "boolean-logic"],
     preferredView: "basic",
-    code: `!rule  id=backend   all_name=.*Service
-!rule  id=storage   object_name=.*DB
-!rule  id=external  all_name=.*Gateway.*
-
-!selector  name=backend          expression=backend            color=#2196f3  mode=color
-!selector  name=storage          expression=storage            color=#ff9800  mode=color
-!selector  name=external         expression=external           color=#e91e63  mode=color
-!selector  name=backend_or_store expression="backend | storage"  color=#00bcd4  mode=dim
-!selector  name=not_external     expression=-external           color=#9e9e9e  mode=dim
+    code: `!group  id=backend          regex=.*Service              color=#2196f3
+!group  id=storage          regex=.*DB\\{\\}               color=#ff9800
+!group  id=external         regex=.*Gateway              color=#e91e63
+!group  id=backend_or_store compose=backend|storage      color=#00bcd4
+!group  id=backend_not_ext  compose=backend-external     color=#9e9e9e
 
 AuthService{}
 UserService{}
@@ -726,10 +714,8 @@ NotificationSender ..> FirebaseClient`,
       "Adding Slack notifications means creating a new SlackNotification class — existing code is never touched.",
     tags: ["solid", "ocp", "good", "principles", "oop"],
     preferredView: "hierarchical",
-    code: `!rule  id=root  all_level=1
-!rule  id=impls  object_name=.+Notification
-!selector  name=interface  color=#451c82  mode=color  expression="-impls & root"
-!selector  name=implementations  color=#7b47c7  mode=color  expression=impls
+    code: `!group  id=interface        regex=^Notification\\{\\}$  color=#451c82
+!group  id=implementations  regex=.+Notification\\{\\}  color=#7b47c7
 
 Notification{
   send()
@@ -793,8 +779,8 @@ Penguin --|> Bird`,
       "FlyingBird and Penguin split the hierarchy cleanly — every subtype can be substituted for its declared base without surprises.",
     tags: ["solid", "lsp", "good", "principles", "oop"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 Animal:interface{
   eat()
@@ -865,8 +851,8 @@ AllInOnePrinter ..|> IDevice`,
       "Each device implements only the narrow interfaces it actually supports — clients depend on exactly what they need, nothing more.",
     tags: ["solid", "isp", "good", "principles", "oop"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 Printable:interface{
   print()
@@ -925,8 +911,8 @@ OrderProcessor --> EmailNotifier`,
       "OrderProcessor depends only on the Notifier interface — notification channels can be swapped or multiplied without touching business logic.",
     tags: ["solid", "dip", "good", "principles", "oop"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 OrderProcessor{
   notifier
@@ -980,8 +966,8 @@ Client3 ..> Singleton`,
       "Defines an interface for creating objects, letting subclasses decide which class to instantiate",
     tags: ["design-pattern", "creational", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 Creator:interface{
   createProduct()
@@ -1017,8 +1003,8 @@ ConcreteCreatorB ..> ConcreteProductB`,
       "Produces families of related objects without specifying their concrete classes",
     tags: ["design-pattern", "creational", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 GUIFactory:interface{
   createButton()
@@ -1069,8 +1055,8 @@ MacCheckbox ..|> Checkbox`,
       "Constructs complex objects step by step, separating construction from representation",
     tags: ["design-pattern", "creational", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 Director{
   builder
@@ -1104,8 +1090,8 @@ ConcreteBuilder ..> Product`,
     description: "Creates new objects by cloning an existing prototype",
     tags: ["design-pattern", "creational", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 Prototype:interface{
   clone()
@@ -1139,8 +1125,8 @@ export const STRUCTURAL_PATTERN_TEMPLATES: DiagramTemplate[] = [
       "Makes incompatible interfaces work together by wrapping one with a compatible interface",
     tags: ["design-pattern", "structural", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 Client
 Target:interface{
@@ -1165,8 +1151,8 @@ Adapter o-- Adaptee`,
       "Decouples an abstraction from its implementation so both can vary independently",
     tags: ["design-pattern", "structural", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 Abstraction{
   impl
@@ -1198,8 +1184,8 @@ ConcreteImplB ..|> Implementor`,
       "Composes objects into tree structures to represent part-whole hierarchies",
     tags: ["design-pattern", "structural", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 Component:interface{
   operation()
@@ -1227,8 +1213,8 @@ Composite o-- Component`,
       "Attaches additional responsibilities to an object dynamically, wrapping the original",
     tags: ["design-pattern", "structural", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 Component:interface{
   operation()
@@ -1289,8 +1275,8 @@ Facade --> SubsystemC`,
     description: "Provides a surrogate that controls access to another object",
     tags: ["design-pattern", "structural", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 Client
 Subject:interface{
@@ -1318,8 +1304,8 @@ Proxy o-- RealSubject`,
       "Shares intrinsic state between many fine-grained objects to reduce memory usage",
     tags: ["design-pattern", "structural", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 FlyweightFactory{
   cache
@@ -1353,7 +1339,7 @@ export const BEHAVIORAL_PATTERN_TEMPLATES: DiagramTemplate[] = [
       "Passes a request along a chain of handlers, each deciding to handle or forward it",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "pipeline",
-    code: `!selector  name=terminal  color=#4caf50  mode=color
+    code: `!group  id=terminal  color=#4caf50
 
 Request:terminal
 AuthHandler{
@@ -1384,8 +1370,8 @@ RateLimitHandler --> BusinessHandler`,
       "Encapsulates a request as an object, enabling undo/redo and request queuing",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 Invoker{
   history
@@ -1427,8 +1413,8 @@ PasteCommand --> Editor`,
       "Provides sequential access to a collection's elements without exposing its internals",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 IterableCollection:interface{
   createIterator()
@@ -1523,8 +1509,8 @@ Caretaker o-- Memento`,
       "Notifies multiple dependents automatically when one object's state changes",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "radial",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 EventEmitter{
   subscribers
@@ -1561,8 +1547,8 @@ Analytics ..|> Subscriber`,
       "Allows an object to alter its behavior when its internal state changes",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 Context{
   state
@@ -1598,9 +1584,9 @@ CompletedState ..|> State`,
       "Defines a family of algorithms, encapsulates each one, and makes them interchangeable",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
-!selector  name=context    color=#ff9800  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
+!group  id=context    color=#ff9800
 
 Context:context{
   strategy
@@ -1632,8 +1618,8 @@ MergeSort ..|> Strategy`,
       "Defines the skeleton of an algorithm in a base class, deferring steps to subclasses",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 DataProcessor:interface{
   process()
@@ -1667,8 +1653,8 @@ XMLDataProcessor ..|> DataProcessor`,
       "Lets you add further operations to objects without modifying them",
     tags: ["design-pattern", "behavioral", "gof"],
     preferredView: "hierarchical",
-    code: `!selector  name=interface  color=#451c82  mode=color
-!selector  name=impl       color=#7b47c7  mode=color
+    code: `!group  id=interface  color=#451c82
+!group  id=impl       color=#7b47c7
 
 Visitor:interface{
   visitCircle()
@@ -1801,10 +1787,10 @@ Domain ..> SecondaryAdapters`,
       "Concentric dependency rings — arrows always point inward; outer layers depend on inner layers, never the reverse",
     tags: ["architecture", "clean", "ddd", "pattern"],
     preferredView: "hierarchical",
-    code: `!selector  name=infra    color=#607d8b  mode=color
-!selector  name=adapters  color=#2196f3  mode=color
-!selector  name=app       color=#ff9800  mode=color
-!selector  name=domain    color=#4caf50  mode=color
+    code: `!group  id=infra     color=#607d8b
+!group  id=adapters  color=#2196f3
+!group  id=app       color=#ff9800
+!group  id=domain    color=#4caf50
 
 Frameworks:infra{
   WebFramework
@@ -1926,10 +1912,10 @@ Model --> View`,
       "N-tier layering: each layer depends only on the layer directly below it; strict top-down coupling",
     tags: ["architecture", "layered", "n-tier", "pattern"],
     preferredView: "hierarchical",
-    code: `!selector  name=presentation  color=#2196f3  mode=color
-!selector  name=application   color=#ff9800  mode=color
-!selector  name=domain        color=#4caf50  mode=color
-!selector  name=infra         color=#607d8b  mode=color
+    code: `!group  id=presentation  color=#2196f3
+!group  id=application   color=#ff9800
+!group  id=domain        color=#4caf50
+!group  id=infra         color=#607d8b
 
 PresentationLayer:presentation{
   UI
@@ -2108,8 +2094,8 @@ export const USER_CUSTOMER_TEMPLATES: DiagramTemplate[] = [
       "Lifecycle stages a user passes through — from unaware to retained, with drop-off and re-entry paths",
     tags: ["product", "user", "journey", "lifecycle"],
     preferredView: "pipeline",
-    code: `!selector  name=goal  color=#4caf50  mode=color
-!selector  name=risk  color=#f44336  mode=color
+    code: `!group  id=goal  color=#4caf50
+!group  id=risk  color=#f44336
 
 Unaware||
 Discovering||
@@ -2254,7 +2240,7 @@ QATesting --> Shipped`,
       "Now / Next / Later buckets group features by delivery horizon — dependencies link sequenced work",
     tags: ["product", "roadmap", "planning", "features"],
     preferredView: "pipeline",
-    code: `!selector  name=completed  color=#4caf50  mode=color
+    code: `!group  id=completed  color=#4caf50
 
 Now{
   UserAuth:completed
@@ -2451,21 +2437,16 @@ export const DIAGRAVINCI_TEMPLATES: DiagramTemplate[] = [
     code: `# Radial layout recommended — center: Diagrams
 # Ring 1: why   Ring 2: when   Ring 3: DigraVinci answer
 
-!rule  id=comm_arm  all_name=Communicate|team_alignment|stakeholder_pitch|PR_review|incident_postmortem|cross_team_handoff|named_sessions|audience_views|git_diffable_dg|session_chapters|live_link_sharing
-!rule  id=und_arm   all_name=Understand|architecture_map|onboarding|debugging|code_review|dependency_tracing|canvas|filter_and_dim|execution_engine|fold_to_depth|highlight_flows
-!rule  id=doc_arm   all_name=Document|living_docs|API_contracts|version_history|design_decisions|runbooks|PNG_export|dg_syntax|visual_diff|dg_in_pr|template_snapshots
-!rule  id=des_arm   all_name=Design|system_design|data_modeling|user_flows|API_design|event_modeling|AI_generation|class_diagram_mode|flow_animation|AI_gap_finder|token_simulation
+!group  id=communicate  regex=Communicate|team_alignment|stakeholder_pitch|PR_review|incident_postmortem|cross_team_handoff|named_sessions|audience_views|git_diffable_dg|session_chapters|live_link_sharing  color=#22c55e
+!group  id=understand   regex=Understand|architecture_map|onboarding|debugging|code_review|dependency_tracing|canvas|filter_and_dim|execution_engine|fold_to_depth|highlight_flows  color=#f97316
+!group  id=document     regex=Document|living_docs|API_contracts|version_history|design_decisions|runbooks|PNG_export|dg_syntax|visual_diff|dg_in_pr|template_snapshots            color=#f472b6
+!group  id=design       regex=Design|system_design|data_modeling|user_flows|API_design|event_modeling|AI_generation|class_diagram_mode|flow_animation|AI_gap_finder|token_simulation  color=#fbbf24
 
-!selector  name=Communicate  color=#22c55e  expression=comm_arm
-!selector  name=Understand   color=#f97316  expression=und_arm
-!selector  name=Document     color=#f472b6  expression=doc_arm
-!selector  name=Design       color=#fbbf24  expression=des_arm
-
-!session  id=overview  label=Overview    selectors=communicate:color,understand:color,document:color,design:color
-!session  id=comm      label=Communicate selectors=communicate:dim
-!session  id=und       label=Understand  selectors=understand:dim
-!session  id=doc       label=Document    selectors=document:dim
-!session  id=des       label=Design      selectors=design:dim
+!session  id=overview  label=Overview    groups=communicate:color,understand:color,document:color,design:color
+!session  id=comm      label=Communicate groups=communicate:dim
+!session  id=und       label=Understand  groups=understand:dim
+!session  id=doc       label=Document    groups=document:dim
+!session  id=des       label=Design      groups=design:dim
 
 Diagrams{}
 
@@ -2589,21 +2570,16 @@ event_modeling --> token_simulation`,
     code: `# Radial layout recommended — center: DigraVinci
 # Ring 1: input modes   Ring 2: features per mode   Ring 3: specific capabilities
 
-!rule  id=canvas_arm  all_name=Canvas|spatial_editing|nesting_hierarchy|class_mode|visual_diff_view|drag_connect_nest|arrange|fold_depth|schema_view|diff_highlights|direct_manipulation
-!rule  id=code_arm    all_name=Code|six_element_types|labeled_relationships|selectors_and_sessions|nesting_and_scope|flags_and_tags|six_types|named_edges|audience_sessions|dot_notation_refs|flag_targeting
-!rule  id=ai_arm      all_name=AI|describe_to_diagram|targeted_additions|AI_analysis|AI_consistency_check|diagram_explanation|natural_language|grow_existing|gap_finder|architecture_review|plain_english_tour
-!rule  id=tmpl_arm    all_name=Templates|architecture_patterns|saved_diagrams|blank_start|collection_browsing|snapshot_compare|patterns|prior_baseline|instant_structure|curated_libraries|version_diff
+!group  id=canvas     regex=Canvas|spatial_editing|nesting_hierarchy|class_mode|visual_diff_view|drag_connect_nest|arrange|fold_depth|schema_view|diff_highlights|direct_manipulation  color=#6366f1
+!group  id=code       regex=Code|six_element_types|labeled_relationships|selectors_and_sessions|nesting_and_scope|flags_and_tags|six_types|named_edges|audience_sessions|dot_notation_refs|flag_targeting  color=#22c55e
+!group  id=ai         regex=AI|describe_to_diagram|targeted_additions|AI_analysis|AI_consistency_check|diagram_explanation|natural_language|grow_existing|gap_finder|architecture_review|plain_english_tour  color=#f472b6
+!group  id=templates  regex=Templates|architecture_patterns|saved_diagrams|blank_start|collection_browsing|snapshot_compare|patterns|prior_baseline|instant_structure|curated_libraries|version_diff          color=#fbbf24
 
-!selector  name=Canvas    color=#6366f1  expression=canvas_arm
-!selector  name=Code      color=#22c55e  expression=code_arm
-!selector  name=AI        color=#f472b6  expression=ai_arm
-!selector  name=Templates color=#fbbf24  expression=tmpl_arm
-
-!session  id=overview  label=Overview   selectors=canvas:color,code:color,ai:color,templates:color
-!session  id=canvas_s  label=Canvas     selectors=canvas:dim
-!session  id=code_s    label=Code       selectors=code:dim
-!session  id=ai_s      label=AI         selectors=ai:dim
-!session  id=tmpl_s    label=Templates  selectors=templates:dim
+!session  id=overview  label=Overview   groups=canvas:color,code:color,ai:color,templates:color
+!session  id=canvas_s  label=Canvas     groups=canvas:dim
+!session  id=code_s    label=Code       groups=code:dim
+!session  id=ai_s      label=AI         groups=ai:dim
+!session  id=tmpl_s    label=Templates  groups=templates:dim
 
 DigraVinci{}
 
@@ -2734,21 +2710,16 @@ snapshot_compare --> version_diff`,
 # Sessions walk one stage at a time; Evolve → Sketch closes the loop
 # Fold to depth 2 for overview; unfold specific nodes for detail
 
-!rule  id=sketch    all=^Sketch
-!rule  id=deepen    all=^Deepen
-!rule  id=showcase  all=^Showcase
-!rule  id=evolve    all=^Evolve
+!group  id=sketch_stage    regex=.*Sketch    color=#6366f1
+!group  id=deepen_stage    regex=.*Deepen    color=#22c55e
+!group  id=showcase_stage  regex=.*Showcase  color=#f97316
+!group  id=evolve_stage    regex=.*Evolve    color=#f472b6
 
-!selector  name=Sketch_Stage    color=#6366f1  expression=sketch
-!selector  name=Deepen_Stage    color=#22c55e  expression=deepen
-!selector  name=Showcase_Stage  color=#f97316  expression=showcase
-!selector  name=Evolve_Stage    color=#f472b6  expression=evolve
-
-!session  id=overview    label=Overview   selectors=sketch_stage:color,deepen_stage:color,showcase_stage:color,evolve_stage:color
-!session  id=sketch_s    label=Sketch     selectors=sketch_stage:dim
-!session  id=deepen_s    label=Deepen     selectors=deepen_stage:dim
-!session  id=showcase_s  label=Showcase   selectors=showcase_stage:dim
-!session  id=evolve_s    label=Evolve     selectors=evolve_stage:dim
+!session  id=overview    label=Overview   groups=sketch_stage:color,deepen_stage:color,showcase_stage:color,evolve_stage:color
+!session  id=sketch_s    label=Sketch     groups=sketch_stage:color
+!session  id=deepen_s    label=Deepen     groups=deepen_stage:color
+!session  id=showcase_s  label=Showcase   groups=showcase_stage:color
+!session  id=evolve_s    label=Evolve     groups=evolve_stage:color
 
 Sketch{
   Canvas{
@@ -2899,14 +2870,12 @@ Evolve --> Sketch`,
       "The bidirectional sync between CodeEditor and VisualCanvas — CD flow (code → model) and VIS flow (canvas → code) highlighted by session",
     tags: ["diagravinci", "architecture", "internals"],
     preferredView: "circular",
-    code: `!rule  id=cd  all_name=gen_code|syncFromCode|tokenize|parse|diagramSlice|render
-!rule  id=vis  all_name=gen_vis|syncFromVis|generate|diagramSlice|output
-!selector  name=CD_Flow  color=#22c55e  expression=cd
-!selector  name=VIS_Flow  color=#f97316  expression=vis
-!selector  name=Selection_default  color=#3773d5
-!session  id=default  label=Default  selectors=cd_flow:color,vis_flow:color,selection_default:color
-!session  id=cd_view  label="CD Flow"  selectors=cd_flow:dim,vis_flow:color,selection_default:color
-!session  id=vis_view  label="VIS Flow"  selectors=vis_flow:dim,cd_flow:color,selection_default:color
+    code: `!group  id=cd_flow           regex=gen_code|syncFromCode|tokenize|parse|diagramSlice|render  color=#22c55e
+!group  id=vis_flow          regex=gen_vis|syncFromVis|generate|diagramSlice|output           color=#f97316
+!group  id=selection_default color=#3773d5
+!session  id=default   label=Default    groups=cd_flow:color,vis_flow:color,selection_default:color
+!session  id=cd_view   label="CD Flow"  groups=cd_flow:dim,vis_flow:color,selection_default:color
+!session  id=vis_view  label="VIS Flow" groups=vis_flow:dim,cd_flow:color,selection_default:color
 
 PresentationLayer{
   CodeEditor{
@@ -3062,13 +3031,13 @@ PresentationLayer.CodeEditor.MonacoEditor.gen_code ..> ApplicationLayer.SyncMana
   // !selector  name=No_Layout_Impls  color=#888888  expression=-layout_inh
   // !selector  name=Overview  color=#888888  expression=-deep
   // !selector  name=Selection_default  color=#3773d5
-  // !session  id=default  label=Default  selectors=cd_flow:color,vis_flow:color,selection_default:color
-  // !session  id=cd_view  label="CD Flow"  selectors=cd_flow:dim,vis_flow:color,selection_default:color
-  // !session  id=vis_view  label="VIS Flow"  selectors=vis_flow:dim,cd_flow:color,selection_default:color
-  // !session  id=ai_view  label="AI Flow"  selectors=ai_flow:color
-  // !session  id=exec_view  label=Execution  selectors=exec_flow:color
-  // !session  id=all_flows  label="All Flows"  selectors=cd_flow:color,vis_flow:color,ai_flow:color,exec_flow:color,persistence:color,filter_flow:color,tab_flow:color
-  // !session  id=abstractions  label=Abstractions  selectors=no_layout_impls:hide,overview:dim
+  // !session  id=default  label=Default  groups=cd_flow:color,vis_flow:color,selection_default:color
+  // !session  id=cd_view  label="CD Flow"  groups=cd_flow:dim,vis_flow:color,selection_default:color
+  // !session  id=vis_view  label="VIS Flow"  groups=vis_flow:dim,cd_flow:color,selection_default:color
+  // !session  id=ai_view  label="AI Flow"  groups=ai_flow:color
+  // !session  id=exec_view  label=Execution  groups=exec_flow:color
+  // !session  id=all_flows  label="All Flows"  groups=cd_flow:color,vis_flow:color,ai_flow:color,exec_flow:color,persistence:color,filter_flow:color,tab_flow:color
+  // !session  id=abstractions  label=Abstractions  groups=no_layout_impls:hide,overview:dim
 
   // PresentationLayer{
   //   CodeEditor{

@@ -7,7 +7,7 @@ import { AppConfig } from "../config/appConfig";
 import { setCode, setModel, setViewState } from "../application/store/diagramSlice";
 import { setRelLineStyle } from "../application/store/uiSlice";
 import type { RelLineStyle } from "../application/store/uiSlice";
-import { syncSelectorsFromCode } from "../application/store/filterSlice";
+import { syncSelectorsFromCode, syncGroupsFromCode } from "../application/store/filterSlice";
 import type { RootState } from "../application/store/store";
 import type { EmbedDispatch } from "./embedStore";
 
@@ -53,6 +53,10 @@ export function useEmbedMessages() {
         dispatch(syncSelectorsFromCode({
           modelSelectors: model.selectors ?? [],
           prevModelSelectorIds: (modelRef.current.selectors ?? []).map((s) => s.id),
+        }));
+        dispatch(syncGroupsFromCode({
+          modelGroups: model.groups ?? [],
+          prevModelGroupIds: (modelRef.current.groups ?? []).map((g) => g.id),
         }));
         dispatch(setModel(model));
         dispatch(setViewState(newViewState));

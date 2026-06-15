@@ -14,6 +14,7 @@ import type {
 function makeFilterState(overrides: Partial<FilterState> = {}): FilterState {
   return {
     selectors: [],
+    groups: [],
     foldLevel: 1,
     foldActive: false,
     manuallyFolded: [],
@@ -52,13 +53,13 @@ function makeSelector(id: string, expression = "r1"): Selector {
 
 function withSession(
   model: DiagramModel,
-  selectorModes: Record<string, SelectorMode>,
+  groupModes: Record<string, SelectorMode>,
 ): { model: DiagramModel; sessionId: string } {
   const sessionId = "test";
   return {
     model: {
       ...model,
-      sessions: [{ id: sessionId, label: "Test", selectorModes }],
+      sessions: [{ id: sessionId, label: "Test", groupModes }],
     },
     sessionId,
   };
@@ -583,12 +584,12 @@ describe("FilterResolver.resolve — edge cases", () => {
         {
           id: "default",
           label: "Default",
-          selectorModes: { selection_default: "color" },
+          groupModes: { selection_default: "color" },
         },
         {
           id: "remote",
           label: "Remote",
-          selectorModes: {
+          groupModes: {
             selection_default: "dim",
             selection_remote: "color",
           },

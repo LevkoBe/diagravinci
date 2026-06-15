@@ -72,17 +72,17 @@ describe("exec: `a() b(c()) d(e(f() g() h())) g() gen(x) ..> a ..> b.c ..> d.e .
     execSeq(
       "a() b(c()) d(e(f() g() h())) g() gen(x) ..> a ..> b.c ..> d.e ..> g ..> b ..> d.e.f ..> d.e.g ..> d.e.h",
       [
-        "a",
-        "b.c",
-        "d.e",
-        "d.e.f",
-        "d.e.g",
-        "d.e.h",
-        "g",
-        "b",
-        "d.e.f",
-        "d.e.g",
-        "d.e.h",
+        "a()",
+        "b().c()",
+        "d().e()",
+        "d().e().f()",
+        "d().e().g()",
+        "d().e().h()",
+        "g()",
+        "b()",
+        "d().e().f()",
+        "d().e().g()",
+        "d().e().h()",
       ],
     );
   });
@@ -91,16 +91,16 @@ describe("exec: `a() b(c()) d(e(f() g() h())) g() gen(x) ..> a ..> b.c ..> d.e .
 describe("exec: `gen(x) ..> a() ..> b(c() ..> d()) ..> e(f(g() ..> h())) ..> c`", () => {
   it("token follows top-level chain; c resolves to b.c", () => {
     execSeq("gen(x) ..> a() ..> b(c ..> d) ..> e(f(g ..> h)) ..> c", [
-      "a",
-      "b",
-      "b.c",
-      "b.d",
-      "e",
-      "e.f",
-      "e.f.g",
-      "e.f.h",
-      "b.c",
-      "b.d",
+      "a()",
+      "b()",
+      "b().c{}",
+      "b().d{}",
+      "e()",
+      "e().f()",
+      "e().f().g{}",
+      "e().f().h{}",
+      "b().c{}",
+      "b().d{}",
     ]);
   });
 });
@@ -108,16 +108,16 @@ describe("exec: `gen(x) ..> a() ..> b(c() ..> d()) ..> e(f(g() ..> h())) ..> c`"
 describe("exec: `a(o{b}) b() c() gen(x) ..> a ..> c ..> b ..> a.o.b`", () => {
   it("token follows flow chain; a.o.b path resolves correctly", () => {
     execSeq("a(o{b}) b() c() gen(x) ..> a ..> c ..> b ..> a.o.b", [
-      "a",
-      "c",
-      "b",
-      "a.o.b",
+      "a()",
+      "c()",
+      "b()",
+      "a().o{}.b()",
     ]);
   });
 });
 
 describe("exec: `c(b) gen(x) ..> a() ..> b() ..> c.b`", () => {
   it("token follows flow chain; c.b path resolves correctly", () => {
-    execSeq("c(b) gen(x) ..> a() ..> b() ..> c.b", ["a", "b", "c.b"]);
+    execSeq("c(b) gen(x) ..> a() ..> b() ..> c.b", ["a()", "b()", "c().b()"]);
   });
 });

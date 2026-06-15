@@ -18,13 +18,19 @@ export interface Selector {
   label: string;
   expression: string;
   color: string;
-  selectedPaths?: string[];
+}
+
+export interface Group {
+  id: string;
+  regex: string;
+  compose?: string;
+  color: string;
 }
 
 export interface Session {
   id: string;
   label: string;
-  selectorModes: Record<string, SelectorMode>;
+  groupModes: Record<string, SelectorMode>;
 }
 
 export const FOLD_SELECTOR_ID = "__fold__";
@@ -33,4 +39,8 @@ export function toSelectorId(label: string): string {
   const slug = label.trim().toLowerCase()
     .replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
   return slug || "selector";
+}
+
+export function toGroupId(label: string): string {
+  return toSelectorId(label);
 }

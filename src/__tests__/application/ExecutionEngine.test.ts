@@ -2238,14 +2238,14 @@ describe("integration: gen(x)..>a()..>b() c(a) routes through a, not c.a", () =>
     const { model, viewState } = parseAndLayout("gen(x) ..> a() ..> b()\nc(a)");
     const r = computeExecutionStep(model, viewState, [], 0, 0, COLOR);
     expect(r.nextInstances).toHaveLength(1);
-    expect(r.nextInstances[0].currentPath).toBe("a");
+    expect(r.nextInstances[0].currentPath).toBe("a()");
   });
 
   it("container-first ordering: c(a) before the chain", () => {
     const { model, viewState } = parseAndLayout("c(a)\ngen(x) ..> a() ..> b()");
     const r = computeExecutionStep(model, viewState, [], 0, 0, COLOR);
     expect(r.nextInstances).toHaveLength(1);
-    expect(r.nextInstances[0].currentPath).toBe("a");
+    expect(r.nextInstances[0].currentPath).toBe("a()");
   });
 });
 
@@ -2256,7 +2256,7 @@ describe("integration: a() c(a) gen(x)..>c.a..>b() routes through c.a, not stand
     );
     const r = computeExecutionStep(model, viewState, [], 0, 0, COLOR);
     expect(r.nextInstances).toHaveLength(1);
-    expect(r.nextInstances[0].currentPath).toBe("c.a");
+    expect(r.nextInstances[0].currentPath).toBe("c().a()");
   });
 
   it("clone is positioned inside c.a (not root a) after gen fires", () => {
@@ -2271,8 +2271,8 @@ describe("integration: a() c(a) gen(x)..>c.a..>b() routes through c.a, not stand
       viewState,
     );
     const cloneId = r.nextInstances[0].clonedElementIds[0];
-    expect(newVS.positions[`c.a.${cloneId}`]).toBeDefined();
-    expect(newVS.positions[`a.${cloneId}`]).toBeUndefined();
+    expect(newVS.positions[`c().a().${cloneId}`]).toBeDefined();
+    expect(newVS.positions[`a().${cloneId}`]).toBeUndefined();
   });
 
   it("clone is positioned inside root a (not c.a) when route goes through root a", () => {
@@ -2285,8 +2285,8 @@ describe("integration: a() c(a) gen(x)..>c.a..>b() routes through c.a, not stand
       viewState,
     );
     const cloneId = r.nextInstances[0].clonedElementIds[0];
-    expect(newVS.positions[`a.${cloneId}`]).toBeDefined();
-    expect(newVS.positions[`c.a.${cloneId}`]).toBeUndefined();
+    expect(newVS.positions[`a().${cloneId}`]).toBeDefined();
+    expect(newVS.positions[`c().a().${cloneId}`]).toBeUndefined();
   });
 });
 
@@ -2298,7 +2298,7 @@ describe("integration: object without template slots forwards token through chai
 
     const r0 = computeExecutionStep(model, viewState, [], 0, 0, COLOR);
     expect(r0.nextInstances).toHaveLength(1);
-    expect(r0.nextInstances[0].currentPath).toBe("a");
+    expect(r0.nextInstances[0].currentPath).toBe("a{}");
 
     const m1 = applyDeltaToModel(model, r0.delta);
     const vs1 = new ExecuteLayout().apply(
@@ -2315,7 +2315,7 @@ describe("integration: object without template slots forwards token through chai
       COLOR,
     );
     const paths1 = r1.nextInstances.map((i) => i.currentPath);
-    expect(paths1).toContain("b.c");
+    expect(paths1).toContain("b().c{}");
   });
 });
 
@@ -2454,7 +2454,7 @@ describe("EXECUTION_TEMPLATES: exec-generator-filter", () => {
   const goodEl = obj("Good_Item");
   const faultyEl = obj("Faulty_Itm");
   const itemEl = obj("Item");
-  const filterEl = choice("filter", ["Item"]);
+  const filterEl = choice("filter", ["Good_Item"]);
   const transformEl = fn("transform");
   const storeEl = coll("store");
   const skipEl = coll("skip");
@@ -2490,7 +2490,7 @@ describe("EXECUTION_TEMPLATES: exec-generator-filter", () => {
     expect(addedIds).toContain("Faulty_Itm_1");
   });
 
-  it("Good_Item_0 at filter: regex /Item/.test(Good_Item) matches → routes to transform", () => {
+  it("Good_Item_0 at filter: baseName(Good_Item_0)===Good_Item matches → routes to transform", () => {
     const goodClone = obj("Good_Item_0");
     const model2 = {
       ...filterModel,
@@ -2520,7 +2520,7 @@ describe("EXECUTION_TEMPLATES: exec-generator-filter", () => {
     expect(ni?.currentElementId).toBe("transform");
   });
 
-  it("Faulty_Itm_0 at filter: regex /Item/.test(Faulty_Itm) fails → routes to skip", () => {
+  it("Faulty_Itm_0 at filter: baseName(Faulty_Itm_0)!==Good_Item → routes to skip", () => {
     const faultyClone = obj("Faulty_Itm_0");
     const model2 = {
       ...filterModel,
@@ -2758,7 +2758,7 @@ describe("EXECUTION_TEMPLATES: exec-decision-tree", () => {
   const objEl = obj("obj");
   const rootEl = choice("root", []);
   const branch1El = choice("branch1", ["s"]);
-  const branch2El = choice("branch2", ["o"]);
+  const branch2El = choice("branch2", ["obj"]);
   const leaf1El = obj("leaf1");
   const leaf2El = obj("leaf2");
   const leaf3El = obj("leaf3");
@@ -2890,7 +2890,7 @@ describe("EXECUTION_TEMPLATES: exec-decision-tree", () => {
     ).toBe("leaf1");
   });
 
-  it("branch2<o{}>: obj_0 matches via regex /o/.test('obj') → yes → leaf3", () => {
+  it("branch2<obj>: obj_0 baseName===obj exact match → yes → leaf3", () => {
     const objClone = obj("obj_0");
     const model2 = {
       ...treeModel,
@@ -2921,7 +2921,7 @@ describe("EXECUTION_TEMPLATES: exec-decision-tree", () => {
     ).toBe("leaf3");
   });
 
-  it("branch2<o{}>: xyz_0 (object, baseName xyz) does not match /o/ → no → leaf4", () => {
+  it("branch2<obj>: xyz_0 (baseName xyz) does not match obj → no → leaf4", () => {
     const xyzClone = obj("xyz_0");
     const model2 = {
       ...treeModel,

@@ -6,16 +6,15 @@ import {
   setSelectedElements,
   setGroupMoveSelectorId,
 } from "../../application/store/uiSlice";
-import { setSelectorColor } from "../../application/store/filterSlice";
+import { setGroupColor } from "../../application/store/filterSlice";
 import { setViewState } from "../../application/store/diagramSlice";
-import { matchesSelector } from "../../domain/sync/FilterResolver";
+import { matchesGroup } from "../../domain/selector/GroupEvaluator";
 import { ViewStateMerger } from "../../domain/sync/ViewStateMerger";
-import type { Selector, SelectorMode } from "../../domain/models/Selector";
+import type { Group, SelectorMode } from "../../domain/models/Selector";
 import { toSelectorId } from "../../domain/models/Selector";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { PositionedElement } from "../../domain/models/ViewState";
-import { TAB_SESSION_ID } from "../../shared/tabSessionId";
-import { upsertSelectorInCode, upsertSessionModeInCode } from "../utils/selectorCodeUtils";
+import { upsertSessionModeInCode } from "../utils/selectorCodeUtils";
 import { syncManager, store } from "../../application/store/store";
 
 const MODES: { value: SelectorMode; label: string }[] = [
@@ -26,54 +25,61 @@ const MODES: { value: SelectorMode; label: string }[] = [
 ];
 
 function getMatchedPaths(
-  selectorId: string,
-  selectors: Selector[],
+  groupId: string,
+  groups: Group[],
   positions: Record<string, PositionedElement>,
   model: DiagramModel,
 ): string[] {
-  const selector = selectors.find((s) => s.id === selectorId);
-  if (!selector) return [];
-  const rules = model.rules ?? [];
-  return Object.keys(positions).filter((path) =>
-    matchesSelector(path, selector, model, rules),
-  );
+  const group = groups.find((g) => g.id === groupId);
+  if (!group) return [];
+  return Object.keys(positions).filter((path) => {
+    const el = model.elements[path.split(".").at(-1)!];
+    if (!el) return false;
+    if (el.flags?.some((f) => toSelectorId(f) === group.id)) return true;
+    return matchesGroup(group, path, groups);
+  });
 }
 
 export function SelectedPanel() {
   const dispatch = useAppDispatch();
   const model = useAppSelector((s) => s.diagram.model);
   const viewState = useAppSelector((s) => s.diagram.viewState);
-  const { selectors } = useAppSelector((s) => s.filter);
+  const { groups } = useAppSelector((s) => s.filter);
   const { groupMoveSelectorId, activeSessionId } = useAppSelector((s) => s.ui);
 
-  const FOLD_SELECTOR_ID = "__fold__";
-  const visibleSelectors = selectors.filter((s) => s.id !== FOLD_SELECTOR_ID);
+  const selectionGroups = groups.filter((g) => g.id.startsWith("selection_"));
 
-  const defaultId = toSelectorId(`Selected_${TAB_SESSION_ID}`);
-  const [activeSelectorId, setActiveSelectorId] = useState(defaultId);
+  const defaultGroupId = activeSessionId ? toSelectorId(`Selection_${activeSessionId}`) : "";
+  const [manualGroupId, setManualGroupId] = useState<string | null>(null);
+  const [prevSessionId, setPrevSessionId] = useState(activeSessionId);
+  if (activeSessionId !== prevSessionId) {
+    setPrevSessionId(activeSessionId);
+    setManualGroupId(null);
+  }
+  const activeGroupId = manualGroupId ?? defaultGroupId;
 
-  const selector = useMemo(
+  const group = useMemo(
     () =>
-      visibleSelectors.find((s) => s.id === activeSelectorId) ??
-      visibleSelectors[0] ??
+      selectionGroups.find((g) => g.id === activeGroupId) ??
+      selectionGroups[0] ??
       null,
-    [visibleSelectors, activeSelectorId],
+    [selectionGroups, activeGroupId],
   );
-  const effectiveId = selector?.id ?? null;
+  const effectiveId = group?.id ?? null;
 
   const sessions = model.sessions ?? [];
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
   const effectiveMode: SelectorMode =
     effectiveId === null
       ? "off"
-      : (activeSession?.selectorModes[effectiveId] ?? "off");
+      : (activeSession?.groupModes?.[effectiveId] ?? "off");
 
   const matchedPaths = useMemo(
     () =>
       effectiveId
-        ? getMatchedPaths(effectiveId, selectors, viewState.positions, model)
+        ? getMatchedPaths(effectiveId, groups, viewState.positions, model)
         : [],
-    [effectiveId, selectors, viewState.positions, model],
+    [effectiveId, groups, viewState.positions, model],
   );
 
   const matchedIds = useMemo(
@@ -83,32 +89,34 @@ export function SelectedPanel() {
 
   const isGroupMove = groupMoveSelectorId === effectiveId && effectiveId !== null;
 
-  if (visibleSelectors.length === 0) {
+  if (selectionGroups.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-2 text-fg-disabled select-none p-6">
         <div className="text-3xl opacity-40">⊡</div>
         <div className="text-xs text-center leading-relaxed">
-          No selectors yet
+          Nothing selected
           <br />
-          Select elements to create one
+          Click elements to select them
         </div>
       </div>
     );
   }
 
   const handleModeChange = (newMode: SelectorMode) => {
-    if (!selector || !activeSessionId) return;
+    if (!group || !activeSessionId) return;
     const { code } = store.getState().diagram;
-    const newCode = upsertSessionModeInCode(activeSessionId, selector.id, newMode, code);
+    const newCode = upsertSessionModeInCode(activeSessionId, group.id, newMode, code);
     syncManager.syncFromCode(newCode, true);
   };
 
   const handleColorChange = (color: string) => {
-    if (!selector) return;
-    dispatch(setSelectorColor({ id: selector.id, color }));
-    const { code } = store.getState().diagram;
-    const newCode = upsertSelectorInCode({ ...selector, color }, code);
-    syncManager.syncFromCode(newCode, true);
+    if (!group) return;
+    dispatch(setGroupColor({ id: group.id, color }));
+    const { model: currentModel } = store.getState().diagram;
+    const updatedGroups = (currentModel.groups ?? []).map((g) =>
+      g.id === group.id ? { ...g, color } : g,
+    );
+    syncManager.syncFromVis({ ...currentModel, groups: updatedGroups }, true);
   };
 
   const handleSelectAll = () => {
@@ -187,12 +195,12 @@ export function SelectedPanel() {
       <div className="px-3 py-2 border-b border-border/40 shrink-0">
         <Select
           value={effectiveId ?? ""}
-          onValueChange={(v) => setActiveSelectorId(v)}
-          options={visibleSelectors.map((s) => ({ value: s.id, label: s.label }))}
+          onValueChange={(v) => setManualGroupId(v)}
+          options={selectionGroups.map((g) => ({ value: g.id, label: g.id }))}
         />
       </div>
 
-      {selector && (
+      {group && (
         <>
           <div className="px-3 py-2.5 border-b border-border/40 shrink-0 flex flex-col gap-2">
             <div className="flex items-center gap-1 flex-wrap">
@@ -214,10 +222,10 @@ export function SelectedPanel() {
               {effectiveMode === "color" && (
                 <input
                   type="color"
-                  value={selector.color}
+                  value={group.color}
                   onChange={(e) => handleColorChange(e.target.value)}
                   className="w-6 h-6 rounded cursor-pointer border border-border/40 bg-transparent p-0"
-                  title="Selector color"
+                  title="Group color"
                 />
               )}
             </div>
@@ -285,7 +293,7 @@ export function SelectedPanel() {
           <div className="flex-1 overflow-y-auto px-3 py-2">
             {matchedIds.length === 0 ? (
               <div className="text-[11px] text-fg-disabled italic text-center py-4">
-                No elements match this selector
+                No elements match this group
               </div>
             ) : (
               <div className="flex flex-col gap-0.5">
@@ -297,7 +305,7 @@ export function SelectedPanel() {
                       className="flex items-center justify-between px-2 py-1 rounded hover:bg-accent/10 hover:text-accent text-left transition-colors"
                       onClick={() => dispatch(setSelectedElements([id]))}
                     >
-                      <span className="text-xs truncate">{id}</span>
+                      <span className="text-xs truncate">{id.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)$/, "")}</span>
                       {el && (
                         <span className="text-[10px] text-fg-disabled shrink-0 ml-2">
                           {el.type}

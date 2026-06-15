@@ -1,3 +1,4 @@
+import { compileRule } from "../domain/selector/GroupEvaluator";
 import type { DiagramModel } from "../domain/models/DiagramModel";
 import type { ViewState, PositionedElement } from "../domain/models/ViewState";
 import type { Element } from "../domain/models/Element";
@@ -223,40 +224,43 @@ function baseName(id: string): string {
   return id.replace(/(_\d+)+$/, "");
 }
 
+function elementBaseName(id: string): string {
+  return id.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)(_\d+)*$/, "");
+}
+
 function isGen(el: Element): boolean {
-  return (
-    el.type === "function" && (el.id === "gen" || el.id.startsWith("gen_"))
-  );
+  const name = elementBaseName(el.id);
+  return (name === "gen" || name.startsWith("gen_")) && el.type === "function";
 }
 
 function isRoundRobin(el: Element): boolean {
-  return el.type === "function" && el.id === "round_robin";
+  return elementBaseName(el.id) === "round_robin" && el.type === "function";
 }
 
 function isMultiplier(el: Element): boolean {
-  return el.type === "function" && el.id.startsWith("multiplier_");
+  return elementBaseName(el.id).startsWith("multiplier_") && el.type === "function";
 }
 function multiplierCount(el: Element): number {
-  const m = el.id.match(/^multiplier_(\d+)$/);
+  const m = elementBaseName(el.id).match(/^multiplier_(\d+)$/);
   return m ? Math.max(1, parseInt(m[1], 10)) : 1;
 }
 function isDuplicator(el: Element): boolean {
-  return el.type === "function" && el.id === "duplicator";
+  return elementBaseName(el.id) === "duplicator" && el.type === "function";
 }
 function isDeduplicator(el: Element): boolean {
-  return el.type === "function" && el.id === "deduplicator";
+  return elementBaseName(el.id) === "deduplicator" && el.type === "function";
 }
 function isConnector(el: Element): boolean {
-  return el.type === "function" && el.id === "connector";
+  return elementBaseName(el.id) === "connector" && el.type === "function";
 }
 function isDisconnector(el: Element): boolean {
-  return el.type === "function" && el.id === "disconnector";
+  return elementBaseName(el.id) === "disconnector" && el.type === "function";
 }
 function isThrottler(el: Element): boolean {
-  return el.type === "function" && el.id.startsWith("throttler_");
+  return elementBaseName(el.id).startsWith("throttler_") && el.type === "function";
 }
 function throttlerPeriod(el: Element): number {
-  const m = el.id.match(/^throttler_(\d+)$/);
+  const m = elementBaseName(el.id).match(/^throttler_(\d+)$/);
   return m ? Math.max(1, parseInt(m[1], 10)) : 1;
 }
 
@@ -630,34 +634,20 @@ export function computeExecutionStep(
     }
 
     if (currentEl?.type === "choice" && targets.length > 1) {
-      const selectors = templateChildren(currentEl).map((id) => ({
-        type: model.elements[id]!.type as string,
-        pattern: id.startsWith("anon_") ? null : id,
-      }));
+      const childTemplateIds = templateChildren(currentEl);
 
-      const compiledSelectors = selectors.map((s) => ({
-        ...s,
-        regex:
-          s.pattern === null
-            ? null
-            : (() => {
-                try {
-                  return new RegExp(s.pattern!);
-                } catch {
-                  return null;
-                }
-              })(),
-      }));
       const conditionMet =
-        selectors.length === 0 ||
+        childTemplateIds.length === 0 ||
         instance.clonedElementIds.some((cid) => {
-          const cloneEl = model.elements[cid];
-          return compiledSelectors.some((s) => {
-            if (cloneEl?.type !== s.type) return false;
-            if (s.pattern === null) return true;
-            return s.regex
-              ? s.regex.test(baseName(cid))
-              : s.pattern === baseName(cid);
+          // use the base name (without clone suffix) so cond{}_0 matches template cond{}
+          const baseId = baseName(cid);
+          return childTemplateIds.some((id) => {
+            if (baseName(id).startsWith("anon_")) return true;
+            try {
+              return new RegExp(compileRule(id)).test(baseId);
+            } catch {
+              return false;
+            }
           });
         });
 

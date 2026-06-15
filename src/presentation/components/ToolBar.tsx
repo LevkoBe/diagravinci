@@ -87,7 +87,13 @@ import {
   setCode,
   setViewMode,
 } from "../../application/store/diagramSlice";
-import { toSelectorId, FOLD_SELECTOR_ID, type Session, type Selector } from "../../domain/models/Selector";
+import {
+  toSelectorId,
+  FOLD_SELECTOR_ID,
+  type Session,
+  type Selector,
+  type Group,
+} from "../../domain/models/Selector";
 import {
   startExecution,
   pauseExecution,
@@ -99,6 +105,7 @@ import {
   setFoldLevel,
   toggleFoldActive,
   syncSelectorsFromCode,
+  syncGroupsFromCode,
 } from "../../application/store/filterSlice";
 import {
   computeExecutionStep,
@@ -123,19 +130,49 @@ function ForceSettings() {
   return (
     <div className="space-y-3">
       <div>
-        <Label className="text-xs text-fg-muted mb-1.5 block">Repulsion — {rep.toFixed(1)}</Label>
-        <Slider min={0.1} max={5} step={0.1} value={[rep]}
-          onValueChange={([v]) => { forceConfig.repulsion = v; setRep(v); }} />
+        <Label className="text-xs text-fg-muted mb-1.5 block">
+          Repulsion — {rep.toFixed(1)}
+        </Label>
+        <Slider
+          min={0.1}
+          max={5}
+          step={0.1}
+          value={[rep]}
+          onValueChange={([v]) => {
+            forceConfig.repulsion = v;
+            setRep(v);
+          }}
+        />
       </div>
       <div>
-        <Label className="text-xs text-fg-muted mb-1.5 block">Link distance — {dist}px</Label>
-        <Slider min={20} max={300} step={5} value={[dist]}
-          onValueChange={([v]) => { forceConfig.linkDistance = v; setDist(v); }} />
+        <Label className="text-xs text-fg-muted mb-1.5 block">
+          Link distance — {dist}px
+        </Label>
+        <Slider
+          min={20}
+          max={300}
+          step={5}
+          value={[dist]}
+          onValueChange={([v]) => {
+            forceConfig.linkDistance = v;
+            setDist(v);
+          }}
+        />
       </div>
       <div>
-        <Label className="text-xs text-fg-muted mb-1.5 block">Gravity — {grav.toFixed(3)}</Label>
-        <Slider min={0} max={0.02} step={0.001} value={[grav]}
-          onValueChange={([v]) => { forceConfig.gravity = v; setGrav(v); }} />
+        <Label className="text-xs text-fg-muted mb-1.5 block">
+          Gravity — {grav.toFixed(3)}
+        </Label>
+        <Slider
+          min={0}
+          max={0.02}
+          step={0.001}
+          value={[grav]}
+          onValueChange={([v]) => {
+            forceConfig.gravity = v;
+            setGrav(v);
+          }}
+        />
       </div>
     </div>
   );
@@ -237,8 +274,14 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
     opaqueElementBg,
     activeSessionId,
   } = useAppSelector((s) => s.ui);
-  const { selectors, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
-    useAppSelector((s) => s.filter);
+  const {
+    selectors,
+    groups,
+    foldLevel,
+    foldActive,
+    manuallyFolded,
+    manuallyUnfolded,
+  } = useAppSelector((s) => s.filter);
   const execState = useAppSelector((s) => s.execution);
   const isExecuteMode = viewMode === "execute";
   const prevViewModeRef = useRef<ViewState["viewMode"]>(viewMode);
@@ -267,10 +310,12 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
     dispatch(setActiveSession(sessions[0].id));
   }, [sessions, activeSession, dispatch]);
 
-  const activePresetCount = selectors.filter((s) => {
-    if (s.id === FOLD_SELECTOR_ID) return false;
-    return (activeSession?.selectorModes[s.id] ?? "off") !== "off";
-  }).length;
+  const activePresetCount = [
+    ...selectors.filter((s) => s.id !== FOLD_SELECTOR_ID),
+    ...groups,
+  ].filter(
+    (s) => (activeSession?.groupModes?.[s.id] ?? "off") !== "off",
+  ).length;
 
   const foldMode = !foldActive
     ? "expanded"
@@ -396,16 +441,27 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
           else if (obj.type === "code") parsedCode = obj.value;
           else if (obj.type === "viewState") parsedViewState = obj.data;
         }
-        let sessions: Session[] = [{ id: "default", label: "Default", selectorModes: {} }];
+        let sessions: Session[] = [
+          { id: "default", label: "Default", groupModes: {} },
+        ];
         let newModelSelectors: Selector[] = [];
+        let newModelGroups: Group[] = [];
         if (parsedCode !== null) {
           try {
             const parsed = new Parser(new Lexer(parsedCode).tokenize()).parse();
             sessions = parsed.sessions ?? sessions;
             newModelSelectors = parsed.selectors ?? [];
-          } catch { /* keep fallback session */ }
+            newModelGroups = parsed.groups ?? [];
+          } catch {
+            /* keep fallback session */
+          }
         }
-        const prevModelSelectorIds = (store.getState().diagram.model.selectors ?? []).map((s) => s.id);
+        const prevModelSelectorIds = (
+          store.getState().diagram.model.selectors ?? []
+        ).map((s) => s.id);
+        const prevModelGroupIds = (
+          store.getState().diagram.model.groups ?? []
+        ).map((g) => g.id);
         if (root)
           dispatch(
             setModel({ elements, relationships, root, sessions } as Parameters<
@@ -417,7 +473,18 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
             setViewState(parsedViewState as Parameters<typeof setViewState>[0]),
           );
         if (parsedCode !== null) dispatch(setCode(parsedCode));
-        dispatch(syncSelectorsFromCode({ modelSelectors: newModelSelectors, prevModelSelectorIds }));
+        dispatch(
+          syncSelectorsFromCode({
+            modelSelectors: newModelSelectors,
+            prevModelSelectorIds,
+          }),
+        );
+        dispatch(
+          syncGroupsFromCode({
+            modelGroups: newModelGroups,
+            prevModelGroupIds,
+          }),
+        );
         dispatch(setActiveSession(sessions[0].id));
       } catch {
         console.error("Invalid diagram file");
@@ -500,25 +567,21 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
           };
         }
 
-        const filteredSelectors = (mergedModel.selectors ?? []).filter(
-          (s) => s.id !== newSelId && s.id !== delSelId,
+        const codeGroups = (mergedModel.groups ?? []).filter(
+          (g) => g.id !== newSelId && g.id !== delSelId,
         );
-        const diffSelectors = [];
+        const diffGroups: Group[] = [];
         if (addedIds.length > 0) {
-          diffSelectors.push({
+          diffGroups.push({
             id: newSelId,
-            label: newSelLabel,
-            expression: "",
-            mode: "color" as const,
+            regex: "",
             color: AppConfig.canvas.DIFF_ADDED_COLOR,
           });
         }
         if (removedIds.length > 0) {
-          diffSelectors.push({
+          diffGroups.push({
             id: delSelId,
-            label: delSelLabel,
-            expression: "",
-            mode: "color" as const,
+            regex: "",
             color: AppConfig.canvas.DIFF_REMOVED_COLOR,
           });
         }
@@ -526,7 +589,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
         const finalModel = {
           ...mergedModel,
           elements: updatedElements,
-          selectors: [...diffSelectors, ...filteredSelectors],
+          groups: [...diffGroups, ...codeGroups],
         };
         const code = new CodeGenerator(finalModel).generate();
         syncManager.syncFromCode(code, true);
@@ -614,7 +677,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
       <div className={containerClass}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="sm">File</Button>
+            <Button variant="secondary">File</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuItem onSelect={handleNew}>
@@ -934,19 +997,14 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
 
         <div className="relative">
           <Button
-            title="Selectors"
-            variant={activePresetCount > 0 ? "secondary" : "ghost"}
+            title="Groups"
+            variant={activePresetCount > 0 ? "primary" : "ghost"}
             size="sm"
             className="w-9 h-9 p-0 rounded-full shrink-0"
             onClick={() => setSelectorModalOpen(true)}
           >
             <ListFilter size={15} />
           </Button>
-          {activePresetCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-3.5 h-3.5 rounded-full bg-accent text-bg-primary text-[9px] font-bold flex items-center justify-center pointer-events-none px-0.5">
-              {activePresetCount}
-            </span>
-          )}
         </div>
         {layout !== "compact" && <Divider />}
 

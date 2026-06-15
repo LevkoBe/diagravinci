@@ -186,14 +186,6 @@ export const SELECTOR_COLLECTION: TemplateCollection = {
   templates: SELECTOR_SHOWCASE_TEMPLATES,
 };
 
-export const LAYOUT_EXAMPLES_COLLECTION_ID = "__layout_examples__";
-export const LAYOUT_EXAMPLES_COLLECTION: TemplateCollection = {
-  id: LAYOUT_EXAMPLES_COLLECTION_ID,
-  name: "Layout Examples",
-  isBuiltIn: true,
-  templates: [WIDE_FANOUT_TEMPLATE],
-};
-
 export const EXPLORATION_SHOWCASES_COLLECTION_ID = "__exploration_showcases__";
 export const EXPLORATION_SHOWCASES_COLLECTION: TemplateCollection = {
   id: EXPLORATION_SHOWCASES_COLLECTION_ID,
@@ -203,11 +195,11 @@ export const EXPLORATION_SHOWCASES_COLLECTION: TemplateCollection = {
     ICON_SHOWCASE_TEMPLATE,
     ALL_REL_TYPES_TEMPLATE,
     ALL_ELEMENT_TYPES_TEMPLATE,
+    WIDE_FANOUT_TEMPLATE,
   ],
   collections: [
     EXECUTION_COLLECTION,
     SELECTOR_COLLECTION,
-    LAYOUT_EXAMPLES_COLLECTION,
   ],
 };
 

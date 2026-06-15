@@ -95,6 +95,7 @@ The **DigraVinci collection** in the Template Panel contains diagrams of this fr
 - **Aggregation `o--`** — has-a (hollow diamond)
 - **Composition `*--`** — part-of (filled diamond)
 - **Labeled relationships** — inline verb labels on any relationship (`user --places--> order`)
+- **ERD quantifiers** — optional cardinality markers on any relationship (`a 1-->* b`, `a N--N b`)
 
 ### Layout Algorithms
 
@@ -126,17 +127,15 @@ The **DigraVinci collection** in the Template Panel contains diagrams of this fr
 
 ### Filtering and Sessions
 
-- **In-code selector directives** — define filter presets directly inside diagram code using `!rule`, `!selector`, and `!session` directives; loaded automatically when the diagram is parsed
-- **Sessions** — named, saved selector states; one-click perspective switch between developer, product, management, or flow-specific views
+- **In-code group directives** — define filter presets directly inside diagram code using `!group` and `!session` directives; loaded automatically when the diagram is parsed
+- **Sessions** — named, saved group states; one-click perspective switch between developer, product, management, or flow-specific views
 - **Color mode** — highlight matching elements with a chosen color
 - **Dim mode** — reduce opacity of non-matching elements
 - **Hide mode** — fully remove non-matching elements from view
-- **Selector by name** — substring or regex match on element identifiers
-- **Selector by type** — match specific element types (object, function, state, etc.)
-- **Selector by depth** — match elements within a min/max nesting level range
-- **Selector by flag** — match elements tagged with `:flagname`
-- **Boolean expressions** — combine rule atoms with `|`, `&`, `-` (NOT), and `()`
-- **Stacked selectors** — multiple rules composited into one view
+- **Group by regex** — match elements by regex against their full type-embedded path (e.g. `.*Service{}`, `game{}\..+`)
+- **Group by flag** — elements tagged with `:flagname` are automatically included in the group whose `id` matches the flag
+- **Group composition** — combine groups with boolean expressions using `compose=` (`a&b` AND, `a|b` OR, `a-b` AND NOT, `(…)` grouping)
+- **Stacked groups** — multiple active groups composited into one view
 - **Export presets** — save all presets to a `.jsonl` file
 - **Import presets** — load presets from a `.jsonl` file
 - **Export filtered subset** — generate diagram code for only the currently visible elements
@@ -285,6 +284,18 @@ a --code..> b       # labeled flow
 
 All six types have mirror forms (`<--`, `<..`, `<|--`, `<|..`, `--o`, `--*`) that place the arrowhead or diamond on the opposite element.
 
+### ERD Quantifiers
+
+Any relationship can carry optional cardinality markers before and after the arrow:
+
+```
+a 1-->1 b      # one-to-one
+a 1-->* b      # one-to-many
+a N--N b       # many-to-many
+```
+
+Supported values: digit sequences (`1`, `10`, …), `N` (many), `*` (target side only).
+
 ### Inline chains
 
 ```
@@ -315,22 +326,21 @@ queen:current:unlocked
 
 ### Directives
 
-Lines beginning with `!` configure rules, selectors, and sessions.
+Lines beginning with `!` configure groups and sessions.
 
 ```
-!rule     id=api_layer    all_name=.*Service
-!rule     id=deep         all_level=4-10
-!rule     id=subtree      all=^Domain\.Layouts
-!selector name=Services   expression=api_layer  color=#2196f3
-!selector name=No_Deep    expression=-deep       color=#888888
-!session  id=dev_view     label="Dev View"       selectors=services:color,no_deep:hide
+!group    id=services    regex=.*Service{}          color=#2196f3
+!group    id=storage     regex=.*DB\{\}             color=#ff9800
+!group    id=data_layer  compose=services|storage   color=#00bcd4
+!session  id=dev_view    label="Dev View"           groups=services:color,storage:dim
+!session  id=clean       label="Clean View"         groups=data_layer:hide
 ```
 
-**Rule keys** — `all_name=` (name regex), `all_level=N` or `all_level=N-M` (depth range), `all=` (full path regex); replace `all` with a specific type (`object`, `function`, `state`, `collection`, `flow`, `choice`) to restrict the match.
+**Group keys** — `id=` (unique identifier), `regex=` (regex matched against the element's full type-embedded path, e.g. `.*Service{}`), `compose=` (boolean expression over group ids), `color=` (hex color for color mode). Group mode is not set in the directive — it is controlled via `!session` or the UI.
 
-**Selector expression operators** — `ruleId` (matches rule), `-x` (NOT), `x | y` (OR), `x & y` (AND), `(…)` (grouping). Wrap compound expressions in quotes if they contain spaces.
+**Compose operators** — `a&b` or `a,b` (AND), `a-b` (AND NOT), `a|b` (OR), `(…)` (grouping).
 
-**Selector modes** — controlled at runtime via sessions or the UI toggle:
+**Group modes** — controlled at runtime via sessions or the UI toggle:
 
 | Mode    | Matching elements | Non-matching elements |
 | ------- | ----------------- | --------------------- |
@@ -338,12 +348,14 @@ Lines beginning with `!` configure rules, selectors, and sessions.
 | `dim`   | unchanged         | dimmed                |
 | `hide`  | unchanged         | hidden                |
 
-**Sessions** — named presets that set specific modes for a group of selectors at once:
+**Sessions** — named presets that assign a mode to each group at once:
 
 ```
-!session id=cd_view  label="Code Change Flow"  selectors=cd_flow:color,vis_flow:off
-!session id=clean    label="Clean View"        selectors=noise:hide,detail:dim
+!session id=dev_view  label="Dev View"    groups=services:color,functions:dim
+!session id=clean     label="Clean View"  groups=data_layer:hide
 ```
+
+**Legacy:** `!rule` and `!selector` directives from older diagrams are accepted and automatically migrated to `!group` on the first save.
 
 ### Comments
 
@@ -403,7 +415,7 @@ Infrastructure Parser, Lexer, CodeGenerator, AIServices, Persistence, Collection
 
 **Layout** is computed by interchangeable strategy classes (`HierarchicalLayout`, `CircularLayout`, `RadialLayout`, `TimelineLayout`, `PipelineLayout`, `ExecuteLayout`, `ForceDirectedLayout`, `ManualLayout`) all extending a `BaseLayout` that handles recursive container positioning and size calculation. `ExecuteLayout` is driven by `ExecutionEngine`, which computes token movement deltas step by step and applies them to a live copy of the model.
 
-**Filtering** uses a selector system: rules match elements by path, name, level, type, or flag; rules are combined with boolean operators evaluated by `SelectorEvaluator`; resolved visibility lists (`hiddenPaths`, `dimmedPaths`, `coloredPaths`, `foldedPaths`) are stored in `ViewState` and applied at render time. Sessions package named selector configurations for instant switching.
+**Filtering** uses a group system: groups match elements by regex against type-embedded paths or by boolean composition of other groups (`compose=`); flags on elements automatically include them in the matching group; resolved visibility lists (`hiddenPaths`, `dimmedPaths`, `coloredPaths`, `foldedPaths`) are stored in `ViewState` and applied at render time. Sessions assign modes to groups for instant perspective switching.
 
 The DigraVinci architecture is itself documented as a `.dg` diagram — open the **DigraVinci collection** in the Template Panel to explore it interactively.
 

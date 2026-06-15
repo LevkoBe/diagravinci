@@ -1,7 +1,7 @@
 import type { AppStore, RootState } from "./store/store";
 import { AppConfig } from "../config/appConfig";
 import { setModel, setViewState, setCode } from "./store/diagramSlice";
-import { syncSelectorsFromTab } from "./store/filterSlice";
+import { syncSelectorsFromTab, syncGroupsFromTab } from "./store/filterSlice";
 import type { Selector } from "../domain/models/Selector";
 import type { DiagramModel } from "../domain/models/DiagramModel";
 import type {
@@ -134,6 +134,7 @@ export class TabSyncManager {
         if (msg.code === state.diagram.code) {
           if (msg.type === "HELLO_REPLY") {
             this.store.dispatch(syncSelectorsFromTab(msg.selectors));
+            this.store.dispatch(syncGroupsFromTab(msg.model.groups ?? []));
           }
           return;
         }
@@ -146,6 +147,7 @@ export class TabSyncManager {
             relationships: msg.relationships,
           }),
         );
+        this.store.dispatch(syncGroupsFromTab(msg.model.groups ?? []));
         if (msg.type === "HELLO_REPLY") {
           this.store.dispatch(syncSelectorsFromTab(msg.selectors));
         }

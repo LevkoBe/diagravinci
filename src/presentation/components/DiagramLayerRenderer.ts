@@ -4,8 +4,8 @@ import type { Element } from "../../domain/models/Element";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { ViewState } from "../../domain/models/ViewState";
 import type { Colors, RenderCallbacks } from "./rendering/types";
-import type { Selector } from "../../domain/models/Selector";
-import { matchesSelector } from "../../domain/sync/FilterResolver";
+import type { Group } from "../../domain/models/Selector";
+import { matchesGroup } from "../../domain/selector/GroupEvaluator";
 import { ElementEventHandler } from "./rendering/elements/ElementEventHandler";
 import {
   RelationshipRenderer,
@@ -123,7 +123,7 @@ export class DiagramLayerRenderer {
   private readonly opaqueElementBg: boolean;
   private readonly getGroupMoveInfo?: () => {
     selectorId: string | null;
-    filterSelectors: Selector[];
+    filterSelectors: Group[];
   };
 
   constructor(
@@ -145,7 +145,7 @@ export class DiagramLayerRenderer {
     geometryCache?: GeometryCache,
     getGroupMoveInfo?: () => {
       selectorId: string | null;
-      filterSelectors: Selector[];
+      filterSelectors: Group[];
     },
     opaqueElementBg = true,
     dragState?: { path: string | null; scales: Map<string, number> },
@@ -459,13 +459,7 @@ export class DiagramLayerRenderer {
     );
 
     group.dragBoundFunc(() => {
-      const target =
-        this.stage.getPointerPosition() ?? group.getAbsolutePosition();
-      const cur = group.getAbsolutePosition();
-      return {
-        x: cur.x + (target.x - cur.x) * 0.2,
-        y: cur.y + (target.y - cur.y) * 0.2,
-      };
+      return this.stage.getPointerPosition() ?? group.getAbsolutePosition();
     });
 
     let dragScale: number | null = null;
@@ -507,11 +501,11 @@ export class DiagramLayerRenderer {
         const { selectorId, filterSelectors } = this.getGroupMoveInfo();
         if (selectorId) {
           const sel = filterSelectors.find((s) => s.id === selectorId);
-          const rules = this.model.rules ?? [];
-          if (sel && matchesSelector(path, sel, this.model, rules)) {
+          const matches = (p: string) => matchesGroup(sel!, p);
+          if (sel && matches(path)) {
             for (const gp of Object.keys(this.viewState.positions)) {
               if (gp === path || childDragScales.has(gp)) continue;
-              if (!matchesSelector(gp, sel, this.model, rules)) continue;
+              if (!matches(gp)) continue;
               const peerGroup = this.groupMap.get(gp);
               if (!peerGroup) continue;
               const peerRect = peerGroup.getClientRect();
@@ -694,8 +688,9 @@ export class DiagramLayerRenderer {
     const sel = filterSelectors.find((s) => s.id === selectorId);
     if (!sel) return;
 
-    const rules = this.model.rules ?? [];
-    if (!matchesSelector(path, sel, this.model, rules)) return;
+    const matches = (p: string) => matchesGroup(sel, p);
+
+    if (!matches(path)) return;
 
     const startPos = this.viewState.positions[path]?.position;
     if (!startPos) return;
@@ -704,7 +699,7 @@ export class DiagramLayerRenderer {
 
     for (const [gp, posEntry] of Object.entries(this.viewState.positions)) {
       if (gp === path) continue;
-      if (!matchesSelector(gp, sel, this.model, rules)) continue;
+      if (!matches(gp)) continue;
       const group = this.groupMap.get(gp);
       if (group) {
         group.x(posEntry.position.x + delta.x);

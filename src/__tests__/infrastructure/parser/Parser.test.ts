@@ -12,7 +12,7 @@ describe("Parser", () => {
     const model = parse("player");
     expect(Object.values(model.elements).length).toBe(1);
     const elem = Array.from(Object.values(model.elements))[0];
-    expect(elem.id).toBe("player");
+    expect(elem.id).toBe("player{}");
     expect(elem.type).toBe("object");
   });
 
@@ -20,7 +20,7 @@ describe("Parser", () => {
     const model = parse("player{}");
     expect(Object.values(model.elements).length).toBe(1);
     const elem = Array.from(Object.values(model.elements))[0];
-    expect(elem.id).toBe("player");
+    expect(elem.id).toBe("player{}");
     expect(elem.type).toBe("object");
   });
 
@@ -28,7 +28,7 @@ describe("Parser", () => {
     const model = parse("players[]");
     expect(Object.values(model.elements).length).toBe(1);
     const elem = Array.from(Object.values(model.elements))[0];
-    expect(elem.id).toBe("players");
+    expect(elem.id).toBe("players[]");
     expect(elem.type).toBe("collection");
   });
 
@@ -39,7 +39,7 @@ describe("Parser", () => {
     const [player, username, password] = Array.from(
       Object.values(model.elements),
     );
-    expect(player.id).toBe("player");
+    expect(player.id).toBe("player{}");
     expect(player.type).toBe("object");
     expect(player.childIds).toContain(username.id);
     expect(player.childIds).toContain(password.id);
@@ -74,7 +74,7 @@ describe("Parser", () => {
     );
     expect(player.childIds).toContain(username.id);
     expect(player.childIds).toContain(password.id);
-    expect(player.id).toBe("players");
+    expect(player.id).toBe("players[]");
     expect(player.type).toBe("collection");
   });
 
@@ -203,16 +203,16 @@ describe("Parser", () => {
     const model = parse("whole *-- part");
     const rel = Array.from(Object.values(model.relationships))[0];
     expect(rel.type).toBe("--*");
-    expect(rel.source).toBe("part");
-    expect(rel.target).toBe("whole");
+    expect(rel.source).toBe("part{}");
+    expect(rel.target).toBe("whole{}");
   });
 
   it("should parse aggregation relationship", () => {
     const model = parse("container o-- item");
     const rel = Array.from(Object.values(model.relationships))[0];
     expect(rel.type).toBe("--o");
-    expect(rel.source).toBe("item");
-    expect(rel.target).toBe("container");
+    expect(rel.source).toBe("item{}");
+    expect(rel.target).toBe("container{}");
   });
 
   it("should parse implementation relationship", () => {
@@ -252,17 +252,17 @@ describe("Parser", () => {
     expect(game.childIds).toContain(player.id);
     expect(game.childIds).toContain(world.id);
     const rel = Array.from(Object.values(model.relationships))[0];
-    expect(rel.source).toBe("game.player");
-    expect(rel.target).toBe("game.world");
+    expect(rel.source).toBe("game{}.player{}");
+    expect(rel.target).toBe("game{}.world{}");
   });
 
   it("should preserve element order", () => {
     const model = parse("first second third");
     expect(Object.values(model.elements).length).toBe(3);
     const [first, second, third] = Array.from(Object.values(model.elements));
-    expect(first.id).toBe("first");
-    expect(second.id).toBe("second");
-    expect(third.id).toBe("third");
+    expect(first.id).toBe("first{}");
+    expect(second.id).toBe("second{}");
+    expect(third.id).toBe("third{}");
   });
 
   it("should parse consecutive relationships", () => {
@@ -437,8 +437,8 @@ describe("Parser", () => {
   it("flow at end of line does not connect to next line", () => {
     const model = parse("f1()\n>>\nf2()");
     const rels = Object.values(model.relationships);
-    const f1 = model.elements["f1"];
-    const f2 = model.elements["f2"];
+    const f1 = model.elements["f1()"];
+    const f2 = model.elements["f2()"];
     expect(f1).toBeDefined();
     expect(f2).toBeDefined();
     expect(rels.every((r) => !(r.source === f1.id && r.target === f2.id))).toBe(
@@ -449,8 +449,8 @@ describe("Parser", () => {
 
   it("function return type notation: func(input)>output>", () => {
     const model = parse("func(input)>output>");
-    const func = model.elements["func"];
-    const output = model.elements["output"];
+    const func = model.elements["func()"];
+    const output = model.elements["output{}"];
     expect(func?.type).toBe("function");
     expect(output?.type).toBe("object");
     const rels = Object.values(model.relationships);
@@ -460,18 +460,18 @@ describe("Parser", () => {
   it("function with named flow output: f()named_out>out>", () => {
     const model = parse("f()named_out>out>");
     expect(Object.values(model.elements).length).toBe(3);
-    const f = model.elements["f"];
-    const named_out = model.elements["named_out"];
-    const out = model.elements["out"];
+    const f = model.elements["f()"];
+    const named_out = model.elements["named_out>>"];
+    const out = model.elements["out{}"];
     expect(f?.type).toBe("function");
     expect(named_out?.type).toBe("flow");
-    expect(named_out?.childIds).toContain("out");
+    expect(named_out?.childIds).toContain("out{}");
     expect(out?.type).toBe("object");
     const rels = Object.values(model.relationships);
     expect(rels).toHaveLength(2);
-    const fRel = rels.find(r => r.source === "f");
-    const outRel = rels.find(r => r.source === "named_out");
-    expect(fRel?.target).toBe("named_out");
+    const fRel = rels.find(r => r.source === "f()");
+    const outRel = rels.find(r => r.source === "named_out>>");
+    expect(fRel?.target).toBe("named_out>>");
     expect(outRel?.target).toBe("_");
   });
 
@@ -489,21 +489,21 @@ describe("Parser", () => {
     const rels = Object.values(model.relationships);
     expect(rels).toHaveLength(2);
     expect(rels.every((r) => r.type === "..>")).toBe(true);
-    const from = model.elements["from"];
-    const named = model.elements["named"];
-    const to = model.elements["to"];
+    const from = model.elements["from{}"];
+    const named = model.elements["named>>"];
+    const to = model.elements["to{}"];
     expect(from?.type).toBe("object");
     expect(named?.type).toBe("flow");
     expect(to?.type).toBe("object");
-    expect(rels[0].source).toBe("from");
-    expect(rels[0].target).toBe("named");
-    expect(rels[1].source).toBe("named");
-    expect(rels[1].target).toBe("to");
+    expect(rels[0].source).toBe("from{}");
+    expect(rels[0].target).toBe("named>>");
+    expect(rels[1].source).toBe("named>>");
+    expect(rels[1].target).toBe("to{}");
   });
 
   it("subsequent wrappers do not override the first type", () => {
     const model = parse("a[](){}");
-    expect(model.elements["a"].type).toBe("collection");
+    expect(model.elements["a[]"].type).toBe("collection");
   });
 
   it("should handle anonymity", () => {
@@ -579,8 +579,8 @@ describe("Parser", () => {
     expect(Object.values(model.elements).length).toBe(2);
     expect(Object.values(model.relationships).length).toBe(3);
     const [a, b] = Array.from(Object.values(model.elements));
-    expect(a.id).toBe("a");
-    expect(b.id).toBe("b");
+    expect(a.id).toBe("a{}");
+    expect(b.id).toBe("b{}");
     const [rel1, rel2, rel3] = Array.from(Object.values(model.relationships));
     expect(rel1.source).toBe(a.id);
     expect(rel1.target).toBe(b.id);
@@ -600,8 +600,8 @@ describe("Parser", () => {
     expect(Object.values(model.elements).length).toBe(2);
     expect(Object.values(model.relationships).length).toBe(1);
     const [a, b] = Array.from(Object.values(model.elements));
-    expect(a.id).toBe("a");
-    expect(b.id).toBe("b");
+    expect(a.id).toBe("a{}");
+    expect(b.id).toBe("b{}");
     const rel = Array.from(Object.values(model.relationships))[0];
     expect(rel.source).toBe(a.id);
   });
@@ -610,7 +610,7 @@ describe("Parser", () => {
     const model = parse("a{{}}");
     expect(Object.values(model.elements).length).toBe(2);
     const [a, anon] = Array.from(Object.values(model.elements));
-    expect(a.id).toBe("a");
+    expect(a.id).toBe("a{}");
     expect(a.childIds).toContain(anon.id);
     expect(a.childIds.length).toBe(1);
   });
@@ -656,7 +656,7 @@ describe("Parser", () => {
     const model = parse("f(x)(y)(z)");
     expect(Object.values(model.elements).length).toBe(4);
     const [f, x, y, z] = Array.from(Object.values(model.elements));
-    expect(f.id).toBe("f");
+    expect(f.id).toBe("f()");
     expect(f.type).toBe("function");
     expect(f.childIds).toContain(x.id);
     expect(f.childIds).toContain(y.id);
@@ -670,7 +670,7 @@ describe("Parser", () => {
     const model = parse("f(a){b}[c]<d>");
     expect(Object.values(model.elements).length).toBe(5);
     const [f, a, b, c, d] = Array.from(Object.values(model.elements));
-    expect(f.id).toBe("f");
+    expect(f.id).toBe("f()");
     expect(f.type).toBe("function");
     expect(f.childIds).toContain(a.id);
     expect(f.childIds).toContain(b.id);
@@ -689,8 +689,8 @@ describe("Parser", () => {
     const [a] = Array.from(Object.values(model.elements));
     const [rel1, rel2] = Object.values(model.relationships);
     expect(rel1.source).toBe(a.id);
-    expect(rel1.target).toBe("a.b");
-    expect(rel2.source).toBe("a.b");
+    expect(rel1.target).toBe("a{}.b{}");
+    expect(rel2.source).toBe("a{}.b{}");
     expect(rel2.target).toBe("_");
   });
 
@@ -698,7 +698,7 @@ describe("Parser", () => {
     const model = parse("a{a{a{a{a}}}}");
     expect(Object.values(model.elements).length).toBe(1);
     const a = Array.from(Object.values(model.elements))[0];
-    expect(a.id).toBe("a");
+    expect(a.id).toBe("a{}");
     expect(a.childIds).toContain(a.id);
   });
 
@@ -706,9 +706,9 @@ describe("Parser", () => {
     const model = parse("a{a b{a{a b c} b}} c{a{b}}");
     expect(Object.values(model.elements).length).toBe(3);
     const [a, b, c] = Array.from(Object.values(model.elements));
-    expect(a.id).toBe("a");
-    expect(b.id).toBe("b");
-    expect(c.id).toBe("c");
+    expect(a.id).toBe("a{}");
+    expect(b.id).toBe("b{}");
+    expect(c.id).toBe("c{}");
     expect(a.childIds).toHaveLength(3);
     expect(a.childIds).toContain(a.id);
     expect(a.childIds).toContain(b.id);
@@ -742,7 +742,7 @@ describe("Parser sessions", () => {
     const def = sessions.find((s) => s.id === "default");
     expect(def).toBeDefined();
     expect(def!.label).toBe("My Default");
-    expect(def!.selectorModes["foo"]).toBe("color");
+    expect(def!.groupModes["foo"]).toBe("color");
   });
 
   it("does not create duplicate default sessions when !session id=default is explicit", () => {
@@ -770,10 +770,10 @@ describe("Parser sessions", () => {
     );
     const s1 = (model.sessions ?? []).find((s) => s.id === "s1");
     expect(s1).toBeDefined();
-    expect(s1!.selectorModes["a"]).toBe("color");
-    expect(s1!.selectorModes["b"]).toBe("dim");
-    expect(s1!.selectorModes["c"]).toBe("hide");
-    expect(s1!.selectorModes["d"]).toBe("off");
+    expect(s1!.groupModes["a"]).toBe("color");
+    expect(s1!.groupModes["b"]).toBe("dim");
+    expect(s1!.groupModes["c"]).toBe("hide");
+    expect(s1!.groupModes["d"]).toBe("off");
   });
 
   it("ignores !session without an id field", () => {
@@ -794,20 +794,20 @@ describe("Parser edge cases", () => {
     const model = parse("a = b");
 
     const ids = Object.keys(model.elements);
-    expect(ids).toContain("a");
-    expect(ids).toContain("b");
+    expect(ids).toContain("a{}");
+    expect(ids).toContain("b{}");
   });
 
   it("attaches a single flag to an element", () => {
     const model = parse("player:warn");
-    const el = model.elements["player"];
+    const el = model.elements["player{}"];
     expect(el).toBeDefined();
     expect(el.flags).toEqual(["warn"]);
   });
 
   it("attaches multiple flags to an element", () => {
     const model = parse("db:critical:dim");
-    const el = model.elements["db"];
+    const el = model.elements["db{}"];
     expect(el.flags).toEqual(["critical", "dim"]);
   });
 
@@ -815,55 +815,54 @@ describe("Parser edge cases", () => {
     const model = parse("player:warn --> server");
     const ids = Object.keys(model.elements);
     expect(ids).not.toContain("warn");
-    expect(ids).toContain("player");
-    expect(ids).toContain("server");
+    expect(ids).toContain("player{}");
+    expect(ids).toContain("server{}");
   });
 
-  it("parses !atom (legacy) and !rule directives and !selector directives", () => {
-    const code =
-      "!atom  id=1  all=*.db.*\n!selector  name=warn  color=#f00  mode=dim  expression=1";
+  it("migrates !atom and !rule directives to groups", () => {
+    const code = "!atom  id=db  all=*.db.*\n!rule  id=royals  all_name=queen";
     const model = parse(code);
-    expect(model.rules ?? []).toHaveLength(1);
-    expect((model.rules ?? [])[0].patterns["all"]).toBe("*.db.*");
-    expect(model.selectors ?? []).toHaveLength(1);
-    const s = (model.selectors ?? [])[0];
-    expect(s.id).toBe("warn");
-    expect(s.color).toBe("#f00");
-    expect(s.expression).toBe("1");
+    const groups = model.groups ?? [];
+    expect(groups.find((g) => g.id === "db")).toBeDefined();
+    expect(groups.find((g) => g.id === "royals")).toBeDefined();
+    expect(model.rules ?? []).toHaveLength(0);
   });
 
-  it("parses !rule directive", () => {
-    const code = "!rule  id=royals  all=root\\.queen\\..*";
+  it("migrates !selector directive to a group using the expression as rule", () => {
+    const code = "!selector  name=warn  color=#f00  expression=services";
     const model = parse(code);
-    expect(model.rules ?? []).toHaveLength(1);
-    expect((model.rules ?? [])[0].id).toBe("royals");
-    expect((model.rules ?? [])[0].patterns["all"]).toBe("root\\.queen\\..*");
+    const groups = model.groups ?? [];
+    const g = groups.find((g) => g.id === "warn");
+    expect(g).toBeDefined();
+    expect(g!.color).toBe("#f00");
+    expect(g!.regex).toBe("services");
+    expect(model.selectors ?? []).toHaveLength(0);
   });
 
-  it("parses !selector with legacy combiner/formula fields (migration compat)", () => {
-    const code = "!selector  name=old  color=#f00  mode=dim  combiner=1";
+  it("migrates !selector with legacy combiner/formula fields to group rule", () => {
+    const code = "!selector  name=old  color=#f00  combiner=1";
     const model = parse(code);
-    const s = (model.selectors ?? [])[0];
-    expect(s.expression).toBe("1");
+    const g = (model.groups ?? []).find((g) => g.id === "old");
+    expect(g?.regex).toBe("1");
   });
 
   it("ignores !directive with unknown type", () => {
     const model = parse("!unknown foo=bar");
-    expect(model.selectors ?? []).toHaveLength(0);
+    expect(model.groups ?? []).toHaveLength(0);
   });
 
   it("ignores !selector directive missing name", () => {
     const model = parse("!selector path=*.db.*");
-    expect(model.selectors ?? []).toHaveLength(0);
+    expect(model.groups ?? []).toHaveLength(0);
   });
 
   it("deduplicates !selector directives with same name", () => {
     const model = parse(
       "!selector name=warn color=#f00 mode=color\n!selector name=warn color=#0f0 mode=dim",
     );
-    const selectors = model.selectors ?? [];
-    expect(selectors).toHaveLength(1);
-    expect(selectors[0].color).toBe("#f00");
+    const groups = model.groups ?? [];
+    expect(groups.filter((g) => g.id === "warn")).toHaveLength(1);
+    expect(groups.find((g) => g.id === "warn")?.color).toBe("#f00");
   });
 
   it("parses empty input without error", () => {
@@ -884,54 +883,54 @@ describe("Parser edge cases", () => {
   describe("relationship endpoint scoping", () => {
     it("does not add pre-existing target to container", () => {
       const model = parse("a() c()\nd{a a-->c}");
-      expect(model.elements["d"].childIds).toEqual(["a"]);
-      expect(model.elements["d"].childIds).not.toContain("c");
+      expect(model.elements["d{}"].childIds).toEqual(["a()"]);
+      expect(model.elements["d{}"].childIds).not.toContain("c()");
     });
 
     it("does not add pre-existing source to container", () => {
       const model = parse("a() c()\ne{c a-->c}");
-      expect(model.elements["e"].childIds).toEqual(["c"]);
-      expect(model.elements["e"].childIds).not.toContain("a");
+      expect(model.elements["e{}"].childIds).toEqual(["c()"]);
+      expect(model.elements["e{}"].childIds).not.toContain("a()");
     });
 
     it("does not add either pre-existing endpoint to container", () => {
       const model = parse("a() c()\nf{a-->c}");
-      expect(model.elements["f"].childIds).toHaveLength(0);
+      expect(model.elements["f{}"].childIds).toHaveLength(0);
     });
 
     it("explicit listing still pulls pre-existing element into container", () => {
       const model = parse("a() c()\nb{a c a-->c}");
-      expect(model.elements["b"].childIds).toContain("a");
-      expect(model.elements["b"].childIds).toContain("c");
+      expect(model.elements["b{}"].childIds).toContain("a()");
+      expect(model.elements["b{}"].childIds).toContain("c()");
     });
 
     it("creates new elements locally when they appear only in relationships", () => {
       const model = parse("f2{x-->y}");
-      expect(model.elements["f2"].childIds).toContain("x");
-      expect(model.elements["f2"].childIds).toContain("y");
+      expect(model.elements["f2{}"].childIds).toContain("x{}");
+      expect(model.elements["f2{}"].childIds).toContain("y{}");
     });
 
     it("stores local path for newly created relationship endpoints", () => {
       const model = parse("f2{x-->y}");
       const rels = Object.values(model.relationships);
       expect(rels).toHaveLength(1);
-      expect(rels[0].source).toBe("f2.x");
-      expect(rels[0].target).toBe("f2.y");
+      expect(rels[0].source).toBe("f2{}.x{}");
+      expect(rels[0].target).toBe("f2{}.y{}");
     });
 
     it("stores bare id for pre-existing global relationship endpoints", () => {
       const model = parse("a() c()\nf{a-->c}");
       const rels = Object.values(model.relationships);
       expect(rels).toHaveLength(1);
-      expect(rels[0].source).toBe("a");
-      expect(rels[0].target).toBe("c");
+      expect(rels[0].source).toBe("a()");
+      expect(rels[0].target).toBe("c()");
     });
 
     it("supports a-->b-->c chain with auto-creation", () => {
       const model = parse("g{a-->b-->c}");
-      expect(model.elements["g"].childIds).toContain("a");
-      expect(model.elements["g"].childIds).toContain("b");
-      expect(model.elements["g"].childIds).toContain("c");
+      expect(model.elements["g{}"].childIds).toContain("a{}");
+      expect(model.elements["g{}"].childIds).toContain("b{}");
+      expect(model.elements["g{}"].childIds).toContain("c{}");
       const rels = Object.values(model.relationships);
       expect(rels).toHaveLength(2);
     });
@@ -942,35 +941,35 @@ describe("Parser edge cases", () => {
       const model = parse("a() c()\nb{a c .a-->.c}");
       const rels = Object.values(model.relationships);
       expect(rels).toHaveLength(1);
-      expect(rels[0].source).toBe("b.a");
-      expect(rels[0].target).toBe("b.c");
-      expect(model.elements["b"].childIds).toContain("a");
-      expect(model.elements["b"].childIds).toContain("c");
+      expect(rels[0].source).toBe("b{}.a()");
+      expect(rels[0].target).toBe("b{}.c()");
+      expect(model.elements["b{}"].childIds).toContain("a()");
+      expect(model.elements["b{}"].childIds).toContain("c()");
     });
 
     it("relative source with global target: .a-->c", () => {
       const model = parse("a() c()\nd{a .a-->c}");
       const rels = Object.values(model.relationships);
       expect(rels).toHaveLength(1);
-      expect(rels[0].source).toBe("d.a");
-      expect(rels[0].target).toBe("c");
+      expect(rels[0].source).toBe("d{}.a()");
+      expect(rels[0].target).toBe("c()");
     });
 
     it("global source with relative target: a-->.c", () => {
       const model = parse("a() c()\ne{c a-->.c}");
       const rels = Object.values(model.relationships);
       expect(rels).toHaveLength(1);
-      expect(rels[0].source).toBe("a");
-      expect(rels[0].target).toBe("e.c");
+      expect(rels[0].source).toBe("a()");
+      expect(rels[0].target).toBe("e{}.c()");
     });
 
     it("absolute path alt.a-->alt.c", () => {
       const model = parse("alt{a c}\nf{alt.a-->alt.c}");
       const rels = Object.values(model.relationships);
       expect(rels).toHaveLength(1);
-      expect(rels[0].source).toBe("alt.a");
-      expect(rels[0].target).toBe("alt.c");
-      expect(model.elements["f"].childIds).toHaveLength(0);
+      expect(rels[0].source).toBe("alt{}.a{}");
+      expect(rels[0].target).toBe("alt{}.c{}");
+      expect(model.elements["f{}"].childIds).toHaveLength(0);
     });
 
     it("skips relationship and emits validation error when .a not in container", () => {
@@ -983,23 +982,23 @@ describe("Parser edge cases", () => {
   describe("function container with pre-existing shared elements — c(a b)", () => {
     it("adds pre-existing root elements as children of the function container", () => {
       const model = parse("a b c(a b)");
-      expect(model.elements["c"].childIds).toContain("a");
-      expect(model.elements["c"].childIds).toContain("b");
-      expect(model.root.childIds).toContain("a");
-      expect(model.root.childIds).toContain("b");
-      expect(model.root.childIds).toContain("c");
+      expect(model.elements["c()"].childIds).toContain("a{}");
+      expect(model.elements["c()"].childIds).toContain("b{}");
+      expect(model.root.childIds).toContain("a{}");
+      expect(model.root.childIds).toContain("b{}");
+      expect(model.root.childIds).toContain("c()");
     });
 
     it("element used as chain target after being declared in function container is added to root", () => {
       const model = parse("c(a)\ngen(x) ..> a() ..> b()");
-      expect(model.root.childIds).toContain("a");
-      expect(model.elements["c"].childIds).toContain("a");
+      expect(model.root.childIds).toContain("a()");
+      expect(model.elements["c()"].childIds).toContain("a()");
     });
 
     it("path token c.a as rel target chains to b: c.a→b relationship is created", () => {
       const model = parse("a() c(a)\ngen(x) ..> c.a ..> b()");
       const rels = Object.values(model.relationships);
-      const ca_b = rels.find((r) => r.source === "c.a" && r.target === "b");
+      const ca_b = rels.find((r) => r.source === "c().a()" && r.target === "b()");
       expect(ca_b).toBeDefined();
     });
 
@@ -1007,8 +1006,8 @@ describe("Parser edge cases", () => {
       const model = parse("a b c(a b)\nc.a --> c.b");
       const rels = Object.values(model.relationships);
       expect(rels).toHaveLength(1);
-      expect(rels[0].source).toBe("c.a");
-      expect(rels[0].target).toBe("c.b");
+      expect(rels[0].source).toBe("c().a{}");
+      expect(rels[0].target).toBe("c().b{}");
       expect(model.validationErrors).toBeUndefined();
     });
 
