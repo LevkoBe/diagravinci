@@ -9,6 +9,7 @@ import {
   SlidersHorizontal,
   Wrench,
   Crosshair,
+  Shapes,
 } from "lucide-react";
 import { useUndoRedo } from "./presentation/hooks/useUndoRedo";
 import { VisualCanvas } from "./presentation/components/VisualCanvas";
@@ -21,6 +22,7 @@ import { TemplatePanel } from "./presentation/components/TemplatePanel";
 import { SelectorsPanel } from "./presentation/components/SelectorModal";
 import { AppSettingsPanel } from "./presentation/components/AppSettingsPanel";
 import { SelectedPanel } from "./presentation/components/SelectedPanel";
+import { IconsPanel } from "./presentation/components/IconsPanel";
 
 const WINDOWS: WindowDef[] = [
   {
@@ -58,6 +60,12 @@ const WINDOWS: WindowDef[] = [
     title: "Selected",
     icon: <Crosshair size={16} aria-hidden="true" />,
     component: SelectedPanel,
+  },
+  {
+    id: "icons",
+    title: "Icons",
+    icon: <Shapes size={16} aria-hidden="true" />,
+    component: IconsPanel,
   },
   {
     id: "settings",
