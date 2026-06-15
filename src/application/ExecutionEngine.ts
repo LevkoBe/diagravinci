@@ -1,3 +1,4 @@
+import { compileRule } from "../domain/selector/GroupEvaluator";
 import type { DiagramModel } from "../domain/models/DiagramModel";
 import type { ViewState, PositionedElement } from "../domain/models/ViewState";
 import type { Element } from "../domain/models/Element";
@@ -640,9 +641,14 @@ export function computeExecutionStep(
         instance.clonedElementIds.some((cid) => {
           // use the base name (without clone suffix) so cond{}_0 matches template cond{}
           const baseId = baseName(cid);
-          return childTemplateIds.some((id) =>
-            baseName(id).startsWith("anon_") ? true : baseId === id,
-          );
+          return childTemplateIds.some((id) => {
+            if (baseName(id).startsWith("anon_")) return true;
+            try {
+              return new RegExp(compileRule(id)).test(baseId);
+            } catch {
+              return false;
+            }
+          });
         });
 
       const choiceRels = allRels.filter(

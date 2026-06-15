@@ -4,7 +4,7 @@ import type { Group } from "../models/Selector";
 // Only the empty variants ({}, [], (), ||) are replaced — non-empty constructs
 // like [abc] or (x|y) are left intact so users can still write regex groups and
 // character classes in the name portion of their rules.
-function compileRule(rule: string): string {
+export function compileRule(rule: string): string {
   return rule
     .replace(/\{\}/g, "\\{\\}")
     .replace(/\[\]/g, "\\[\\]")
