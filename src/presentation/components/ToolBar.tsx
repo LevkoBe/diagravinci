@@ -87,7 +87,13 @@ import {
   setCode,
   setViewMode,
 } from "../../application/store/diagramSlice";
-import { toSelectorId, FOLD_SELECTOR_ID, type Session, type Selector, type Group } from "../../domain/models/Selector";
+import {
+  toSelectorId,
+  FOLD_SELECTOR_ID,
+  type Session,
+  type Selector,
+  type Group,
+} from "../../domain/models/Selector";
 import {
   startExecution,
   pauseExecution,
@@ -124,19 +130,49 @@ function ForceSettings() {
   return (
     <div className="space-y-3">
       <div>
-        <Label className="text-xs text-fg-muted mb-1.5 block">Repulsion — {rep.toFixed(1)}</Label>
-        <Slider min={0.1} max={5} step={0.1} value={[rep]}
-          onValueChange={([v]) => { forceConfig.repulsion = v; setRep(v); }} />
+        <Label className="text-xs text-fg-muted mb-1.5 block">
+          Repulsion — {rep.toFixed(1)}
+        </Label>
+        <Slider
+          min={0.1}
+          max={5}
+          step={0.1}
+          value={[rep]}
+          onValueChange={([v]) => {
+            forceConfig.repulsion = v;
+            setRep(v);
+          }}
+        />
       </div>
       <div>
-        <Label className="text-xs text-fg-muted mb-1.5 block">Link distance — {dist}px</Label>
-        <Slider min={20} max={300} step={5} value={[dist]}
-          onValueChange={([v]) => { forceConfig.linkDistance = v; setDist(v); }} />
+        <Label className="text-xs text-fg-muted mb-1.5 block">
+          Link distance — {dist}px
+        </Label>
+        <Slider
+          min={20}
+          max={300}
+          step={5}
+          value={[dist]}
+          onValueChange={([v]) => {
+            forceConfig.linkDistance = v;
+            setDist(v);
+          }}
+        />
       </div>
       <div>
-        <Label className="text-xs text-fg-muted mb-1.5 block">Gravity — {grav.toFixed(3)}</Label>
-        <Slider min={0} max={0.02} step={0.001} value={[grav]}
-          onValueChange={([v]) => { forceConfig.gravity = v; setGrav(v); }} />
+        <Label className="text-xs text-fg-muted mb-1.5 block">
+          Gravity — {grav.toFixed(3)}
+        </Label>
+        <Slider
+          min={0}
+          max={0.02}
+          step={0.001}
+          value={[grav]}
+          onValueChange={([v]) => {
+            forceConfig.gravity = v;
+            setGrav(v);
+          }}
+        />
       </div>
     </div>
   );
@@ -238,8 +274,14 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
     opaqueElementBg,
     activeSessionId,
   } = useAppSelector((s) => s.ui);
-  const { selectors, groups, foldLevel, foldActive, manuallyFolded, manuallyUnfolded } =
-    useAppSelector((s) => s.filter);
+  const {
+    selectors,
+    groups,
+    foldLevel,
+    foldActive,
+    manuallyFolded,
+    manuallyUnfolded,
+  } = useAppSelector((s) => s.filter);
   const execState = useAppSelector((s) => s.execution);
   const isExecuteMode = viewMode === "execute";
   const prevViewModeRef = useRef<ViewState["viewMode"]>(viewMode);
@@ -271,7 +313,9 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
   const activePresetCount = [
     ...selectors.filter((s) => s.id !== FOLD_SELECTOR_ID),
     ...groups,
-  ].filter((s) => (activeSession?.groupModes?.[s.id] ?? "off") !== "off").length;
+  ].filter(
+    (s) => (activeSession?.groupModes?.[s.id] ?? "off") !== "off",
+  ).length;
 
   const foldMode = !foldActive
     ? "expanded"
@@ -397,7 +441,9 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
           else if (obj.type === "code") parsedCode = obj.value;
           else if (obj.type === "viewState") parsedViewState = obj.data;
         }
-        let sessions: Session[] = [{ id: "default", label: "Default", groupModes: {} }];
+        let sessions: Session[] = [
+          { id: "default", label: "Default", groupModes: {} },
+        ];
         let newModelSelectors: Selector[] = [];
         let newModelGroups: Group[] = [];
         if (parsedCode !== null) {
@@ -406,10 +452,16 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
             sessions = parsed.sessions ?? sessions;
             newModelSelectors = parsed.selectors ?? [];
             newModelGroups = parsed.groups ?? [];
-          } catch { /* keep fallback session */ }
+          } catch {
+            /* keep fallback session */
+          }
         }
-        const prevModelSelectorIds = (store.getState().diagram.model.selectors ?? []).map((s) => s.id);
-        const prevModelGroupIds = (store.getState().diagram.model.groups ?? []).map((g) => g.id);
+        const prevModelSelectorIds = (
+          store.getState().diagram.model.selectors ?? []
+        ).map((s) => s.id);
+        const prevModelGroupIds = (
+          store.getState().diagram.model.groups ?? []
+        ).map((g) => g.id);
         if (root)
           dispatch(
             setModel({ elements, relationships, root, sessions } as Parameters<
@@ -421,8 +473,18 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
             setViewState(parsedViewState as Parameters<typeof setViewState>[0]),
           );
         if (parsedCode !== null) dispatch(setCode(parsedCode));
-        dispatch(syncSelectorsFromCode({ modelSelectors: newModelSelectors, prevModelSelectorIds }));
-        dispatch(syncGroupsFromCode({ modelGroups: newModelGroups, prevModelGroupIds }));
+        dispatch(
+          syncSelectorsFromCode({
+            modelSelectors: newModelSelectors,
+            prevModelSelectorIds,
+          }),
+        );
+        dispatch(
+          syncGroupsFromCode({
+            modelGroups: newModelGroups,
+            prevModelGroupIds,
+          }),
+        );
         dispatch(setActiveSession(sessions[0].id));
       } catch {
         console.error("Invalid diagram file");
@@ -510,10 +572,18 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
         );
         const diffGroups: Group[] = [];
         if (addedIds.length > 0) {
-          diffGroups.push({ id: newSelId, regex: "", color: AppConfig.canvas.DIFF_ADDED_COLOR });
+          diffGroups.push({
+            id: newSelId,
+            regex: "",
+            color: AppConfig.canvas.DIFF_ADDED_COLOR,
+          });
         }
         if (removedIds.length > 0) {
-          diffGroups.push({ id: delSelId, regex: "", color: AppConfig.canvas.DIFF_REMOVED_COLOR });
+          diffGroups.push({
+            id: delSelId,
+            regex: "",
+            color: AppConfig.canvas.DIFF_REMOVED_COLOR,
+          });
         }
 
         const finalModel = {
@@ -607,7 +677,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
       <div className={containerClass}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="sm">File</Button>
+            <Button variant="secondary">File</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuItem onSelect={handleNew}>
