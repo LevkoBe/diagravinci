@@ -2870,8 +2870,8 @@ Evolve --> Sketch`,
       "The bidirectional sync between CodeEditor and VisualCanvas — CD flow (code → model) and VIS flow (canvas → code) highlighted by session",
     tags: ["diagravinci", "architecture", "internals"],
     preferredView: "circular",
-    code: `!group  id=cd_flow           regex=gen_code|syncFromCode|tokenize|parse|diagramSlice|render  color=#22c55e
-!group  id=vis_flow          regex=gen_vis|syncFromVis|generate|diagramSlice|output           color=#f97316
+    code: `!group  id=cd_flow  color=#22c55e  regex=(gen_code|syncFromCode|tokenize|parse|diagramSlice|render)..$
+!group  id=vis_flow  color=#f97316  regex=(gen_vis|syncFromVis|generate|diagramSlice|output)..$
 !group  id=selection_default color=#3773d5
 !session  id=default   label=Default    groups=cd_flow:color,vis_flow:color,selection_default:color
 !session  id=cd_view   label="CD Flow"  groups=cd_flow:dim,vis_flow:color,selection_default:color
