@@ -55,7 +55,7 @@ function freshGroup(): Group {
 const inputCls =
   "bg-bg-elevated border border-border rounded px-2 py-1 text-[11px] font-mono text-fg-primary placeholder:text-fg-disabled focus:outline-none focus:border-accent";
 
-export function SelectorsPanel() {
+export function GroupsPanel() {
   const dispatch = useAppDispatch();
   const { groups } = useAppSelector((s) => s.filter);
   const sessions = useAppSelector((s) => s.diagram.model.sessions ?? []);

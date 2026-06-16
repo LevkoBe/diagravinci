@@ -61,7 +61,7 @@ import {
   Label,
 } from "@levkobe/c7one";
 import { HelpModal } from "./HelpModal";
-import { SelectorsPanel } from "./SelectorModal";
+import { GroupsPanel } from "./SelectorModal";
 import {
   parchmentTheme,
   diagraVinciDark,
@@ -1099,7 +1099,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
 
       <Modal open={selectorModalOpen} onOpenChange={setSelectorModalOpen}>
         <Modal.Content maxWidth={555} minHeight={444}>
-          <SelectorsPanel />
+          <GroupsPanel />
         </Modal.Content>
       </Modal>
     </>
