@@ -14,7 +14,7 @@ import type { Group, SelectorMode } from "../../domain/models/Selector";
 import { toSelectorId } from "../../domain/models/Selector";
 import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { PositionedElement } from "../../domain/models/ViewState";
-import { upsertSessionModeInCode } from "../utils/selectorCodeUtils";
+import { upsertSessionModeInCode } from "../utils/groupUtils";
 import { syncManager, store } from "../../application/store/store";
 
 const MODES: { value: SelectorMode; label: string }[] = [
@@ -49,7 +49,9 @@ export function SelectedPanel() {
 
   const selectionGroups = groups.filter((g) => g.id.startsWith("selection_"));
 
-  const defaultGroupId = activeSessionId ? toSelectorId(`Selection_${activeSessionId}`) : "";
+  const defaultGroupId = activeSessionId
+    ? toSelectorId(`Selection_${activeSessionId}`)
+    : "";
   const [manualGroupId, setManualGroupId] = useState<string | null>(null);
   const [prevSessionId, setPrevSessionId] = useState(activeSessionId);
   if (activeSessionId !== prevSessionId) {
@@ -87,7 +89,8 @@ export function SelectedPanel() {
     [matchedPaths],
   );
 
-  const isGroupMove = groupMoveSelectorId === effectiveId && effectiveId !== null;
+  const isGroupMove =
+    groupMoveSelectorId === effectiveId && effectiveId !== null;
 
   if (selectionGroups.length === 0) {
     return (
@@ -105,7 +108,12 @@ export function SelectedPanel() {
   const handleModeChange = (newMode: SelectorMode) => {
     if (!group || !activeSessionId) return;
     const { code } = store.getState().diagram;
-    const newCode = upsertSessionModeInCode(activeSessionId, group.id, newMode, code);
+    const newCode = upsertSessionModeInCode(
+      activeSessionId,
+      group.id,
+      newMode,
+      code,
+    );
     syncManager.syncFromCode(newCode, true);
   };
 
@@ -124,11 +132,16 @@ export function SelectedPanel() {
   };
 
   const handleAutoLayout = () => {
-    const { model: m, viewState: vs, canvasSize: cs } = store.getState().diagram;
+    const {
+      model: m,
+      viewState: vs,
+      canvasSize: cs,
+    } = store.getState().diagram;
     const layoutVS = ViewStateMerger.merge(vs, m, cs);
     const newPositions = { ...vs.positions };
     for (const path of matchedPaths) {
-      if (layoutVS.positions[path]) newPositions[path] = layoutVS.positions[path];
+      if (layoutVS.positions[path])
+        newPositions[path] = layoutVS.positions[path];
     }
     dispatch(setViewState({ ...vs, positions: newPositions }));
   };
@@ -159,14 +172,21 @@ export function SelectedPanel() {
         ([, r]) => !matchedSet.has(r.source) && !matchedSet.has(r.target),
       ),
     );
-    syncManager.syncFromVis({ ...model, root: newRoot, elements: newElements, relationships: newRelationships });
+    syncManager.syncFromVis({
+      ...model,
+      root: newRoot,
+      elements: newElements,
+      relationships: newRelationships,
+    });
     dispatch(setSelectedElements([]));
   };
 
   const handleDeleteNonMatched = () => {
     const allIds = Object.keys(model.elements);
     const matchedSet = new Set(matchedIds);
-    const toDelete = new Set(allIds.filter((id) => !matchedSet.has(id) && id !== model.root.id));
+    const toDelete = new Set(
+      allIds.filter((id) => !matchedSet.has(id) && id !== model.root.id),
+    );
     if (toDelete.size === 0) return;
     const newElements = { ...model.elements };
     for (const id of toDelete) delete newElements[id];
@@ -187,7 +207,12 @@ export function SelectedPanel() {
         ([, r]) => !toDelete.has(r.source) && !toDelete.has(r.target),
       ),
     );
-    syncManager.syncFromVis({ ...model, root: newRoot, elements: newElements, relationships: newRelationships });
+    syncManager.syncFromVis({
+      ...model,
+      root: newRoot,
+      elements: newElements,
+      relationships: newRelationships,
+    });
   };
 
   return (
@@ -209,7 +234,11 @@ export function SelectedPanel() {
                   key={value}
                   onClick={() => handleModeChange(value)}
                   disabled={!activeSessionId}
-                  title={!activeSessionId ? "Select a session to change mode" : undefined}
+                  title={
+                    !activeSessionId
+                      ? "Select a session to change mode"
+                      : undefined
+                  }
                   className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                     effectiveMode === value
                       ? "border-accent bg-accent/15 text-accent"
@@ -233,7 +262,8 @@ export function SelectedPanel() {
 
           <div className="px-3 py-2.5 border-b border-border/40 shrink-0 flex flex-col gap-1.5">
             <div className="text-[10px] text-fg-disabled uppercase tracking-widest font-medium mb-0.5">
-              {matchedIds.length} element{matchedIds.length !== 1 ? "s" : ""} matched
+              {matchedIds.length} element{matchedIds.length !== 1 ? "s" : ""}{" "}
+              matched
             </div>
             <div className="flex flex-wrap gap-1.5">
               <Button
@@ -305,7 +335,9 @@ export function SelectedPanel() {
                       className="flex items-center justify-between px-2 py-1 rounded hover:bg-accent/10 hover:text-accent text-left transition-colors"
                       onClick={() => dispatch(setSelectedElements([id]))}
                     >
-                      <span className="text-xs truncate">{id.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)$/, "")}</span>
+                      <span className="text-xs truncate">
+                        {id.replace(/(\{\}|\[\]|\(\)|\|\||<>|>>)$/, "")}
+                      </span>
                       {el && (
                         <span className="text-[10px] text-fg-disabled shrink-0 ml-2">
                           {el.type}

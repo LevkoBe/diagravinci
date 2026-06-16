@@ -20,7 +20,7 @@ import {
   upsertGroupInCode,
   removeGroupFromCode,
   upsertSessionModeInCode,
-} from "../utils/selectorCodeUtils";
+} from "../utils/groupUtils";
 
 const PALETTE = AppConfig.ui.COLOR_PALETTE;
 const MODES: SelectorMode[] = ["color", "dim", "hide", "off"];

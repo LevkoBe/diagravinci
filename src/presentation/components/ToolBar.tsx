@@ -61,7 +61,7 @@ import {
   Label,
 } from "@levkobe/c7one";
 import { HelpModal } from "./HelpModal";
-import { GroupsPanel } from "./SelectorModal";
+import { GroupsPanel } from "./GroupsPanel";
 import {
   parchmentTheme,
   diagraVinciDark,
@@ -256,7 +256,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
   const { colors, setColors, injectTokens } = useC7One();
   const isDark = detectIsDark(colors["--color-bg-base"]);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [selectorModalOpen, setSelectorModalOpen] = useState(false);
+  const [groupsPanelOpen, setGroupsPanelOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
@@ -1001,7 +1001,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
             variant={activePresetCount > 0 ? "primary" : "ghost"}
             size="sm"
             className="w-9 h-9 p-0 rounded-full shrink-0"
-            onClick={() => setSelectorModalOpen(true)}
+            onClick={() => setGroupsPanelOpen(true)}
           >
             <ListFilter size={15} />
           </Button>
@@ -1097,7 +1097,7 @@ export function ToolBar({ layout = "h-scroll" }: { layout?: ToolBarLayout }) {
 
       <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
 
-      <Modal open={selectorModalOpen} onOpenChange={setSelectorModalOpen}>
+      <Modal open={groupsPanelOpen} onOpenChange={setGroupsPanelOpen}>
         <Modal.Content maxWidth={555} minHeight={444}>
           <GroupsPanel />
         </Modal.Content>

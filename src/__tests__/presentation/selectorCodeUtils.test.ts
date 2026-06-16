@@ -5,7 +5,7 @@ import {
   upsertGroupInCode,
   removeGroupFromCode,
   upsertSessionModeInCode,
-} from "../../presentation/utils/selectorCodeUtils";
+} from "../../presentation/utils/groupUtils";
 
 function makeGroup(overrides: Partial<Group> = {}): Group {
   return {
@@ -101,7 +101,8 @@ describe("upsertSessionModeInCode", () => {
   });
 
   it("removes a group entry when mode=off, keeping others", () => {
-    const code = "!session  id=default  label=Default  groups=s1:color,s2:dim\n";
+    const code =
+      "!session  id=default  label=Default  groups=s1:color,s2:dim\n";
     const result = upsertSessionModeInCode("default", "s1", "off", code);
     expect(result).not.toContain("s1:");
     expect(result).toContain("s2:dim");
@@ -127,6 +128,8 @@ describe("upsertSessionModeInCode", () => {
       "!session  id=remote  label=Remote  groups=s1:dim\n";
     const result = upsertSessionModeInCode("default", "s1", "hide", code);
     expect(result).toContain("s1:hide");
-    expect(result).toContain("!session  id=remote  label=Remote  groups=s1:dim");
+    expect(result).toContain(
+      "!session  id=remote  label=Remote  groups=s1:dim",
+    );
   });
 });
