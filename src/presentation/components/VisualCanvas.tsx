@@ -19,7 +19,10 @@ import { getCSSVariable } from "../../shared/utils";
 import { toSelectorId, type Group } from "../../domain/models/Selector";
 import { matchesGroup } from "../../domain/selector/GroupEvaluator";
 import { useExecution } from "../hooks/useExecution";
-import { getExecutionColorMap, computeCloneDuplicateHiddenPaths } from "../../application/ExecutionEngine";
+import {
+  getExecutionColorMap,
+  computeCloneDuplicateHiddenPaths,
+} from "../../application/ExecutionEngine";
 import { DiagramLayerRenderer } from "./DiagramLayerRenderer";
 import { computeElementSizes } from "./rendering/elementSizing";
 import type { GeometryCache } from "./rendering/relationships/RelationshipRenderer";
@@ -28,6 +31,7 @@ import type { DiagramModel } from "../../domain/models/DiagramModel";
 import type { Element, ElementType } from "../../domain/models/Element";
 import type { Relationship } from "../../domain/models/Relationship";
 import type { Position } from "../../domain/models/Element";
+import type { ViewState } from "../../domain/models/ViewState";
 import { AppConfig } from "../../config/appConfig";
 import { VConfig } from "./visualConfig";
 import { lightStateTokens, darkStateTokens } from "../../themes";
@@ -35,6 +39,67 @@ import { stageRegistry } from "../../shared/stageRegistry";
 import { applyReparent } from "../../application/reparent";
 
 const FIT_PADDING_FACTOR = 0.2;
+const CULL_INTERVAL_MS = 250;
+const CULL_MARGIN_PX = 50;
+
+function isOutsideRect(
+  x: number,
+  y: number,
+  size: number,
+  rect: { x: number; y: number; w: number; h: number },
+): boolean {
+  const half = size / 2;
+  return (
+    x + half < rect.x ||
+    x - half > rect.x + rect.w ||
+    y + half < rect.y ||
+    y - half > rect.y + rect.h
+  );
+}
+
+function applyViewportCulling(
+  stage: Konva.Stage,
+  groupMap: Map<string, Konva.Group>,
+  relGroups: Map<string, Konva.Group>,
+  viewState: ViewState,
+): boolean {
+  const scale = stage.scaleX() || 1;
+  const rect = {
+    x: -stage.x() / scale - CULL_MARGIN_PX,
+    y: -stage.y() / scale - CULL_MARGIN_PX,
+    w: stage.width() / scale + CULL_MARGIN_PX * 2,
+    h: stage.height() / scale + CULL_MARGIN_PX * 2,
+  };
+
+  let changed = false;
+  for (const [path, group] of groupMap) {
+    const pos = viewState.positions[path];
+    const visible =
+      !pos || !isOutsideRect(pos.position.x, pos.position.y, pos.size, rect);
+    if (group.visible() !== visible) {
+      group.visible(visible);
+      changed = true;
+    }
+  }
+
+  for (const rel of viewState.relationships) {
+    const group = relGroups.get(rel.id);
+    if (!group) continue;
+    const src = viewState.positions[rel.sourcePath];
+    const tgt = viewState.positions[rel.targetPath];
+    const visible =
+      !src ||
+      !tgt ||
+      !isOutsideRect(src.position.x, src.position.y, src.size, rect) ||
+      !isOutsideRect(tgt.position.x, tgt.position.y, tgt.size, rect);
+    if (group.visible() !== visible) {
+      group.visible(visible);
+      changed = true;
+    }
+  }
+
+  return changed;
+}
 
 function hexToRgba(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -57,8 +122,13 @@ export function VisualCanvas() {
     Record<string, { x: number; y: number }>
   >({});
   const justDraggedPathsRef = useRef<Set<string>>(new Set());
-  const dragStateRef = useRef<{ path: string | null; scales: Map<string, number> }>({ path: null, scales: new Map() });
+  const dragStateRef = useRef<{
+    path: string | null;
+    scales: Map<string, number>;
+  }>({ path: null, scales: new Map() });
   const geometryCacheRef = useRef<GeometryCache>(new Map());
+  const groupMapRef = useRef<Map<string, Konva.Group>>(new Map());
+  const relGroupsRef = useRef<Map<string, Konva.Group>>(new Map());
   const currentAnimRef = useRef<Konva.Animation | null>(null);
   const [zoom, setZoom] = useState(1);
   const dragSelectRef = useRef<{
@@ -83,6 +153,8 @@ export function VisualCanvas() {
   const primaryBounds = usePrimaryBounds();
   const primaryBoundsRef = useRef(primaryBounds);
   primaryBoundsRef.current = primaryBounds;
+  const viewStateRef = useRef(viewState);
+  viewStateRef.current = viewState;
 
   const elementSizes = useMemo(
     () => computeElementSizes(model, viewState, zoom),
@@ -154,7 +226,9 @@ export function VisualCanvas() {
     const selId = toSelectorId(selLabel);
     const selColor = getCSSVariable("--color-state-selected");
 
-    const codeGroups = (currentModel.groups ?? []).filter((g) => g.id !== selId);
+    const codeGroups = (currentModel.groups ?? []).filter(
+      (g) => g.id !== selId,
+    );
     const existingSel = (currentModel.groups ?? []).find((g) => g.id === selId);
 
     const regex = selectedElementIds
@@ -166,7 +240,6 @@ export function VisualCanvas() {
 
     let updatedGroups: Group[];
     if (regex === "") {
-      // keep group with empty regex — existingSel is non-null (prevRegex !== "" passed early-return)
       updatedGroups = [...codeGroups, { ...existingSel!, regex: "" }];
     } else {
       const base = existingSel ?? { id: selId, color: selColor };
@@ -178,7 +251,10 @@ export function VisualCanvas() {
       if (regex === "") return session;
       const already = session.groupModes?.[selId];
       if (already && already !== "off") return session;
-      return { ...session, groupModes: { ...session.groupModes, [selId]: "color" as const } };
+      return {
+        ...session,
+        groupModes: { ...session.groupModes, [selId]: "color" as const },
+      };
     });
 
     syncManager.syncFromVis(
@@ -487,7 +563,21 @@ export function VisualCanvas() {
     handleResize();
     const ro = new ResizeObserver(handleResize);
     ro.observe(containerRef.current);
+
+    const cullIntervalId = window.setInterval(() => {
+      const layer = diagramLayerRef.current;
+      if (!layer) return;
+      const changed = applyViewportCulling(
+        stage,
+        groupMapRef.current,
+        relGroupsRef.current,
+        viewStateRef.current,
+      );
+      if (changed) layer.batchDraw();
+    }, CULL_INTERVAL_MS);
+
     return () => {
+      window.clearInterval(cullIntervalId);
       ro.disconnect();
       stage.destroy();
       stageRegistry.set(null);
@@ -598,17 +688,19 @@ export function VisualCanvas() {
   }, [interactionMode]);
 
   useEffect(() => {
-    if (
-      !diagramLayerRef.current ||
-      !stageRef.current
-    )
-      return;
+    if (!diagramLayerRef.current || !stageRef.current) return;
     currentAnimRef.current?.stop();
     currentAnimRef.current = null;
-    const wrongClonePaths = computeCloneDuplicateHiddenPaths(execInstances, model);
+    const wrongClonePaths = computeCloneDuplicateHiddenPaths(
+      execInstances,
+      model,
+    );
     const renderViewState =
       wrongClonePaths.length > 0
-        ? { ...viewState, hiddenPaths: [...viewState.hiddenPaths, ...wrongClonePaths] }
+        ? {
+            ...viewState,
+            hiddenPaths: [...viewState.hiddenPaths, ...wrongClonePaths],
+          }
         : viewState;
     const renderer = new DiagramLayerRenderer(
       stageRef.current,
@@ -834,6 +926,8 @@ export function VisualCanvas() {
     renderer.render(diagramLayerRef.current, diagramLayerRef.current);
     const groupMap = renderer.getGroupMap();
     const relRenderer = renderer.getRelationshipRenderer();
+    groupMapRef.current = groupMap;
+    relGroupsRef.current = relRenderer.getRelGroups();
 
     if (cloneIds.size > 0) {
       const prevClonePositions = prevClonePositionsRef.current;
@@ -920,7 +1014,9 @@ export function VisualCanvas() {
       }
 
       if (elemAnims.length > 0 || relAnims.length > 0) {
-        const layers = [diagramLayerRef.current].filter((l): l is Konva.Layer => l !== null);
+        const layers = [diagramLayerRef.current].filter(
+          (l): l is Konva.Layer => l !== null,
+        );
         const anim = new Konva.Animation((frame) => {
           const t = Math.min((frame?.time ?? 0) / animDurationMs, 1);
           const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
