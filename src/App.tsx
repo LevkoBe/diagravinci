@@ -19,7 +19,7 @@ import { PropertiesPanel } from "./presentation/components/PropertiesPanel";
 import { ToolBar } from "./presentation/components/ToolBar";
 import AIPanel from "./presentation/components/AIPanel";
 import { TemplatePanel } from "./presentation/components/TemplatePanel";
-import { SelectorsPanel } from "./presentation/components/SelectorModal";
+import { GroupsPanel } from "./presentation/components/GroupsPanel";
 import { AppSettingsPanel } from "./presentation/components/AppSettingsPanel";
 import { SelectedPanel } from "./presentation/components/SelectedPanel";
 import { IconsPanel } from "./presentation/components/IconsPanel";
@@ -51,9 +51,9 @@ const WINDOWS: WindowDef[] = [
   },
   {
     id: "filters",
-    title: "Selectors",
+    title: "Groups",
     icon: <ListFilter size={16} aria-hidden="true" />,
-    component: SelectorsPanel,
+    component: GroupsPanel,
   },
   {
     id: "selected",

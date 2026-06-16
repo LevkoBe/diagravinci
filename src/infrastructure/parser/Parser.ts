@@ -45,12 +45,18 @@ const VALID_MODES: SelectorMode[] = ["color", "dim", "hide", "off"];
 
 function wrapperSuffixFor(type: ElementType): string {
   switch (type) {
-    case "object":     return "{}";
-    case "collection": return "[]";
-    case "function":   return "()";
-    case "state":      return "||";
-    case "choice":     return "<>";
-    case "flow":       return ">>";
+    case "object":
+      return "{}";
+    case "collection":
+      return "[]";
+    case "function":
+      return "()";
+    case "state":
+      return "||";
+    case "choice":
+      return "<>";
+    case "flow":
+      return ">>";
   }
 }
 
@@ -122,6 +128,7 @@ export class Parser {
     let lastRel: Relationship | null = null;
     let lastElWasWrapped = false;
     let pendingSourceQuantifier: string | undefined = undefined;
+    let crossedNewline = false;
 
     while (this.peek() && this.peek()!.type !== WRAPPERS[wrapper].close) {
       if (this.peek()!.type === "NEWLINE") {
@@ -135,8 +142,11 @@ export class Parser {
           }
         }
         lastElWasWrapped = false;
+        crossedNewline = true;
         continue;
       }
+      const hitNewlineBoundary = crossedNewline;
+      crossedNewline = false;
       switch (this.peek()?.kind) {
         case "}": {
           const peekType = this.peek()?.type;
@@ -162,7 +172,17 @@ export class Parser {
             lastElWasWrapped = false;
             break;
           }
-          if (lastEl !== null && lastRel === null && !lastElWasWrapped && (lastEl.type === "object" || lastEl.type === "flow")) {
+          if (hitNewlineBoundary) {
+            lastEl = null;
+            lastPath = null;
+            lastRel = null;
+          }
+          if (
+            lastEl !== null &&
+            lastRel === null &&
+            !lastElWasWrapped &&
+            (lastEl.type === "object" || lastEl.type === "flow")
+          ) {
             lastEl = this.parseOpeningWrapper(
               parent,
               parentPath,
@@ -187,7 +207,8 @@ export class Parser {
             lastRel = this.createRelationship(lastPath, "..>");
             lastElWasWrapped = true;
           } else {
-            lastRel = lastRel ?? this.createRelationship(lastPath ?? parent.id, "..>");
+            lastRel =
+              lastRel ?? this.createRelationship(lastPath ?? parent.id, "..>");
             lastEl = this.parseOpeningWrapper(
               parent,
               parentPath,
@@ -224,7 +245,12 @@ export class Parser {
         case "-":
         case ">": {
           const scope = wrapper === "(" ? parent.id : undefined;
-          lastRel = this.parseRelationship(lastPath ?? parent.id, lastRel, scope, pendingSourceQuantifier);
+          lastRel = this.parseRelationship(
+            lastPath ?? parent.id,
+            lastRel,
+            scope,
+            pendingSourceQuantifier,
+          );
           pendingSourceQuantifier = undefined;
           lastEl = null;
           lastPath = null;
@@ -315,7 +341,11 @@ export class Parser {
               lastRel = null;
             }
 
-            if (!inRelContext || !existedBefore || (isRelSource && parentPath === "")) {
+            if (
+              !inRelContext ||
+              !existedBefore ||
+              (isRelSource && parentPath === "")
+            ) {
               if (!parent.childIds.includes(lastEl.id))
                 parent.childIds.push(lastEl.id);
             }
@@ -452,7 +482,10 @@ export class Parser {
     );
 
     const renamePath = (p: string) =>
-      p.split(".").map((seg) => oldToNew.get(seg) ?? seg).join(".");
+      p
+        .split(".")
+        .map((seg) => oldToNew.get(seg) ?? seg)
+        .join(".");
 
     const newRels: typeof this.model.relationships = {};
     for (const rel of Object.values(this.model.relationships)) {
@@ -575,7 +608,9 @@ export class Parser {
     }
 
     const session: Session = { id, label, groupModes };
-    const existingIdx = (this.model.sessions ?? []).findIndex((s) => s.id === id);
+    const existingIdx = (this.model.sessions ?? []).findIndex(
+      (s) => s.id === id,
+    );
     if (existingIdx >= 0) {
       this.model.sessions![existingIdx] = session;
     } else {

@@ -447,6 +447,23 @@ describe("Parser", () => {
     expect(rels.every((r) => r.target !== f2.id)).toBe(true);
   });
 
+  it("flow on its own line does not connect backward to the preceding line either", () => {
+    const model = parse("f1()\n>>\nf2()");
+    const rels = Object.values(model.relationships);
+    const f1 = model.elements["f1()"];
+    expect(f1).toBeDefined();
+    expect(rels.every((r) => r.source !== f1.id)).toBe(true);
+    expect(rels).toHaveLength(0);
+  });
+
+  it("flow on the same line as its source still connects backward", () => {
+    const model = parse("f1()>>");
+    const rels = Object.values(model.relationships);
+    const f1 = model.elements["f1()"];
+    expect(f1).toBeDefined();
+    expect(rels.some((r) => r.source === f1.id)).toBe(true);
+  });
+
   it("function return type notation: func(input)>output>", () => {
     const model = parse("func(input)>output>");
     const func = model.elements["func()"];

@@ -1,5 +1,8 @@
 import type { DiagramModel } from "../domain/models/DiagramModel";
-import { DEFAULT_SESSION_ID, DEFAULT_SESSION_LABEL } from "../domain/models/DiagramModel";
+import {
+  DEFAULT_SESSION_ID,
+  DEFAULT_SESSION_LABEL,
+} from "../domain/models/DiagramModel";
 import type { ViewState } from "../domain/models/ViewState";
 import { ModelDiffer } from "../domain/sync/ModelDiffer";
 import { ViewStateMerger } from "../domain/sync/ViewStateMerger";
@@ -7,7 +10,7 @@ import { setCode, setModel, setViewState } from "./store/diagramSlice";
 import { syncSelectorsFromCode, syncGroupsFromCode } from "./store/filterSlice";
 import type { AppStore } from "./store/store";
 import { ForceSimulationService } from "./ForceSimulationService";
-import { upsertSessionModeInCode } from "../presentation/utils/selectorCodeUtils";
+import { upsertSessionModeInCode } from "../presentation/utils/groupUtils";
 
 export interface ICodeParser {
   parse(code: string): DiagramModel;
@@ -33,7 +36,11 @@ export class SyncManager {
   private codeGenerator: ICodeGenerator;
   readonly forceSimulation: ForceSimulationService;
 
-  constructor(store: AppStore, parser: ICodeParser, codeGenerator: ICodeGenerator) {
+  constructor(
+    store: AppStore,
+    parser: ICodeParser,
+    codeGenerator: ICodeGenerator,
+  ) {
     this.store = store;
     this.parser = parser;
     this.codeGenerator = codeGenerator;
@@ -47,7 +54,11 @@ export class SyncManager {
     };
   }
 
-  syncFromCode(code: string, preservePositions = false, resetSessions = false): void {
+  syncFromCode(
+    code: string,
+    preservePositions = false,
+    resetSessions = false,
+  ): void {
     try {
       const parsedModel = this.parser.parse(code);
       const {
@@ -77,7 +88,13 @@ export class SyncManager {
       const sessionsChanged =
         JSON.stringify(currentModel.sessions ?? []) !==
         JSON.stringify(newModel.sessions ?? []);
-      if (ModelDiffer.isEmpty(diff) && !selectorsChanged && !groupsChanged && !rulesChanged && !sessionsChanged) {
+      if (
+        ModelDiffer.isEmpty(diff) &&
+        !selectorsChanged &&
+        !groupsChanged &&
+        !rulesChanged &&
+        !sessionsChanged
+      ) {
         this.store.dispatch(setCode(code));
         return;
       }
@@ -93,7 +110,9 @@ export class SyncManager {
         this.store.dispatch(
           syncSelectorsFromCode({
             modelSelectors: newModel.selectors ?? [],
-            prevModelSelectorIds: (currentModel.selectors ?? []).map((s) => s.id),
+            prevModelSelectorIds: (currentModel.selectors ?? []).map(
+              (s) => s.id,
+            ),
           }),
         );
       }
@@ -137,13 +156,25 @@ export class SyncManager {
     if ((model.sessions ?? []).length === 0) {
       model = {
         ...model,
-        sessions: [{ id: DEFAULT_SESSION_ID, label: DEFAULT_SESSION_LABEL, groupModes: {} }],
+        sessions: [
+          {
+            id: DEFAULT_SESSION_ID,
+            label: DEFAULT_SESSION_LABEL,
+            groupModes: {},
+          },
+        ],
       };
-      const sep = normalizedCode.length > 0 && !normalizedCode.endsWith("\n") ? "\n" : "";
-      normalizedCode = normalizedCode + sep + `!session  id=${DEFAULT_SESSION_ID}  label=${DEFAULT_SESSION_LABEL}\n`;
+      const sep =
+        normalizedCode.length > 0 && !normalizedCode.endsWith("\n") ? "\n" : "";
+      normalizedCode =
+        normalizedCode +
+        sep +
+        `!session  id=${DEFAULT_SESSION_ID}  label=${DEFAULT_SESSION_LABEL}\n`;
     }
 
-    const prevSelectorIds = new Set((currentModel.selectors ?? []).map((s) => s.id));
+    const prevSelectorIds = new Set(
+      (currentModel.selectors ?? []).map((s) => s.id),
+    );
     const newSelectorIds = (model.selectors ?? [])
       .filter((s) => !prevSelectorIds.has(s.id))
       .map((s) => s.id);
@@ -161,7 +192,12 @@ export class SyncManager {
         for (const id of newEntityIds) {
           if (!updatedModes[id]) {
             updatedModes[id] = "color";
-            normalizedCode = upsertSessionModeInCode(session.id, id, "color", normalizedCode);
+            normalizedCode = upsertSessionModeInCode(
+              session.id,
+              id,
+              "color",
+              normalizedCode,
+            );
           }
         }
         return { ...session, groupModes: updatedModes };
@@ -195,7 +231,13 @@ export class SyncManager {
     const sessionsChanged =
       JSON.stringify(currentModel.sessions ?? []) !==
       JSON.stringify(updatedModel.sessions ?? []);
-    if (ModelDiffer.isEmpty(diff) && !selectorsChanged && !groupsChangedVis && !sessionsChanged) return;
+    if (
+      ModelDiffer.isEmpty(diff) &&
+      !selectorsChanged &&
+      !groupsChangedVis &&
+      !sessionsChanged
+    )
+      return;
 
     let mergeViewState = currentViewState;
     if (preservePositions && pathRemapping) {
@@ -224,14 +266,16 @@ export class SyncManager {
           (p) => p === cloneId || p.endsWith(`.${cloneId}`),
         );
         if (matching.length <= 1) continue;
-        const toKeep = correctClonePaths?.get(cloneId) ??
+        const toKeep =
+          correctClonePaths?.get(cloneId) ??
           matching.reduce((a, b) =>
             a.split(".").length >= b.split(".").length ? a : b,
           );
         for (const wrongPath of matching) {
           if (wrongPath === toKeep) continue;
           for (const p of Object.keys(positions)) {
-            if (p === wrongPath || p.startsWith(wrongPath + ".")) delete positions[p];
+            if (p === wrongPath || p.startsWith(wrongPath + "."))
+              delete positions[p];
           }
         }
       }
